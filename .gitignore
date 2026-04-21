@@ -1,0 +1,61 @@
+# =========================
+# OS / Editor
+# =========================
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+.vscode/
+.idea/
+*.iml
+
+# =========================
+# Logs
+# =========================
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================
+# Environment / Secrets
+# =========================
+.env
+.env.*
+!.env.example
+!.env*.example
+
+# =========================
+# Java / Maven (backend)
+# =========================
+fish-shop-be/target/
+fish-shop-be/.mvn/timing.properties
+
+# Optional local Java crash/config files
+hs_err_pid*
+replay_pid*
+
+# =========================
+# Node / Next.js (frontend)
+# =========================
+fish-shop-fe/node_modules/
+fish-shop-fe/.next/
+fish-shop-fe/out/
+fish-shop-fe/.turbo/
+fish-shop-fe/.vercel/
+fish-shop-fe/coverage/
+fish-shop-fe/*.tsbuildinfo
+
+# Package manager caches
+fish-shop-fe/.npm/
+fish-shop-fe/.pnpm-store/
+fish-shop-fe/.yarn/
+
+# =========================
+# Build artifacts (generic)
+# =========================
+dist/
+build/
+tmp/
+temp/
