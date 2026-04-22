@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Hydro-Precision Fish Hatchery | Nguồn Giống Thuần Chủng</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary": "#ffffff",
+                        "background": "#f7f9fb",
+                        "on-tertiary-fixed": "#2d1600",
+                        "inverse-surface": "#2d3133",
+                        "tertiary": "#5c3200",
+                        "on-surface": "#191c1e",
+                        "surface-variant": "#e0e3e5",
+                        "on-secondary-container": "#006d77",
+                        "on-primary-fixed-variant": "#004e61",
+                        "primary-container": "#005b71",
+                        "on-tertiary": "#ffffff",
+                        "inverse-primary": "#8dd0e9",
+                        "on-primary-fixed": "#001f28",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-high": "#e6e8ea",
+                        "secondary": "#006972",
+                        "inverse-on-surface": "#eff1f3",
+                        "on-tertiary-fixed-variant": "#693c08",
+                        "outline": "#70787d",
+                        "on-error-container": "#93000a",
+                        "primary": "#004253",
+                        "surface-dim": "#d8dadc",
+                        "outline-variant": "#bfc8cc",
+                        "on-tertiary-container": "#fdba7d",
+                        "surface-bright": "#f7f9fb",
+                        "surface-container-low": "#f2f4f6",
+                        "on-secondary-fixed-variant": "#004f56",
+                        "on-background": "#191c1e",
+                        "surface": "#f7f9fb",
+                        "on-surface-variant": "#40484c",
+                        "surface-container-highest": "#e0e3e5",
+                        "on-primary-container": "#8ed1ea",
+                        "primary-fixed": "#b7eaff",
+                        "secondary-fixed-dim": "#75d5e2",
+                        "on-error": "#ffffff",
+                        "surface-tint": "#19667d",
+                        "error": "#ba1a1a",
+                        "primary-fixed-dim": "#8dd0e9",
+                        "on-secondary-fixed": "#001f23",
+                        "surface-container": "#eceef0",
+                        "secondary-fixed": "#92f1fe",
+                        "tertiary-container": "#784815",
+                        "secondary-container": "#8feefc",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#fcb97c",
+                        "tertiary-fixed": "#ffdcc0",
+                        "on-secondary": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .bg-glass { backdrop-filter: blur(20px); background: rgba(247, 249, 251, 0.85); }
+        .hero-gradient { background: linear-gradient(135deg, rgba(0, 66, 83, 0.8) 0%, rgba(0, 91, 113, 0.6) 100%); }
+        .cta-gradient { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body">
+<!-- Section 1: Sticky Header -->
+<header class="sticky top-0 z-50 w-full bg-glass border-b border-outline-variant/15 px-4 md:px-10 lg:px-20 py-3">
+<div class="max-w-7xl mx-auto flex items-center justify-between gap-4 md:gap-8">
+<!-- Logo -->
+<div class="flex items-center gap-3 shrink-0">
+<div class="size-8 text-primary">
+<svg fill="currentColor" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path clip-rule="evenodd" d="M24 4H6V17.3333V30.6667H24V44H42V30.6667V17.3333H24V4Z" fill-rule="evenodd"></path>
+</svg>
+</div>
+<h1 class="font-headline text-xl font-extrabold tracking-tight text-primary hidden sm:block">Hydro-Precision</h1>
+</div>
+<!-- Smart Search Bar -->
+<div class="flex-1 max-w-xl hidden md:block">
+<div class="relative group">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-outline">
+<span class="material-symbols-outlined">search</span>
+</div>
+<input class="block w-full pl-10 pr-3 py-2 bg-surface-container-highest border-none rounded-lg text-on-surface focus:ring-2 focus:ring-primary/20 placeholder:text-outline/60 text-sm" placeholder="Tìm giống cá, thức ăn hoặc phụ kiện..." type="text"/>
+</div>
+</div>
+<!-- Action Icons -->
+<div class="flex items-center gap-2 md:gap-5">
+<a class="flex flex-col items-center text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="local_shipping">local_shipping</span>
+<span class="text-[10px] font-semibold uppercase tracking-wider hidden lg:block">Tra cứu</span>
+</a>
+<div class="relative">
+<button class="flex flex-col items-center text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="shopping_cart">shopping_cart</span>
+<span class="absolute -top-1 -right-1 bg-tertiary text-on-tertiary text-[10px] font-bold px-1.5 rounded-full">3</span>
+</button>
+</div>
+<button class="hidden sm:flex items-center gap-2 bg-primary text-on-primary px-4 py-2 rounded-full font-headline text-sm font-bold shadow-sm hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-sm" data-icon="person">person</span>
+                    Đăng nhập
+                </button>
+</div>
+</div>
+<!-- Category Menu -->
+<nav class="max-w-7xl mx-auto mt-3 hidden md:flex items-center gap-8 border-t border-outline-variant/10 pt-3">
+<a class="text-sm font-semibold text-primary border-b-2 border-primary pb-1" href="#">Trang chủ</a>
+<a class="text-sm font-medium text-on-surface-variant hover:text-primary transition-colors" href="#">Cá Koi</a>
+<a class="text-sm font-medium text-on-surface-variant hover:text-primary transition-colors" href="#">Cá Rồng</a>
+<a class="text-sm font-medium text-on-surface-variant hover:text-primary transition-colors" href="#">Cá Vàng</a>
+<a class="text-sm font-medium text-on-surface-variant hover:text-primary transition-colors" href="#">Thức ăn</a>
+<a class="text-sm font-medium text-on-surface-variant hover:text-primary transition-colors" href="#">Phụ kiện</a>
+<a class="text-sm font-medium text-on-surface-variant hover:text-primary transition-colors" href="#">Kỹ thuật</a>
+</nav>
+</header>
+<!-- Section 2: Hero Section -->
+<section class="relative w-full min-h-[500px] lg:min-h-[640px] flex items-center overflow-hidden">
+<div class="absolute inset-0 z-0">
+<div class="absolute inset-0 hero-gradient z-10"></div>
+<img alt="Hồ cá Koi" class="w-full h-full object-cover" data-alt="Cinematic wide shot of a crystal clear Japanese koi pond with vibrant orange and white fish swimming gracefully in sun-dappled water" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBvYxTcyBXLWjkfwxct2UxBEYfmZeHPjXH_-yuaDA6B7palTk2-ozDKFiAFoauK-z1-X8jMPvjq7N9xqhWUmpCpUDWbQDR-jFkan-4XZk0EGsZY8D5CSu_7zOJTuT1p455RAEUlGvb55i38xCYYhk9EleU4IZmxCuLKllxzl-9kgchDISAdSohxyvvCmCk-tHaaNcsAXRrz0gqRyeJGVECVnLl7Q-7p4QLW575P1ndUeSWu3p9d34JD_ux3pBcN2z2Tso7SGVIRiVGc"/>
+</div>
+<div class="relative z-20 max-w-7xl mx-auto px-4 md:px-10 lg:px-20 text-center lg:text-left">
+<div class="max-w-3xl">
+<span class="inline-block px-4 py-1.5 bg-secondary-container text-on-secondary-container text-xs font-bold tracking-widest uppercase rounded-full mb-6">Hydro-Precision Standards</span>
+<h2 class="font-headline text-4xl md:text-6xl font-black leading-tight text-white mb-6 drop-shadow-md">
+                    Trại Cá Giống Hydro-Precision – Nguồn Giống Thuần Chủng, Bảo Hành Sống 100%
+                </h2>
+<p class="text-lg md:text-xl text-white/90 mb-10 font-medium">
+                    Chuyên cung cấp các dòng cá cảnh cao cấp với quy trình kiểm soát thông số nước nghiêm ngặt và công nghệ sinh học tiên tiến.
+                </p>
+<div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+<button class="cta-gradient text-white px-8 py-4 rounded-full font-headline text-lg font-extrabold shadow-xl hover:scale-105 transition-transform">
+                        Xem sản phẩm ngay
+                    </button>
+<button class="bg-white/10 backdrop-blur-md border border-white/30 text-white px-8 py-4 rounded-full font-headline text-lg font-bold hover:bg-white/20 transition-all">
+                        Tư vấn kỹ thuật
+                    </button>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 3: Quick Bio-Filter Bar -->
+<section class="relative z-30 -mt-12 max-w-7xl mx-auto px-4 sm:px-10">
+<div class="bg-surface-container-lowest rounded-xl shadow-2xl p-6 lg:p-8 border border-outline-variant/10">
+<div class="flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
+<div class="shrink-0">
+<h3 class="font-headline text-xl font-extrabold text-primary flex items-center gap-2">
+<span class="material-symbols-outlined" data-icon="science">science</span>
+                        Bộ lọc Bio-Search
+                    </h3>
+<p class="text-on-surface-variant text-sm mt-1">Tìm giống cá phù hợp theo chỉ số nước của bạn</p>
+</div>
+<div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
+<!-- pH Slider -->
+<div class="space-y-4">
+<div class="flex justify-between items-center">
+<span class="text-sm font-bold text-on-surface">Độ pH lý tưởng</span>
+<span class="text-sm font-black text-primary bg-primary-fixed px-3 py-1 rounded">6.5 - 8.0</span>
+</div>
+<div class="relative h-2 w-full bg-surface-container rounded-full overflow-hidden">
+<div class="absolute h-full left-[20%] right-[30%] bg-primary"></div>
+</div>
+</div>
+<!-- Temp Slider -->
+<div class="space-y-4">
+<div class="flex justify-between items-center">
+<span class="text-sm font-bold text-on-surface">Nhiệt độ (°C)</span>
+<span class="text-sm font-black text-primary bg-primary-fixed px-3 py-1 rounded">20°C - 30°C</span>
+</div>
+<div class="relative h-2 w-full bg-surface-container rounded-full overflow-hidden">
+<div class="absolute h-full left-[30%] right-[20%] bg-secondary"></div>
+</div>
+</div>
+</div>
+<button class="w-full lg:w-auto bg-primary text-on-primary px-8 py-4 rounded-lg font-headline font-bold hover:bg-primary-container transition-colors shadow-lg">
+                    Tìm cá phù hợp
+                </button>
+</div>
+</div>
+</section>
+<!-- Section 4: Featured Products Grid -->
+<section class="max-w-7xl mx-auto px-4 md:px-10 lg:px-20 py-20">
+<div class="flex items-end justify-between mb-12">
+<div>
+<h2 class="font-headline text-3xl font-black text-primary">Sản phẩm tiêu biểu</h2>
+<p class="text-on-surface-variant mt-2">Dòng giống F1 thuần chủng, đã qua kiểm định y tế</p>
+</div>
+<a class="text-primary font-bold text-sm flex items-center gap-1 hover:underline underline-offset-4" href="#">
+                Xem tất cả <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</a>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+<!-- Product Card Loop (Example for 8) -->
+<!-- Item 1 -->
+<div class="group bg-surface-container-low rounded-xl overflow-hidden hover:bg-surface-container-highest transition-all">
+<div class="relative aspect-[4/3] overflow-hidden">
+<img alt="Cá Koi Kohaku" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="Close-up profile of a high-quality Kohaku Koi fish with deep red patterns on a porcelain white body swimming in dark water" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAJdEEM9Hk2JOoROLCfypPw6dqP-HinGQcRPGIeUjwjGz_H4jFjr09Ewri3wJ3zBsbpDl2gnUVsho6JN-BhdqLk2YFmhHM5I19DG4KHMFHBJIWZx2OcCayNlEx4jYhNPRCIkII6jvjVohCrDixSkjqYnxN453Ilfs3AgABmPirV2ncGJTGHZYZymc3QEZWICF9f0viTP79zSGhxgOg5z16bcOr8mut9SOvS_GJFg4ztpOTjBTHCO3JCYHHA5dS-81PaqGMvaMs7fKuS"/>
+<div class="absolute top-2 left-2 bg-tertiary text-white text-[10px] font-bold px-2 py-1 rounded">SẮP HẾT HÀNG</div>
+</div>
+<div class="p-5">
+<span class="text-[10px] font-bold text-outline uppercase tracking-widest">SKU: HP-K001</span>
+<h3 class="font-headline font-extrabold text-on-surface text-lg mt-1 group-hover:text-primary transition-colors">Koi Kohaku Ginrin F1</h3>
+<div class="flex items-center gap-3 mt-3">
+<div class="flex items-center gap-1 text-[11px] font-bold text-secondary">
+<span class="material-symbols-outlined text-sm" style="font-size: 14px;">thermostat</span> 22-28°C
+                        </div>
+<div class="flex items-center gap-1 text-[11px] font-bold text-secondary">
+<span class="material-symbols-outlined text-sm" style="font-size: 14px;">water_ph</span> 7.0-7.5
+                        </div>
+</div>
+<div class="flex items-center justify-between mt-5">
+<span class="text-xl font-black text-primary">1.250.000đ</span>
+<button class="size-10 flex items-center justify-center bg-primary text-on-primary rounded-full hover:cta-gradient shadow-md transition-all">
+<span class="material-symbols-outlined" data-icon="add_shopping_cart">add_shopping_cart</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="group bg-surface-container-low rounded-xl overflow-hidden hover:bg-surface-container-highest transition-all">
+<div class="relative aspect-[4/3] overflow-hidden">
+<img alt="Cá Rồng Kim Long" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="Exotic Golden Arowana fish with shimmering metallic scales against a dark aquascape background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBm41ffcGhSHRKzWELOLu1B-sH-Q6e0ZUOiBpuMYNT1Aq_IyEQlG1FHATQop_rcf-No6PsOl3D4jTMvjk3lJpT_Y-MrzFg_Jo6lP7EdAKbW0QXSUghOgGriQL9C80mk4trSLTLg88dP11pNN4wLDEFoCwE0zGlIcufJmMuxVRpCfu23BaS2_h0f-_91rcpcaw56vm8zsgCEZfph4ln6o8zmj4S3X9PdL-7fYQxN4pknAlLUswZ6QrWVnYEXUG-Ve0S5JNoZVEs6gqLX"/>
+</div>
+<div class="p-5">
+<span class="text-[10px] font-bold text-outline uppercase tracking-widest">SKU: HP-R042</span>
+<h3 class="font-headline font-extrabold text-on-surface text-lg mt-1 group-hover:text-primary transition-colors">Kim Long Quá Bối 24K</h3>
+<div class="flex items-center gap-3 mt-3">
+<div class="flex items-center gap-1 text-[11px] font-bold text-secondary">
+<span class="material-symbols-outlined text-sm" style="font-size: 14px;">thermostat</span> 26-30°C
+                        </div>
+<div class="flex items-center gap-1 text-[11px] font-bold text-secondary">
+<span class="material-symbols-outlined text-sm" style="font-size: 14px;">water_ph</span> 6.5-7.0
+                        </div>
+</div>
+<div class="flex items-center justify-between mt-5">
+<span class="text-xl font-black text-primary">8.900.000đ</span>
+<button class="size-10 flex items-center justify-center bg-primary text-on-primary rounded-full hover:cta-gradient shadow-md transition-all">
+<span class="material-symbols-outlined" data-icon="add_shopping_cart">add_shopping_cart</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="group bg-surface-container-low rounded-xl overflow-hidden hover:bg-surface-container-highest transition-all">
+<div class="relative aspect-[4/3] overflow-hidden">
+<img alt="Cá Vàng Oranda" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="Bright orange Oranda goldfish with a prominent raspberry-like hood swimming in clear water" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD7PNVGl_zjQuUAaiByXfmc9BdgqVRTDg0BAkJxgKkn7OAYxR0f9ddbdL3jdx-e0iZ-L6nmXA5fGsaN9wl79u_juo2owVvzEyzDshrBbhiUI55OaQVeS3wI4E-DS97lPjVWJfox-4jKxQjSf4UBT-0zMUxp_qTjtciW0tRsyY6sk2C20x1fcLaa3cKZCKw_oZJQCeqnzEPNe9puHHXGyz1GNUz8VYr2tP4nrM-XCX_QfSlfnHhwo9tgKWG_rXxoWzR5-iWiCvcGDoi4"/>
+</div>
+<div class="p-5">
+<span class="text-[10px] font-bold text-outline uppercase tracking-widest">SKU: HP-G015</span>
+<h3 class="font-headline font-extrabold text-on-surface text-lg mt-1 group-hover:text-primary transition-colors">Oranda Ngũ Sắc Thái</h3>
+<div class="flex items-center gap-3 mt-3">
+<div class="flex items-center gap-1 text-[11px] font-bold text-secondary">
+<span class="material-symbols-outlined text-sm" style="font-size: 14px;">thermostat</span> 18-24°C
+                        </div>
+<div class="flex items-center gap-1 text-[11px] font-bold text-secondary">
+<span class="material-symbols-outlined text-sm" style="font-size: 14px;">water_ph</span> 7.0-8.0
+                        </div>
+</div>
+<div class="flex items-center justify-between mt-5">
+<span class="text-xl font-black text-primary">450.000đ</span>
+<button class="size-10 flex items-center justify-center bg-primary text-on-primary rounded-full hover:cta-gradient shadow-md transition-all">
+<span class="material-symbols-outlined" data-icon="add_shopping_cart">add_shopping_cart</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Item 4 -->
+<div class="group bg-surface-container-low rounded-xl overflow-hidden hover:bg-surface-container-highest transition-all">
+<div class="relative aspect-[4/3] overflow-hidden">
+<img alt="Cá Betta Blue Rim" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="Show-quality Blue Rim Betta fish with striking blue edges on its white fins, spread wide in a display" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCdMRCf28tTW4UOw79jYSa4BBejh3avj8nfMA4Ki3xzD1JyvsNhKhm0toI8rOuIDH6h59jnpv6WZ_GnsJrB-eSv6zZgyZIMT90owfxTccefO6FazSKs-ajXQri2Xw7mbiK5sJa9e1BEfW1i0t9vZQJL_tGiXsFAaA-ygEznkPKXC-9_obudFwyQnzkQvQXN14174CJ126BdBAwaBGecrYGNvaSyA9bpkCIBWJcb3UEBzr7mMyibDkWO-CZICLvC_NBvScyTfU3dj77q"/>
+<div class="absolute top-2 left-2 bg-secondary text-white text-[10px] font-bold px-2 py-1 rounded">MỚI VỀ</div>
+</div>
+<div class="p-5">
+<span class="text-[10px] font-bold text-outline uppercase tracking-widest">SKU: HP-B009</span>
+<h3 class="font-headline font-extrabold text-on-surface text-lg mt-1 group-hover:text-primary transition-colors">Betta Blue Rim AAA+</h3>
+<div class="flex items-center gap-3 mt-3">
+<div class="flex items-center gap-1 text-[11px] font-bold text-secondary">
+<span class="material-symbols-outlined text-sm" style="font-size: 14px;">thermostat</span> 25-28°C
+                        </div>
+<div class="flex items-center gap-1 text-[11px] font-bold text-secondary">
+<span class="material-symbols-outlined text-sm" style="font-size: 14px;">water_ph</span> 6.8-7.2
+                        </div>
+</div>
+<div class="flex items-center justify-between mt-5">
+<span class="text-xl font-black text-primary">750.000đ</span>
+<button class="size-10 flex items-center justify-center bg-primary text-on-primary rounded-full hover:cta-gradient shadow-md transition-all">
+<span class="material-symbols-outlined" data-icon="add_shopping_cart">add_shopping_cart</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 5: 'Tại sao chọn chúng tôi?' -->
+<section class="bg-surface-container-low py-20 px-4 md:px-10 lg:px-20 border-y border-outline-variant/10">
+<div class="max-w-7xl mx-auto">
+<div class="text-center mb-16">
+<h2 class="font-headline text-3xl font-black text-primary">Sự Khác Biệt Từ Hydro-Precision</h2>
+<div class="w-20 h-1 bg-tertiary mx-auto mt-4"></div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-12">
+<div class="flex flex-col items-center text-center group">
+<div class="size-20 bg-primary-container/20 rounded-full flex items-center justify-center text-primary mb-6 group-hover:bg-primary group-hover:text-on-primary transition-all duration-300">
+<span class="material-symbols-outlined text-4xl" data-icon="rocket_launch">rocket_launch</span>
+</div>
+<h3 class="font-headline text-xl font-extrabold text-on-surface mb-3">Vận chuyển Chuyên dụng</h3>
+<p class="text-on-surface-variant leading-relaxed">
+                        Sử dụng thùng xốp cách nhiệt oxy nén cao áp, đảm bảo cá khỏe mạnh trong 48h di chuyển.
+                    </p>
+</div>
+<div class="flex flex-col items-center text-center group">
+<div class="size-20 bg-primary-container/20 rounded-full flex items-center justify-center text-primary mb-6 group-hover:bg-primary group-hover:text-on-primary transition-all duration-300">
+<span class="material-symbols-outlined text-4xl" data-icon="verified_user">verified_user</span>
+</div>
+<h3 class="font-headline text-xl font-extrabold text-on-surface mb-3">Kiểm dịch Nghiêm ngặt</h3>
+<p class="text-on-surface-variant leading-relaxed">
+                        100% cá giống được kiểm dịch, đảm bảo không mang mầm bệnh virus KHV hay ký sinh trùng gây hại.
+                    </p>
+</div>
+<div class="flex flex-col items-center text-center group">
+<div class="size-20 bg-primary-container/20 rounded-full flex items-center justify-center text-primary mb-6 group-hover:bg-primary group-hover:text-on-primary transition-all duration-300">
+<span class="material-symbols-outlined text-4xl" data-icon="support_agent">support_agent</span>
+</div>
+<h3 class="font-headline text-xl font-extrabold text-on-surface mb-3">Hỗ trợ Kỹ thuật Trọn đời</h3>
+<p class="text-on-surface-variant leading-relaxed">
+                        Đội ngũ chuyên gia sẵn sàng tư vấn xử lý nước và trị bệnh cho cá miễn phí trọn vòng đời sản phẩm.
+                    </p>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 6: Blog & Technical Guides -->
+<section class="max-w-7xl mx-auto px-4 md:px-10 lg:px-20 py-20">
+<div class="flex items-center justify-between mb-12">
+<h2 class="font-headline text-3xl font-black text-primary">Cẩm nang Kỹ thuật</h2>
+<button class="text-primary font-bold hover:underline">Tất cả bài viết</button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+<!-- Blog 1 -->
+<article class="flex flex-col group cursor-pointer">
+<div class="aspect-video rounded-xl overflow-hidden mb-5">
+<img alt="Cách dưỡng cá" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Close up of water quality testing equipment with a digital pH meter and colorimetric vials against a laboratory background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC6GcqCKhAc3BTRAYJFqkdFcZ6hw5Sto6D7Y_Yu6lYO2zo5VuGRveCafYmMvr6-GmV1oIGLO60T5YjdnKMkzomLFIO2Df11K12GOqUFvZgF7a-ffxrz-X8wy9e3j4QCrJ2ljz3bzqbJcSfirAmL4_7i-FocmmE46njEDjwLHjnCDVphW_G52n_mDkuqi_3ZsrMY7rholXz0UF88EwwO-IjSJEO9dMi3qtfGeBxVD_rPqX4N9xRYqnEnPP-E-oEmzqTw2DQ4ozGKiEC5"/>
+</div>
+<div class="space-y-3">
+<span class="text-tertiary font-bold text-xs uppercase tracking-widest">Kỹ thuật cơ bản</span>
+<h3 class="font-headline text-xl font-extrabold text-on-surface group-hover:text-primary transition-colors leading-tight">
+                        Cách dưỡng cá mới về: Quy trình 5 bước chống sốc nước
+                    </h3>
+<p class="text-on-surface-variant text-sm line-clamp-2">
+                        Việc thả cá ngay vào bể có thể gây ra hiện tượng sốc nhiệt hoặc pH. Tìm hiểu quy trình thích nghi chuyên sâu từ chuyên gia.
+                    </p>
+</div>
+</article>
+<!-- Blog 2 -->
+<article class="flex flex-col group cursor-pointer">
+<div class="aspect-video rounded-xl overflow-hidden mb-5">
+<img alt="Môi trường pH" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Macro shot of a high-tech aquarium filtration system showing biological media and a clear water flow" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBQ2qBEfUqj2XajDnoBcvKG9RkxViEJzEKFmjWEW66Sa1wCW8-AMy7JGUJidoIAMADUv2-fXlfJOFLY-0_WJ30l-QH7yOURVwngEXTxEvyI9_SPRomq1ViX-XcnfIShf0rKiICHCCDf2yY6sP4yKq51C4lu1CVTG4D0KXq2NmLMUDbbExcusIv_6GVHwdeo2ECqq4KQstQE0ogDc_utsxkr9BAruk3WXphg8_GjqcbmrT9vthDRKq8MuhKX9Yk5tbpYTceasGO59GRM"/>
+</div>
+<div class="space-y-3">
+<span class="text-tertiary font-bold text-xs uppercase tracking-widest">Môi trường nước</span>
+<h3 class="font-headline text-xl font-extrabold text-on-surface group-hover:text-primary transition-colors leading-tight">
+                        Tầm quan trọng của pH: Tại sao cá Koi cần pH 7.5?
+                    </h3>
+<p class="text-on-surface-variant text-sm line-clamp-2">
+                        Độ pH ảnh hưởng trực tiếp đến khả năng trao đổi chất và màu sắc của cá. Làm thế nào để duy trì pH ổn định?
+                    </p>
+</div>
+</article>
+<!-- Blog 3 -->
+<article class="flex flex-col group cursor-pointer">
+<div class="aspect-video rounded-xl overflow-hidden mb-5">
+<img alt="Dinh dưỡng cho cá" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Close-up of premium floating fish food pellets on the water surface with a fish approaching" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBA_UDgPg7-TKFpdnETBNFwyySkPc7FHRITQzizM1cwggbiA32PAjAW8ROEjZkfXDWHXzbIdcx52erc8JXYzi9CcdNN1BCyoX94I4nMDie8BALahq2Ij29mbYvfCDvVpQ_jg56v9IZ_9eUEwuIgOoXr8QUM6FzV7DW4b3M0VeyUvDR1aPBCG0vmacvmYDt6IUBlRoQ-zeYWKlnl49YWzI8UQ1FI_1PElNNjg_SXFxggZpVlBdIV1Ikk7A6njV2s4JxsVwwT7ImfD95D"/>
+</div>
+<div class="space-y-3">
+<span class="text-tertiary font-bold text-xs uppercase tracking-widest">Dinh dưỡng</span>
+<h3 class="font-headline text-xl font-extrabold text-on-surface group-hover:text-primary transition-colors leading-tight">
+                        Chế độ ăn tăng trưởng và tăng màu cho cá Rồng mùa đông
+                    </h3>
+<p class="text-on-surface-variant text-sm line-clamp-2">
+                        Nhiệt độ thấp làm chậm quá trình tiêu hóa. Hãy điều chỉnh lượng đạm phù hợp để tránh bệnh đường ruột.
+                    </p>
+</div>
+</article>
+</div>
+</section>
+<!-- Footer -->
+<footer class="bg-primary text-white py-16 px-4 md:px-10 lg:px-20">
+<div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
+<div class="space-y-6">
+<div class="flex items-center gap-3">
+<div class="size-8 text-on-primary-container">
+<svg fill="currentColor" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path clip-rule="evenodd" d="M24 4H6V17.3333V30.6667H24V44H42V30.6667V17.3333H24V4Z" fill-rule="evenodd"></path>
+</svg>
+</div>
+<h2 class="font-headline text-xl font-extrabold">Hydro-Precision</h2>
+</div>
+<p class="text-white/70 text-sm leading-relaxed">
+                    Trại cá giống kỹ thuật cao hàng đầu Việt Nam. Chúng tôi không chỉ bán cá, chúng tôi bán giải pháp nuôi cá thành công.
+                </p>
+</div>
+<div>
+<h4 class="font-bold mb-6">Sản phẩm</h4>
+<ul class="space-y-3 text-sm text-white/60">
+<li><a class="hover:text-white transition-colors" href="#">Cá Koi Nhật F1</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Cá Rồng nhập khẩu</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Hệ thống lọc Bio-Filter</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Thức ăn tăng trưởng cao cấp</a></li>
+</ul>
+</div>
+<div>
+<h4 class="font-bold mb-6">Liên kết</h4>
+<ul class="space-y-3 text-sm text-white/60">
+<li><a class="hover:text-white transition-colors" href="#">Vận chuyển &amp; Bảo hành</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Chính sách kiểm dịch</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Tra cứu đơn hàng</a></li>
+<li><a class="hover:text-white transition-colors" href="#">Blog kỹ thuật</a></li>
+</ul>
+</div>
+<div>
+<h4 class="font-bold mb-6">Đăng ký bản tin</h4>
+<p class="text-sm text-white/60 mb-4">Nhận cập nhật về các dòng giống mới nhất và mẹo chăm sóc.</p>
+<div class="flex">
+<input class="bg-white/10 border-none rounded-l-lg text-sm w-full focus:ring-1 focus:ring-white/30" placeholder="Email của bạn" type="email"/>
+<button class="bg-tertiary px-4 rounded-r-lg hover:bg-tertiary/80 transition-colors">
+<span class="material-symbols-outlined">send</span>
+</button>
+</div>
+</div>
+</div>
+<div class="max-w-7xl mx-auto mt-16 pt-8 border-t border-white/10 text-center text-white/40 text-xs">
+            © 2024 Hydro-Precision Hatchery. Thiết kế theo tiêu chuẩn curator kỹ thuật cao.
+        </div>
+</footer>
+</body></html>
