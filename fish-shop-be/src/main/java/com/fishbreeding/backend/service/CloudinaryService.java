@@ -24,6 +24,10 @@ public class CloudinaryService {
             throw new BadRequestException("File upload is required");
         }
 
+        if (cloudinary == null) {
+            throw new BadRequestException("Cloudinary is not configured");
+        }
+
         String contentType = file.getContentType();
         if (contentType == null || !contentType.startsWith("image/")) {
             throw new BadRequestException("Only image files are allowed");
@@ -39,7 +43,7 @@ public class CloudinaryService {
                             "resource_type", "image"));
 
             return CloudinaryUploadResponse.builder()
-                    .url((String) result.get("url"))
+                    .url((String) result.get("secure_url"))
                     .secureUrl((String) result.get("secure_url"))
                     .publicId((String) result.get("public_id"))
                     .format((String) result.get("format"))
