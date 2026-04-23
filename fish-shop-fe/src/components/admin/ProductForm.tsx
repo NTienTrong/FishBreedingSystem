@@ -33,6 +33,7 @@ export default function ProductForm({ mode, productId }: ProductFormProps) {
   const [attributes, setAttributes] = useState<AttributeResponse[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [uploadingImageIndexes, setUploadingImageIndexes] = useState<number[]>([]);
   const [slugPreview, setSlugPreview] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -144,9 +145,73 @@ export default function ProductForm({ mode, productId }: ProductFormProps) {
   const updateImage = (index: number, value: string) => {
     setFormData((prev) => {
       const next = [...prev.images];
-      next[index] = { ...next[index], imageUrl: value };
+      const current = next[index] ?? { imageUrl: "", isMain: index === 0 };
+      next[index] = { ...current, imageUrl: value };
       return { ...prev, images: next };
     });
+
+    clearFieldError(`images-${index}`);
+  };
+
+  const setImageUploading = (index: number, value: boolean) => {
+    setUploadingImageIndexes((prev) => {
+      if (value && !prev.includes(index)) {
+        return [...prev, index];
+      }
+
+      if (!value) {
+        return prev.filter((item) => item !== index);
+      }
+
+      return prev;
+    });
+  };
+
+  const uploadImageToCloudinary = async (index: number, file: File) => {
+    if (!file.type.startsWith("image/")) {
+      setErrors((prev) => ({ ...prev, [`images-${index}`]: "Vui lòng chọn file ảnh hợp lệ." }));
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setErrors((prev) => ({ ...prev, [`images-${index}`]: "Ảnh vượt quá 10MB." }));
+      return;
+    }
+
+    clearFieldError(`images-${index}`);
+    setImageUploading(index, true);
+
+    try {
+      const imageUrl = await ProductService.uploadImage(file);
+      updateImage(index, imageUrl);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Upload ảnh thất bại.";
+      setErrors((prev) => ({ ...prev, [`images-${index}`]: message }));
+    } finally {
+      setImageUploading(index, false);
+    }
+  };
+
+  const handleUploadNewImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    const nextIndex = formData.images.length;
+    addImage();
+    await uploadImageToCloudinary(nextIndex, file);
+    event.target.value = "";
+  };
+
+  const handleUploadExistingImage = async (index: number, event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    await uploadImageToCloudinary(index, file);
+    event.target.value = "";
   };
 
   const setMainImage = (index: number) => {
@@ -157,6 +222,15 @@ export default function ProductForm({ mode, productId }: ProductFormProps) {
   };
 
   const removeImage = (index: number) => {
+    setImageUploading(index, false);
+    clearFieldError(`images-${index}`);
+
+    setUploadingImageIndexes((prev) =>
+      prev
+        .filter((item) => item !== index)
+        .map((item) => (item > index ? item - 1 : item))
+    );
+
     setFormData((prev) => {
       const next = prev.images.filter((_, idx) => idx !== index);
       if (next.length > 0 && !next.some((item) => item.isMain)) {
@@ -252,6 +326,11 @@ export default function ProductForm({ mode, productId }: ProductFormProps) {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
+    if (uploadingImageIndexes.length > 0) {
+      setErrors((prev) => ({ ...prev, submit: "Vui lòng đợi upload ảnh hoàn tất trước khi lưu." }));
+      return;
+    }
+
     if (!validate()) {
       return;
     }
@@ -304,9 +383,9 @@ export default function ProductForm({ mode, productId }: ProductFormProps) {
             <button
               className="px-8 py-2.5 rounded-full bg-linear-to-br from-primary to-primary-container text-white font-bold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-100 transition-all disabled:opacity-70 disabled:hover:scale-100"
               type="submit"
-              disabled={loading || !!errors.fetch}
+              disabled={loading || !!errors.fetch || uploadingImageIndexes.length > 0}
             >
-              {loading ? "Đang lưu..." : isEdit ? "Lưu thay đổi" : "Lưu sản phẩm"}
+              {loading ? "Đang lưu..." : uploadingImageIndexes.length > 0 ? "Đang tải ảnh..." : isEdit ? "Lưu thay đổi" : "Lưu sản phẩm"}
             </button>
           </div>
         </div>
@@ -380,43 +459,68 @@ export default function ProductForm({ mode, productId }: ProductFormProps) {
 
           <section className="bg-surface-container-lowest p-8 rounded-xl shadow-sm space-y-4">
             <div className="flex items-center justify-between">
-              <label className="block text-xs font-bold text-primary uppercase tracking-widest">Ảnh sản phẩm (URL)</label>
-              <button
-                type="button"
-                className="text-sm font-semibold text-primary hover:underline"
-                onClick={addImage}
-              >
-                + Thêm ảnh
-              </button>
+              <label className="block text-xs font-bold text-primary uppercase tracking-widest">Ảnh sản phẩm</label>
+              <div className="flex items-center gap-3">
+                <label className="text-sm font-semibold text-primary hover:underline cursor-pointer">
+                  + Tải ảnh từ máy
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={loading}
+                    onChange={handleUploadNewImage}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="text-sm font-semibold text-primary hover:underline"
+                  onClick={addImage}
+                >
+                  + Thêm URL
+                </button>
+              </div>
             </div>
 
             {formData.images.length === 0 ? (
-              <p className="text-sm text-slate-400">Chưa có ảnh nào. Nhấn &quot;Thêm ảnh&quot; để thêm URL ảnh.</p>
+              <p className="text-sm text-slate-400">Chưa có ảnh nào. Bạn có thể upload từ máy hoặc dán URL ảnh.</p>
             ) : (
               formData.images.map((image, index) => (
-                <div key={`${index}-${image.imageUrl}`} className="grid grid-cols-12 gap-3 items-center">
-                  <div className="col-span-8">
-                    <input
-                      className="w-full bg-surface-container-highest border-none rounded-lg px-4 py-3 text-sm outline-none"
-                      placeholder="https://..."
-                      value={image.imageUrl}
-                      onChange={(event) => updateImage(index, event.target.value)}
-                    />
+                <div key={`${index}-${image.imageUrl}`} className="space-y-2">
+                  <div className="grid grid-cols-12 gap-3 items-center">
+                    <div className="col-span-6">
+                      <input
+                        className="w-full bg-surface-container-highest border-none rounded-lg px-4 py-3 text-sm outline-none"
+                        placeholder="https://..."
+                        value={image.imageUrl}
+                        onChange={(event) => updateImage(index, event.target.value)}
+                      />
+                    </div>
+                    <label className="col-span-2 px-3 py-2 rounded-lg text-xs text-center font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">
+                      {uploadingImageIndexes.includes(index) ? "Đang tải..." : "Upload"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={loading || uploadingImageIndexes.includes(index)}
+                        onChange={(event) => handleUploadExistingImage(index, event)}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className={`col-span-2 px-3 py-2 rounded-lg text-xs font-semibold ${image.isMain ? "bg-primary text-white" : "bg-slate-100 text-slate-600"}`}
+                      onClick={() => setMainImage(index)}
+                    >
+                      Ảnh chính
+                    </button>
+                    <button
+                      type="button"
+                      className="col-span-2 px-3 py-2 rounded-lg text-xs font-semibold bg-error/10 text-error"
+                      onClick={() => removeImage(index)}
+                    >
+                      Xóa
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    className={`col-span-2 px-3 py-2 rounded-lg text-xs font-semibold ${image.isMain ? "bg-primary text-white" : "bg-slate-100 text-slate-600"}`}
-                    onClick={() => setMainImage(index)}
-                  >
-                    Ảnh chính
-                  </button>
-                  <button
-                    type="button"
-                    className="col-span-2 px-3 py-2 rounded-lg text-xs font-semibold bg-error/10 text-error"
-                    onClick={() => removeImage(index)}
-                  >
-                    Xóa
-                  </button>
+                  {errors[`images-${index}`] && <p className="text-xs text-error">{errors[`images-${index}`]}</p>}
                 </div>
               ))
             )}

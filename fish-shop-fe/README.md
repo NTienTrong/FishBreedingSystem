@@ -2,6 +2,22 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+### Environment Variables
+
+Create `.env.local` from `.env.example` and fill in values:
+
+```bash
+cp .env.example .env.local
+```
+
+Required variables:
+
+- `NEXT_PUBLIC_API_URL`: backend API base URL.
+- `CLOUDINARY_CLOUD_NAME`: Cloudinary cloud name.
+- `CLOUDINARY_API_KEY`: Cloudinary API key.
+- `CLOUDINARY_API_SECRET`: Cloudinary API secret (server-side only).
+- `CLOUDINARY_UPLOAD_FOLDER` (optional): folder for uploaded product images.
+
 First, run the development server:
 
 ```bash

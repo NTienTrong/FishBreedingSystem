@@ -9,6 +9,24 @@ export const ProductService = {
 		return res.data;
 	},
 
+	async uploadImage(file: File): Promise<string> {
+		const formData = new FormData();
+		formData.append("file", file);
+
+		const response = await fetch("/api/admin/uploads/cloudinary", {
+			method: "POST",
+			credentials: "include",
+			body: formData,
+		});
+
+		const data = (await response.json()) as { secureUrl?: string; message?: string };
+		if (!response.ok || !data.secureUrl) {
+			throw new Error(data.message || "Upload ảnh thất bại.");
+		}
+
+		return data.secureUrl;
+	},
+
 	async getById(id: number): Promise<ProductResponse> {
 		const res = await apiClient.get<ProductResponse>(`${API_URL}/${id}`);
 		return res.data;
