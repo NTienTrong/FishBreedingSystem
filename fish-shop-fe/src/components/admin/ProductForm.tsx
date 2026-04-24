@@ -348,7 +348,8 @@ export default function ProductForm({ mode, productId }: ProductFormProps) {
         await ProductService.create(payload);
       }
 
-      router.push("/admin/products");
+      const message = isEdit ? "Cập nhật sản phẩm thành công." : "Thêm sản phẩm thành công.";
+      router.push(`/admin/products?message=${encodeURIComponent(message)}&variant=success`);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Không thể lưu sản phẩm.";
       setErrors((prev) => ({ ...prev, submit: message }));
@@ -487,7 +488,20 @@ export default function ProductForm({ mode, productId }: ProductFormProps) {
               formData.images.map((image, index) => (
                 <div key={`${index}-${image.imageUrl}`} className="space-y-2">
                   <div className="grid grid-cols-12 gap-3 items-center">
-                    <div className="col-span-6">
+                    <div className="col-span-2">
+                      <div className="h-14 w-14 rounded-lg border border-slate-200 bg-slate-100 overflow-hidden flex items-center justify-center">
+                        {image.imageUrl.trim() ? (
+                          <div
+                            className="h-full w-full bg-cover bg-center"
+                            style={{ backgroundImage: `url(${image.imageUrl})` }}
+                            aria-label={`Ảnh sản phẩm ${index + 1}`}
+                          />
+                        ) : (
+                          <span className="material-symbols-outlined text-slate-400 text-lg">image</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="col-span-4">
                       <input
                         className="w-full bg-surface-container-highest border-none rounded-lg px-4 py-3 text-sm outline-none"
                         placeholder="https://..."

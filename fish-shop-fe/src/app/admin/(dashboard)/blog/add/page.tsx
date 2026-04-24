@@ -1,5 +1,5 @@
 import BlogForm from "@/components/admin/BlogForm";
 
 export default function AdminBlogAddPage() {
-  return <BlogForm isEdit={false} />;
+  return <BlogForm mode="create" />;
 }

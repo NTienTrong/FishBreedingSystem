@@ -81,7 +81,8 @@ export default function AttributeForm({ mode, attributeId }: AttributeFormProps)
         await AttributeService.create(payload);
       }
 
-      router.push("/admin/attributes");
+      const message = isEdit ? "Cập nhật thuộc tính thành công." : "Thêm thuộc tính thành công.";
+      router.push(`/admin/attributes?message=${encodeURIComponent(message)}&variant=success`);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Đã xảy ra lỗi hệ thống";
       setErrors({ submit: message });

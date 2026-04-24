@@ -1,13 +1,17 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AttributeService } from "@/services/attribute.service";
 import { AttributeResponse } from "@/types/attribute";
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
 import ToastMessage from "@/components/common/ToastMessage";
 
 export default function AdminAttributesPage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [attributes, setAttributes] = useState<AttributeResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<AttributeResponse | null>(null);
@@ -18,11 +22,14 @@ export default function AdminAttributesPage() {
     variant: "success",
   });
 
-  useEffect(() => {
-    fetchAttributes();
+  const showToast = useCallback((message: string, variant: "success" | "error") => {
+    setToast({ show: true, message, variant });
+    setTimeout(() => {
+      setToast((prev) => ({ ...prev, show: false }));
+    }, 2500);
   }, []);
 
-  const fetchAttributes = async () => {
+  const fetchAttributes = useCallback(async () => {
     try {
       const data = await AttributeService.getAll();
       setAttributes(data);
@@ -32,14 +39,22 @@ export default function AdminAttributesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showToast]);
 
-  const showToast = (message: string, variant: "success" | "error") => {
-    setToast({ show: true, message, variant });
-    setTimeout(() => {
-      setToast((prev) => ({ ...prev, show: false }));
-    }, 2500);
-  };
+  useEffect(() => {
+    fetchAttributes();
+  }, [fetchAttributes]);
+
+  useEffect(() => {
+    const message = searchParams.get("message");
+    if (!message) {
+      return;
+    }
+
+    const variant = searchParams.get("variant") === "error" ? "error" : "success";
+    showToast(message, variant);
+    router.replace(pathname);
+  }, [pathname, router, searchParams, showToast]);
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) {

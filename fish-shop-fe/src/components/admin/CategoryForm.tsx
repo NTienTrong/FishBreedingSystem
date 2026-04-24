@@ -115,7 +115,8 @@ export default function CategoryForm({ mode, categoryId }: CategoryFormProps) {
         await CategoryService.create(payload);
       }
 
-      router.push("/admin/categories");
+      const message = isEdit ? "Cập nhật danh mục thành công." : "Thêm danh mục thành công.";
+      router.push(`/admin/categories?message=${encodeURIComponent(message)}&variant=success`);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Đã xảy ra lỗi hệ thống";
       setErrors({ submit: message });
