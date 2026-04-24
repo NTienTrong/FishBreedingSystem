@@ -241,45 +241,6 @@ export default function BlogForm({ mode, blogId }: BlogFormProps) {
 
         {/* Side Column */}
         <div className="col-span-12 lg:col-span-4 space-y-6">
-          {/* Post Settings */}
-          <section className="bg-surface-container-lowest p-6 rounded-xl shadow-sm space-y-6">
-            <div className="flex items-center justify-between pb-4 border-b border-outline-variant/20">
-              <label className="block text-xs font-bold text-primary uppercase tracking-widest">Trạng thái</label>
-              <div className="flex gap-2">
-                <span className={`px-2 py-1 rounded text-xs font-bold ${isEdit ? "bg-secondary/10 text-secondary" : "bg-outline/10 text-outline"}`}>
-                  {isEdit ? "Published" : "Draft"}
-                </span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input defaultChecked={isEdit} className="sr-only peer" type="checkbox" />
-                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:inset-s-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-secondary"></div>
-                </label>
-              </div>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-medium text-on-surface-variant mb-1.5 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[16px]">folder</span> Danh mục
-                </label>
-                <select className="w-full bg-surface-container-highest border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary/20 outline-none" defaultValue={isEdit ? "technical" : ""}>
-                  <option value="" disabled>-- Chọn danh mục --</option>
-                  <option value="technical">Kỹ thuật nuôi</option>
-                  <option value="disease">Dịch bệnh</option>
-                  <option value="market">Thị trường</option>
-                  <option value="operation">Vận hành</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-on-surface-variant mb-1.5 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[16px]">calendar_month</span> Ngày xuất bản
-                </label>
-                <input className="w-full bg-surface-container-highest border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary/20 outline-none" type="datetime-local" defaultValue={isEdit ? "2023-10-12T08:30" : ""} />
-                <p className="text-[10px] text-slate-400 mt-1">Để trống nếu muốn xuất bản ngay khi lưu.</p>
-              </div>
-            </div>
-          </section>
-
           {/* Thumbnail Section */}
           <section className="bg-surface-container-lowest p-6 rounded-xl shadow-sm text-center space-y-3">
             <label className="block text-xs font-bold text-primary uppercase tracking-widest mb-4">Ảnh bìa (Thumbnail)</label>
