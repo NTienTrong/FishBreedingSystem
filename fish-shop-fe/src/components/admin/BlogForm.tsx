@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BlogService } from "@/services/blog.service";
@@ -13,16 +14,29 @@ interface BlogFormProps {
 export default function BlogForm({ mode, blogId }: BlogFormProps) {
   const router = useRouter();
   const isEdit = mode === "edit";
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    title: string;
+    slug: string;
+    content: string;
+    thumbnailUrl: string;
+    status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+  }>({
     title: "",
     slug: "",
     content: "",
     thumbnailUrl: "",
+    status: "DRAFT",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
+
+  // Upload state
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
 
   const pageTitle = useMemo(() => {
     if (isEdit) {
@@ -51,7 +65,11 @@ export default function BlogForm({ mode, blogId }: BlogFormProps) {
           slug: detail.slug || "",
           content: detail.content || "",
           thumbnailUrl: detail.thumbnailUrl || "",
+          status: detail.status || "DRAFT",
         });
+        if (detail.thumbnailUrl) {
+          setImagePreview(detail.thumbnailUrl);
+        }
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : "Không thể tải dữ liệu bài viết.";
         setErrors({ fetch: message });
@@ -63,7 +81,7 @@ export default function BlogForm({ mode, blogId }: BlogFormProps) {
     fetchData();
   }, [blogId, isEdit]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) {
@@ -90,10 +108,55 @@ export default function BlogForm({ mode, blogId }: BlogFormProps) {
     return Object.keys(nextErrors).length === 0;
   };
 
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!allowedTypes.includes(file.type)) {
+      setUploadError("Chỉ chấp nhận định dạng JPG, PNG, WebP hoặc GIF.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError("Ảnh không được vượt quá 5MB.");
+      return;
+    }
+
+    setUploadError("");
+    const localUrl = URL.createObjectURL(file);
+    setImagePreview(localUrl);
+
+    try {
+      setUploadLoading(true);
+      const secureUrl = await BlogService.uploadImage(file);
+      setFormData((prev) => ({ ...prev, thumbnailUrl: secureUrl }));
+      setImagePreview(secureUrl);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Upload ảnh thất bại.";
+      setUploadError(msg);
+      setImagePreview(formData.thumbnailUrl || null);
+    } finally {
+      setUploadLoading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImagePreview(null);
+    setFormData((prev) => ({ ...prev, thumbnailUrl: "" }));
+    setUploadError("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validate()) {
+      return;
+    }
+    
+    if (uploadLoading) {
+      setErrors({ submit: "Vui lòng chờ ảnh tải lên hoàn tất." });
       return;
     }
 
@@ -104,6 +167,7 @@ export default function BlogForm({ mode, blogId }: BlogFormProps) {
         slug: formData.slug.trim() || null,
         content: formData.content.trim(),
         thumbnailUrl: formData.thumbnailUrl.trim() || null,
+        status: formData.status,
       };
 
       if (isEdit) {
@@ -152,9 +216,9 @@ export default function BlogForm({ mode, blogId }: BlogFormProps) {
             <button
               className="px-8 py-2.5 rounded-full bg-linear-to-br from-primary to-primary-container text-white font-bold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-100 transition-all disabled:opacity-70 disabled:hover:scale-100"
               type="submit"
-              disabled={loading || !!errors.fetch}
+              disabled={loading || uploadLoading || !!errors.fetch}
             >
-              {loading ? "Đang lưu..." : isEdit ? "Lưu thay đổi" : "Xuất bản bài viết"}
+              {loading ? "Đang lưu..." : isEdit ? "Lưu thay đổi" : "Lưu bài viết"}
             </button>
           </div>
         </div>
@@ -241,24 +305,103 @@ export default function BlogForm({ mode, blogId }: BlogFormProps) {
 
         {/* Side Column */}
         <div className="col-span-12 lg:col-span-4 space-y-6">
-          {/* Thumbnail Section */}
-          <section className="bg-surface-container-lowest p-6 rounded-xl shadow-sm text-center space-y-3">
-            <label className="block text-xs font-bold text-primary uppercase tracking-widest mb-4">Ảnh bìa (Thumbnail)</label>
-            <input
-              className="w-full bg-surface-container-highest border-none rounded-lg px-4 py-3 text-on-surface focus:ring-2 focus:ring-primary/20 outline-none"
-              type="url"
-              name="thumbnailUrl"
-              value={formData.thumbnailUrl}
+          {/* Status Section */}
+          <section className="bg-surface-container-lowest p-6 rounded-xl shadow-sm space-y-3">
+            <label className="block text-xs font-bold text-primary uppercase tracking-widest mb-4">Trạng thái xuất bản</label>
+            <select
+              name="status"
+              value={formData.status}
               onChange={handleChange}
-              placeholder="https://example.com/thumbnail.jpg"
+              className="w-full bg-surface-container-highest border-none rounded-lg px-4 py-3 text-on-surface focus:ring-2 focus:ring-primary/20 outline-none"
+            >
+              <option value="DRAFT">Bản nháp</option>
+              <option value="PUBLISHED">Xuất bản</option>
+              <option value="ARCHIVED">Lưu trữ</option>
+            </select>
+            <p className="text-xs text-slate-500 mt-2">
+              Bài viết ở trạng thái <strong className="text-primary">Xuất bản</strong> sẽ hiển thị với người dùng trên website.
+            </p>
+          </section>
+
+          {/* Thumbnail Section */}
+          <section className="bg-surface-container-lowest p-6 rounded-xl shadow-sm space-y-4">
+            <h3 className="text-xs font-bold text-primary uppercase tracking-widest flex items-center gap-1.5 mb-4">
+              <span className="material-symbols-outlined text-[16px]">image</span>
+              Ảnh bìa (Thumbnail)
+            </h3>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="hidden"
+              onChange={handleFileSelect}
             />
-            <div className="aspect-video w-full rounded-xl bg-surface-container-high border-2 border-dashed border-outline-variant flex items-center justify-center overflow-hidden">
-              {formData.thumbnailUrl ? (
-                <img src={formData.thumbnailUrl} alt="Blog Thumbnail" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-xs text-slate-400">Chưa có ảnh preview</span>
-              )}
-            </div>
+
+            {imagePreview ? (
+              <div className="relative aspect-video w-full rounded-xl overflow-hidden border border-outline-variant/20 bg-surface-container-high group">
+                <Image
+                  src={imagePreview}
+                  alt="Preview"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 400px"
+                />
+
+                {uploadLoading && (
+                  <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-2">
+                    <span className="material-symbols-outlined text-white text-4xl animate-spin">autorenew</span>
+                    <span className="text-white text-xs font-medium">Đang tải lên Cloudinary...</span>
+                  </div>
+                )}
+
+                {!uploadLoading && (
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="p-2 rounded-full bg-white/90 text-slate-700 hover:bg-white transition-colors"
+                      title="Đổi ảnh"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">edit</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="p-2 rounded-full bg-white/90 text-error hover:bg-white transition-colors"
+                      title="Xóa ảnh"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">delete</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="aspect-video w-full rounded-xl border-2 border-dashed border-outline-variant hover:border-primary bg-surface-container-high hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-3 group"
+              >
+                <span className="material-symbols-outlined text-4xl text-slate-300 group-hover:text-primary transition-colors">
+                  add_photo_alternate
+                </span>
+                <div className="text-center">
+                  <p className="text-xs font-bold text-slate-400 group-hover:text-primary transition-colors">
+                    Click để chọn ảnh
+                  </p>
+                  <p className="text-[10px] text-slate-300 mt-0.5">
+                    JPG, PNG, WebP — tối đa 5MB
+                  </p>
+                </div>
+              </button>
+            )}
+
+            {uploadError && (
+              <div className="flex items-start gap-1.5 text-xs text-error bg-error/10 rounded-lg p-3">
+                <span className="material-symbols-outlined text-[14px] mt-0.5 flex-shrink-0">error</span>
+                {uploadError}
+              </div>
+            )}
           </section>
 
           {/* SEO Preview Section */}

@@ -11,8 +11,10 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fishbreeding.backend.dto.BlogPostRequest;
 import com.fishbreeding.backend.dto.BlogPostResponse;
 import com.fishbreeding.backend.entity.BlogPost;
+import com.fishbreeding.backend.entity.PostStatus;
 import com.fishbreeding.backend.entity.User;
 import com.fishbreeding.backend.exception.BadRequestException;
+import java.time.LocalDateTime;
 import com.fishbreeding.backend.exception.NotFoundException;
 import com.fishbreeding.backend.repository.BlogPostRepository;
 import com.fishbreeding.backend.repository.UserRepository;
@@ -58,12 +60,19 @@ public class BlogPostService {
 
         blogPostValidator.validateThumbnailUrl(thumbnailUrl);
 
+        PostStatus status = request.getStatus() != null ? request.getStatus() : PostStatus.DRAFT;
+        boolean isPublished = (status == PostStatus.PUBLISHED);
+        LocalDateTime publishedAt = isPublished ? LocalDateTime.now() : null;
+
         BlogPost blogPost = BlogPost.builder()
                 .title(title)
                 .slug(buildUniqueSlug(request.getSlug(), title, null))
                 .content(content)
                 .thumbnailUrl(thumbnailUrl)
                 .author(resolveCurrentAdminUser())
+                .status(status)
+                .isPublished(isPublished)
+                .publishedAt(publishedAt)
                 .build();
 
         BlogPost saved = blogPostRepository.save(blogPost);
@@ -86,6 +95,19 @@ public class BlogPostService {
         }
 
         blogPostValidator.validateThumbnailUrl(thumbnailUrl);
+
+        PostStatus newStatus = request.getStatus() != null ? request.getStatus() : blogPost.getStatus();
+        
+        if (newStatus == PostStatus.PUBLISHED && blogPost.getStatus() != PostStatus.PUBLISHED) {
+            blogPost.setIsPublished(true);
+            if (blogPost.getPublishedAt() == null) {
+                blogPost.setPublishedAt(LocalDateTime.now());
+            }
+        } else if (newStatus != PostStatus.PUBLISHED) {
+            blogPost.setIsPublished(false);
+        }
+        
+        blogPost.setStatus(newStatus);
 
         blogPost.setTitle(title);
         blogPost.setSlug(buildUniqueSlug(request.getSlug(), title, id));

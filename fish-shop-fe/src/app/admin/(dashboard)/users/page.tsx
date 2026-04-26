@@ -116,7 +116,6 @@ export default function AdminUsersPage() {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-headline font-extrabold text-primary">Quản lý Người dùng</h2>
-          <p className="text-sm text-slate-500">Danh sách người dùng lấy trực tiếp từ API backend</p>
         </div>
         <Link
           href="/admin/users/add"

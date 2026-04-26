@@ -82,7 +82,6 @@ export default function AdminAttributesPage() {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-headline font-extrabold text-primary">Quản lý Thuộc tính</h2>
-          <p className="text-sm text-slate-500">Danh sách thuộc tính sản phẩm được lấy từ API thật</p>
         </div>
         <Link
           href="/admin/attributes/add"

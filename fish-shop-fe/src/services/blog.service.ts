@@ -4,6 +4,19 @@ import { BlogPostRequest, BlogPostResponse } from "@/types/blog";
 const API_URL = "/api/admin/blog";
 
 export const BlogService = {
+  async uploadImage(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await apiClient.post<{ secureUrl: string; url: string }>(
+      "/api/admin/uploads/images?folder=blog", 
+      formData, 
+      { headers: { "Content-Type": "multipart/form-data" } }
+    );
+    const url = res.data.secureUrl || res.data.url;
+    if (!url) throw new Error('Upload ảnh thất bại: không nhận được URL.');
+    return url;
+  },
+
   async getAll(): Promise<BlogPostResponse[]> {
     const res = await apiClient.get<BlogPostResponse[]>(API_URL);
     return res.data;

@@ -26,4 +26,6 @@ public class BlogPostRequest {
 
     @Size(max = 2000, message = "Thumbnail URL must not exceed 2000 characters")
     private String thumbnailUrl;
+    
+    private com.fishbreeding.backend.entity.PostStatus status;
 }

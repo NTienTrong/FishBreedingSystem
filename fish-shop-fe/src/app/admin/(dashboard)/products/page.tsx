@@ -110,7 +110,6 @@ export default function AdminProductsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-headline font-extrabold text-primary">Quản lý Sản phẩm</h2>
-          <p className="text-sm text-slate-500">Danh sách sản phẩm lấy trực tiếp từ API backend</p>
         </div>
         <Link
           href="/admin/products/add"
@@ -197,9 +196,8 @@ export default function AdminProductsPage() {
                       <td className="px-8 py-4 text-sm text-slate-600">{product.stockQuantity}</td>
                       <td className="px-8 py-4">
                         <span
-                          className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold ${
-                            product.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"
-                          }`}
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold ${product.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"
+                            }`}
                         >
                           {product.isActive ? "Đang bán" : "Ngừng bán"}
                         </span>

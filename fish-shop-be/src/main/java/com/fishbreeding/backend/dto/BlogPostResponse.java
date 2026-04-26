@@ -23,6 +23,9 @@ public class BlogPostResponse {
     private String authorUsername;
     private String authorFullName;
     private LocalDateTime createdAt;
+    private Boolean isPublished;
+    private com.fishbreeding.backend.entity.PostStatus status;
+    private LocalDateTime publishedAt;
 
     public static BlogPostResponse fromEntity(BlogPost blogPost) {
         if (blogPost == null) {
@@ -39,6 +42,9 @@ public class BlogPostResponse {
                 .authorUsername(blogPost.getAuthor() != null ? blogPost.getAuthor().getUsername() : null)
                 .authorFullName(blogPost.getAuthor() != null ? blogPost.getAuthor().getFullName() : null)
                 .createdAt(blogPost.getCreatedAt())
+                .isPublished(blogPost.getIsPublished())
+                .status(blogPost.getStatus())
+                .publishedAt(blogPost.getPublishedAt())
                 .build();
     }
 }

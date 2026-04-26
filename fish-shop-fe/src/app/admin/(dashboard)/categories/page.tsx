@@ -7,6 +7,7 @@ import { CategoryService } from "@/services/category.service";
 import { CategoryResponse } from "@/types/category";
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
 import ToastMessage from "@/components/common/ToastMessage";
+import Image from "next/image";
 
 export default function CategoryListPage() {
   const router = useRouter();
@@ -168,9 +169,6 @@ export default function CategoryListPage() {
           <h2 className="text-2xl font-headline font-extrabold text-primary">
             Quản lý Danh mục
           </h2>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Danh sách phân cấp danh mục sản phẩm của trại giống
-          </p>
         </div>
         <Link
           href="/admin/categories/add"
@@ -282,6 +280,7 @@ export default function CategoryListPage() {
               <tr className="bg-surface-container-low text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-outline-variant/20">
                 <th className="px-8 py-5">ID</th>
                 <th className="px-8 py-5">Tên danh mục</th>
+                <th className="px-8 py-5">Hình ảnh</th>
                 <th className="px-8 py-5">Slug</th>
                 <th className="px-8 py-5">Danh mục cha</th>
                 <th className="px-8 py-5 text-center">Thao tác</th>
@@ -320,11 +319,10 @@ export default function CategoryListPage() {
                   return (
                     <tr
                       key={cat.id}
-                      className={`transition-colors group ${
-                        depth === 1
-                          ? "bg-slate-50/60 hover:bg-slate-50"
-                          : "hover:bg-slate-50"
-                      }`}
+                      className={`transition-colors group ${depth === 1
+                        ? "bg-slate-50/60 hover:bg-slate-50"
+                        : "hover:bg-slate-50"
+                        }`}
                     >
                       {/* ID */}
                       <td className="px-8 py-4 font-mono text-xs font-bold text-slate-400">
@@ -370,20 +368,18 @@ export default function CategoryListPage() {
                           {/* Icon folder */}
                           {isRoot && hasChildren && (
                             <span
-                              className={`material-symbols-outlined text-[15px] transition-colors ${
-                                isOpen ? "text-primary" : "text-primary/60"
-                              }`}
+                              className={`material-symbols-outlined text-[15px] transition-colors ${isOpen ? "text-primary" : "text-primary/60"
+                                }`}
                             >
                               {isOpen ? "folder_open" : "folder"}
                             </span>
                           )}
 
                           <span
-                            className={`font-bold ${
-                              depth === 1
-                                ? "text-slate-600 text-sm"
-                                : "text-on-surface"
-                            }`}
+                            className={`font-bold ${depth === 1
+                              ? "text-slate-600 text-sm"
+                              : "text-on-surface"
+                              }`}
                           >
                             {cat.name}
                           </span>
@@ -394,6 +390,24 @@ export default function CategoryListPage() {
                             </span>
                           )}
                         </div>
+                      </td>
+
+                      {/* Image */}
+                      <td className="px-8 py-4">
+                        {cat.imageUrl ? (
+                          <div className="flex items-center gap-2">
+                            <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-gray-100">
+                              <Image
+                                src={cat.imageUrl}
+                                alt={cat.name}
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400">Không có ảnh</span>
+                        )}
                       </td>
 
                       {/* Slug */}

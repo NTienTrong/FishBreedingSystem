@@ -35,6 +35,16 @@ public class BlogPost {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
     
+    @Column(name = "is_published", columnDefinition = "boolean default false")
+    private Boolean isPublished = false;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, columnDefinition = "varchar(255) default 'DRAFT'")
+    private PostStatus status = PostStatus.DRAFT;
+
+    @Column(name = "published_at")
+    private LocalDateTime publishedAt;
+    
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

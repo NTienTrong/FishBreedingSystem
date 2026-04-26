@@ -105,7 +105,6 @@ export default function AdminBlogPage() {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-headline font-extrabold text-primary">Quản lý Bài viết</h2>
-          <p className="text-sm text-slate-500">Danh sách bài viết được tải trực tiếp từ API backend</p>
         </div>
         <Link
           href="/admin/blog/add"
@@ -135,6 +134,7 @@ export default function AdminBlogPage() {
                 <th className="px-8 py-5">Bài viết</th>
                 <th className="px-8 py-5">Tác giả</th>
                 <th className="px-8 py-5">Ngày đăng</th>
+                <th className="px-8 py-5">Trạng thái</th>
                 <th className="px-8 py-5">Slug</th>
                 <th className="px-8 py-5">Thao tác</th>
               </tr>
@@ -142,11 +142,11 @@ export default function AdminBlogPage() {
             <tbody className="divide-y divide-outline-variant/5">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-10">Đang tải...</td>
+                  <td colSpan={6} className="text-center py-10">Đang tải...</td>
                 </tr>
               ) : filteredPosts.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-10">Chưa có bài viết nào.</td>
+                  <td colSpan={6} className="text-center py-10">Chưa có bài viết nào.</td>
                 </tr>
               ) : (
                 filteredPosts.map((post) => (
@@ -172,7 +172,27 @@ export default function AdminBlogPage() {
                     </td>
                     <td className="px-8 py-4 text-sm text-slate-500">{post.authorFullName || "Hệ thống"}</td>
                     <td className="px-8 py-4 text-sm text-slate-600">
-                      {post.createdAt ? dateFormatter.format(new Date(post.createdAt)) : "-"}
+                      {post.publishedAt 
+                        ? dateFormatter.format(new Date(post.publishedAt)) 
+                        : (post.createdAt ? dateFormatter.format(new Date(post.createdAt)) : "-")}
+                    </td>
+                    <td className="px-8 py-4 text-xs">
+                      {post.status === "PUBLISHED" ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-50 text-green-600 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                          Xuất bản
+                        </span>
+                      ) : post.status === "ARCHIVED" ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-50 text-orange-600 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+                          Lưu trữ
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-600 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                          Bản nháp
+                        </span>
+                      )}
                     </td>
                     <td className="px-8 py-4 text-xs font-mono text-slate-500">/{post.slug}</td>
                     <td className="px-8 py-4">
