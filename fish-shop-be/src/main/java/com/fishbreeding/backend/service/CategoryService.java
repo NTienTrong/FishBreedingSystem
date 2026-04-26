@@ -49,7 +49,8 @@ public class CategoryService {
         Category.CategoryBuilder categoryBuilder = Category.builder()
                 .name(name)
                 .slug(slug)
-                .description(request.getDescription());
+                .description(request.getDescription())
+                .imageUrl(request.getImageUrl());
 
         if (request.getParentId() != null) {
             Category parent = categoryRepository.findById(request.getParentId())
@@ -72,6 +73,7 @@ public class CategoryService {
 
         category.setName(name);
         category.setDescription(request.getDescription());
+        category.setImageUrl(request.getImageUrl());
 
         String newSlug = SlugUtil.toSlug(name);
         if (!newSlug.equals(category.getSlug())) {

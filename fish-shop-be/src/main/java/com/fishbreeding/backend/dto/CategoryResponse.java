@@ -15,6 +15,7 @@ public class CategoryResponse {
     private String name;
     private String slug;
     private String description;
+    private String imageUrl;
     private Long parentId;
     private String parentName;
 
@@ -26,6 +27,7 @@ public class CategoryResponse {
                 .name(category.getName())
                 .slug(category.getSlug())
                 .description(category.getDescription())
+                .imageUrl(category.getImageUrl())
                 .parentId(category.getParent() != null ? category.getParent().getId() : null)
                 .parentName(category.getParent() != null ? category.getParent().getName() : null)
                 .build();

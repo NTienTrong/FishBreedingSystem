@@ -21,6 +21,9 @@ public class CategoryRequest {
     @Size(max = 255, message = "Description must not exceed 255 characters")
     private String description;
 
+    // URL ảnh đại diện (upload lên Cloudinary ở FE trước, rồi gửi URL về đây)
+    private String imageUrl;
+
     // Parent category id if it's a subcategory
     @Positive(message = "Parent ID must be a positive number")
     private Long parentId;
