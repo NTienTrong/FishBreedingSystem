@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { API_URL } from "@/app/config/api";
+import ProductPurchasePanel from "@/components/customer/cart/ProductPurchasePanel";
 import { ProductResponse } from "@/types/product";
 
 const currency = new Intl.NumberFormat("vi-VN", {
@@ -108,14 +109,14 @@ export default async function ProductDetailsPage({ params }: ProductDetailsPageP
             </div>
           </div>
 
-          <div className="space-y-3">
-            <button className="w-full py-4 rounded-full bg-primary text-white font-bold hover:bg-primary-container transition-colors">
-              Mua ngay
-            </button>
-            <button className="w-full py-4 rounded-full bg-surface-container-high text-primary font-bold hover:bg-surface-container-highest transition-colors">
-              Thêm vào giỏ hàng
-            </button>
-          </div>
+          <ProductPurchasePanel
+            productId={product.id}
+            name={product.name}
+            sku={product.sku}
+            price={product.price}
+            imageUrl={productImages[0]}
+            stockQuantity={product.stockQuantity}
+          />
         </section>
       </div>
 

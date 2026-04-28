@@ -2,8 +2,24 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { API_URL } from "@/app/config/api";
+
+declare global {
+  interface Window {
+    google?: {
+      accounts?: {
+        oauth2?: {
+          initTokenClient: (options: {
+            client_id: string;
+            scope: string;
+            callback: (response: { access_token?: string; error?: string }) => void;
+          }) => { requestAccessToken: (options?: { prompt?: string }) => void };
+        };
+      };
+    };
+  }
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,8 +28,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [googleReady, setGoogleReady] = useState(false);
+  const tokenClientRef = useRef<{ requestAccessToken: (options?: { prompt?: string }) => void } | null>(null);
 
-  const nextUrl = searchParams.get("next") || "/profile";
+  const returnUrl = searchParams.get("returnUrl") || searchParams.get("next");
+  const nextUrl = returnUrl || "/";
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -51,6 +70,7 @@ export default function LoginPage() {
         throw new Error(sessionMessage || "Không thể khởi tạo phiên đăng nhập.");
       }
 
+      window.dispatchEvent(new Event("customer-session-updated"));
       router.push(nextUrl);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Đăng nhập thất bại.";
@@ -60,8 +80,127 @@ export default function LoginPage() {
     }
   };
 
+  useEffect(() => {
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      return;
+    }
+
+    const initializeGoogle = () => {
+      if (!window.google?.accounts?.oauth2) {
+        return;
+      }
+
+      tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: "openid email profile",
+        callback: async (response) => {
+          if (response.error || !response.access_token) {
+            setError("Không thể xác thực Google. Vui lòng thử lại.");
+            setLoading(false);
+            return;
+          }
+
+          try {
+            const userInfoResponse = await fetch(
+              "https://openidconnect.googleapis.com/v1/userinfo",
+              {
+                headers: { Authorization: `Bearer ${response.access_token}` },
+              }
+            );
+
+            if (!userInfoResponse.ok) {
+              throw new Error("Không thể lấy thông tin Google.");
+            }
+
+            const userInfo = (await userInfoResponse.json()) as {
+              sub?: string;
+              email?: string;
+              name?: string;
+            };
+
+            if (!userInfo.sub) {
+              throw new Error("Thiếu định danh Google.");
+            }
+
+            const socialResponse = await fetch(`${API_URL}/api/auth/social-login`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                provider: "GOOGLE",
+                providerId: userInfo.sub,
+                email: userInfo.email,
+                fullName: userInfo.name,
+              }),
+            });
+
+            if (!socialResponse.ok) {
+              const message = await socialResponse.text();
+              throw new Error(message || "Đăng nhập Google thất bại.");
+            }
+
+            const data = (await socialResponse.json()) as { token: string; role: string };
+
+            const sessionResponse = await fetch("/api/customer/auth/session", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ token: data.token, role: data.role }),
+            });
+
+            if (!sessionResponse.ok) {
+              const sessionMessage = await sessionResponse.text();
+              throw new Error(sessionMessage || "Không thể khởi tạo phiên đăng nhập.");
+            }
+
+            window.dispatchEvent(new Event("customer-session-updated"));
+            router.push(nextUrl);
+          } catch (err) {
+            const message = err instanceof Error ? err.message : "Đăng nhập Google thất bại.";
+            setError(message);
+          } finally {
+            setLoading(false);
+          }
+        },
+      });
+
+      setGoogleReady(true);
+    };
+
+    if (window.google?.accounts?.oauth2) {
+      initializeGoogle();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = initializeGoogle;
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, [nextUrl, router]);
+
   const handleGoogleLogin = () => {
-    setError("Đăng nhập Google đang được cấu hình, vui lòng thử lại sau.");
+    if (loading) {
+      return;
+    }
+
+    if (!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
+      setError("Thiếu Google Client ID. Vui lòng cấu hình biến môi trường.");
+      return;
+    }
+
+    if (!tokenClientRef.current || !googleReady) {
+      setError("Google chưa sẵn sàng. Vui lòng thử lại sau vài giây.");
+      return;
+    }
+
+    setError(null);
+    setLoading(true);
+    tokenClientRef.current.requestAccessToken({ prompt: "consent" });
   };
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-background">
@@ -195,6 +334,7 @@ export default function LoginPage() {
               className="flex items-center justify-center gap-3 py-3 px-4 bg-white/70 border border-white/30 rounded-full hover:bg-white transition-all group"
               type="button"
               onClick={handleGoogleLogin}
+              disabled={loading}
             >
               <span className="w-6 h-6 rounded-full bg-white flex items-center justify-center shadow-sm">
                 <img

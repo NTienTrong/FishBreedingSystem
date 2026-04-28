@@ -17,7 +17,9 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const nextUrl = searchParams.get("next") || "/profile";
+  const returnUrl = searchParams.get("returnUrl") || searchParams.get("next");
+  const nextUrl = returnUrl || "/";
+  const welcomeMessage = `Chào mừng ${fullName.trim()} đến với FishSync! Khám phá cá giống ngay.`;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -76,6 +78,8 @@ export default function RegisterPage() {
         throw new Error(sessionMessage || "Không thể khởi tạo phiên đăng nhập.");
       }
 
+      sessionStorage.setItem("welcomeMessage", welcomeMessage);
+      window.dispatchEvent(new Event("customer-session-updated"));
       router.push(nextUrl);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Đăng ký thất bại.";

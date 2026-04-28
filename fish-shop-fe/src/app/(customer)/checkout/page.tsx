@@ -20,7 +20,7 @@ export default function CheckoutPage() {
     const ensureSession = async () => {
       const sessionResponse = await fetch("/api/customer/auth/session");
       if (!sessionResponse.ok) {
-        router.replace("/auth/login?next=/checkout");
+        router.replace("/auth/login?returnUrl=/checkout");
         return;
       }
 

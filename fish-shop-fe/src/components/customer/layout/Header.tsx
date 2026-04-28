@@ -1,6 +1,16 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useCart } from "@/components/customer/cart/CartContext";
+import { useCustomerSession } from "@/components/customer/auth/useCustomerSession";
 
 const Header = () => {
+  const pathname = usePathname();
+  const { totalItems, hydrated } = useCart();
+  const { session } = useCustomerSession();
+
+  const returnUrl = pathname || "/";
   return (
     <header className="fixed top-0 w-full z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl shadow-[0_20px_40px_rgba(25,28,30,0.06)]">
       <div className="flex justify-between items-center w-full px-6 py-4 max-w-7xl mx-auto">
@@ -88,19 +98,35 @@ const Header = () => {
               <span className="material-symbols-outlined text-primary text-2xl">
                 shopping_cart
               </span>
-              <span className="absolute -top-1 -right-1 bg-tertiary-container text-on-tertiary-container text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                3
-              </span>
+              {hydrated && totalItems > 0 ? (
+                <span className="absolute -top-1 -right-1 bg-tertiary-container text-on-tertiary-container text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                  {totalItems}
+                </span>
+              ) : null}
             </Link>
-            <Link
-              href="/auth/login"
-              className="flex items-center gap-2 bg-primary px-4 py-2 rounded-full text-white cursor-pointer hover:bg-primary-container transition-all"
-            >
-              <span className="material-symbols-outlined text-xl">
-                account_circle
-              </span>
-              <span className="text-sm font-semibold">Đăng nhập</span>
-            </Link>
+            {session.authenticated ? (
+              <Link
+                href="/profile"
+                className="flex items-center gap-2 bg-primary px-4 py-2 rounded-full text-white cursor-pointer hover:bg-primary-container transition-all"
+              >
+                <span className="material-symbols-outlined text-xl">
+                  account_circle
+                </span>
+                <span className="text-sm font-semibold">
+                  {session.fullName || session.email || "Khách hàng"}
+                </span>
+              </Link>
+            ) : (
+              <Link
+                href={`/auth/login?returnUrl=${encodeURIComponent(returnUrl)}`}
+                className="flex items-center gap-2 bg-primary px-4 py-2 rounded-full text-white cursor-pointer hover:bg-primary-container transition-all"
+              >
+                <span className="material-symbols-outlined text-xl">
+                  account_circle
+                </span>
+                <span className="text-sm font-semibold">Đăng nhập</span>
+              </Link>
+            )}
           </div>
         </div>
       </div>

@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.fishbreeding.backend.dto.ChangePasswordRequest;
 import com.fishbreeding.backend.dto.LoginRequest;
 import com.fishbreeding.backend.dto.LoginResponse;
 import com.fishbreeding.backend.dto.RegisterRequest;
@@ -79,6 +80,16 @@ public class AuthController {
 
         authService.logout(token, clientIp, userAgent);
         return ResponseEntity.ok(Map.of("message", "Logged out"));
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<?> changePassword(Principal principal, @Valid @RequestBody ChangePasswordRequest request) {
+        if (principal == null || !StringUtils.hasText(principal.getName())) {
+            return ResponseEntity.status(401).build();
+        }
+
+        authService.changePassword(principal.getName(), request);
+        return ResponseEntity.ok(Map.of("message", "Password updated"));
     }
 
     private String resolveToken(HttpServletRequest request) {

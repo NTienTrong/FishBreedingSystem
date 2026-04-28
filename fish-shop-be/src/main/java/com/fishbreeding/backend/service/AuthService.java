@@ -6,6 +6,7 @@ import java.util.Optional;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.fishbreeding.backend.dto.ChangePasswordRequest;
 import com.fishbreeding.backend.dto.LoginRequest;
 import com.fishbreeding.backend.dto.LoginResponse;
 import com.fishbreeding.backend.dto.RegisterRequest;
@@ -220,6 +221,23 @@ public class AuthService {
         } catch (JwtException | IllegalArgumentException ex) {
             log.info("Logout audit: invalid_or_expired_token ip={}, userAgent={}", clientIp, userAgent);
         }
+    }
+
+    public void changePassword(String username, ChangePasswordRequest request) {
+        User user = getCurrentUser(username);
+        ensureActive(user);
+
+        String storedPassword = user.getPasswordHash();
+        if (storedPassword == null || storedPassword.isBlank()) {
+            throw new BadRequestException("Account uses social login");
+        }
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), storedPassword)) {
+            throw new BadRequestException("Current password is incorrect");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
     }
 
     private boolean isLegacyPlainPassword(String storedPassword, String rawPassword) {

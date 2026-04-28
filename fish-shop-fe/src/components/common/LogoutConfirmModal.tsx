@@ -7,6 +7,11 @@ type LogoutConfirmModalProps = {
   isSubmitting?: boolean;
   onConfirm: () => Promise<void> | void;
   onClose: () => void;
+  title?: string;
+  description?: string;
+  hint?: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
 };
 
 export default function LogoutConfirmModal({
@@ -14,6 +19,11 @@ export default function LogoutConfirmModal({
   isSubmitting = false,
   onConfirm,
   onClose,
+  title,
+  description,
+  hint,
+  confirmLabel,
+  cancelLabel,
 }: LogoutConfirmModalProps) {
   useEffect(() => {
     if (!isOpen) {
@@ -34,10 +44,18 @@ export default function LogoutConfirmModal({
     return null;
   }
 
+  const titleText = title ?? "Xác nhận đăng xuất";
+  const descriptionText = description
+    ?? "Bạn đang đăng nhập với vai trò ADMIN. Nếu đăng xuất, phiên hiện tại sẽ kết thúc ngay.";
+  const hintText = hint
+    ?? "Mẹo: Nếu chỉ muốn quay về trang chủ, bạn vẫn có thể giữ phiên đăng nhập và đóng tab sau.";
+  const confirmText = confirmLabel ?? "Đăng xuất";
+  const cancelText = cancelLabel ?? "Hủy";
+
   return (
     <div className="fixed inset-0 z-120 flex items-center justify-center px-4">
       <button
-        aria-label="Dong"
+        aria-label="Đóng"
         className="absolute inset-0 bg-slate-950/55"
         onClick={onClose}
         type="button"
@@ -59,17 +77,19 @@ export default function LogoutConfirmModal({
             </div>
             <div>
               <h3 id="logout-modal-title" className="text-lg font-extrabold text-slate-900">
-                Xác nhận đăng xuất 
+                {titleText}
               </h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                Bạn đang đăng nhập với vai trò ADMIN. Nếu đăng xuất, phiên hiên tại sẽ kêt thúc ngay.
+                {descriptionText}
               </p>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">
-            Mẹo: Nếu chỉ muốn quay về trang chủ, bạn vẫn có thể giữ phiên đăng nhập và đóng tab sau.
-          </div>
+          {hintText ? (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">
+              {hintText}
+            </div>
+          ) : null}
 
           <div className="mt-6 flex items-center justify-end gap-3">
             <button
@@ -78,7 +98,7 @@ export default function LogoutConfirmModal({
               className="rounded-full border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
               disabled={isSubmitting}
             >
-              Hủy
+              {cancelText}
             </button>
             <button
               type="button"
@@ -86,7 +106,7 @@ export default function LogoutConfirmModal({
               className="rounded-full bg-linear-to-r from-primary to-primary-container px-5 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               disabled={isSubmitting}
             >
-              {isSubmitting ? "Đang đăng xuất..." : "Đăng xuất"}
+              {isSubmitting ? "Đang đăng xuất..." : confirmText}
             </button>
           </div>
         </div>
