@@ -168,13 +168,17 @@ export default function ProductForm({ mode, productId }: ProductFormProps) {
   };
 
   const uploadImageToCloudinary = async (index: number, file: File) => {
-    if (!file.type.startsWith("image/")) {
-      setErrors((prev) => ({ ...prev, [`images-${index}`]: "Vui lòng chọn file ảnh hợp lệ." }));
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!allowedTypes.includes(file.type)) {
+      setErrors((prev) => ({
+        ...prev,
+        [`images-${index}`]: "Chỉ chấp nhận định dạng JPG, PNG, WebP hoặc GIF.",
+      }));
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      setErrors((prev) => ({ ...prev, [`images-${index}`]: "Ảnh vượt quá 10MB." }));
+    if (file.size > 5 * 1024 * 1024) {
+      setErrors((prev) => ({ ...prev, [`images-${index}`]: "Ảnh không được vượt quá 5MB." }));
       return;
     }
 

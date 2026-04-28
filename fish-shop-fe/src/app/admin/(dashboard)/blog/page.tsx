@@ -22,6 +22,7 @@ export default function AdminBlogPage() {
   const [blogPosts, setBlogPosts] = useState<BlogPostResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<BlogPostResponse | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [toast, setToast] = useState<{ show: boolean; message: string; variant: "success" | "error" }>({
@@ -66,11 +67,16 @@ export default function AdminBlogPage() {
 
   const filteredPosts = useMemo(() => {
     const keyword = search.trim().toLowerCase();
+    const sortedPosts = [...blogPosts].sort((a, b) => {
+      const dateDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      return dateDiff !== 0 ? dateDiff : b.id - a.id;
+    });
+
     if (!keyword) {
-      return blogPosts;
+      return sortedPosts;
     }
 
-    return blogPosts.filter((item) => {
+    return sortedPosts.filter((item) => {
       return (
         item.title.toLowerCase().includes(keyword) ||
         item.slug.toLowerCase().includes(keyword) ||
@@ -78,6 +84,21 @@ export default function AdminBlogPage() {
       );
     });
   }, [blogPosts, search]);
+
+  const PAGE_SIZE = 5;
+  const totalPages = Math.max(1, Math.ceil(filteredPosts.length / PAGE_SIZE));
+  const pagedPosts = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredPosts.slice(start, start + PAGE_SIZE);
+  }, [currentPage, filteredPosts]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, blogPosts.length]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) {
@@ -149,7 +170,7 @@ export default function AdminBlogPage() {
                   <td colSpan={6} className="text-center py-10">Chưa có bài viết nào.</td>
                 </tr>
               ) : (
-                filteredPosts.map((post) => (
+                pagedPosts.map((post) => (
                   <tr key={post.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-8 py-4">
                       <div className="flex items-center gap-3">
@@ -216,6 +237,36 @@ export default function AdminBlogPage() {
           </table>
         </div>
       </div>
+
+      {!loading && filteredPosts.length > 0 && (
+        <div className="flex items-center justify-between text-xs text-slate-500">
+          <span>
+            Hiển thị <strong className="text-on-surface">{pagedPosts.length}</strong> /{" "}
+            {filteredPosts.length} bài viết
+          </span>
+          {filteredPosts.length > PAGE_SIZE && (
+            <div className="flex items-center gap-2">
+              <button
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                type="button"
+              >
+                <span className="material-symbols-outlined text-sm">chevron_left</span>
+              </button>
+              <span className="text-xs font-semibold">Trang {currentPage} / {totalPages}</span>
+              <button
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                type="button"
+              >
+                <span className="material-symbols-outlined text-sm">chevron_right</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       <DeleteConfirmModal
         isOpen={Boolean(deleteTarget)}

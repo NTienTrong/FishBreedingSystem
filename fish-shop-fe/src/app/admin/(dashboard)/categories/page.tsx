@@ -19,6 +19,7 @@ export default function CategoryListPage() {
   const [deleteTarget, setDeleteTarget] = useState<CategoryResponse | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
   /** Set chứa id các danh mục gốc đang được mở (expanded) */
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
@@ -104,7 +105,7 @@ export default function CategoryListPage() {
     () =>
       categories
         .filter((c) => c.parentId === null)
-        .sort((a, b) => a.name.localeCompare(b.name, "vi")),
+        .sort((a, b) => b.id - a.id),
     [categories],
   );
 
@@ -116,9 +117,9 @@ export default function CategoryListPage() {
         map[cat.parentId].push(cat);
       }
     }
-    // sort children alphabetically
+    // sort children newest first
     for (const key of Object.keys(map)) {
-      map[Number(key)].sort((a, b) => a.name.localeCompare(b.name, "vi"));
+      map[Number(key)].sort((a, b) => b.id - a.id);
     }
     return map;
   }, [categories]);
@@ -138,7 +139,7 @@ export default function CategoryListPage() {
         .sort((a, b) => {
           if (a.parentId === null && b.parentId !== null) return -1;
           if (a.parentId !== null && b.parentId === null) return 1;
-          return a.name.localeCompare(b.name, "vi");
+          return b.id - a.id;
         })
         .map((c) => ({ cat: c, depth: 0 })); // depth=0 vì đang tìm kiếm
     }
@@ -155,6 +156,21 @@ export default function CategoryListPage() {
     }
     return result;
   }, [search, categories, rootCategories, childrenOf, expanded]);
+
+  const PAGE_SIZE = 5;
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const pagedRows = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return rows.slice(start, start + PAGE_SIZE);
+  }, [currentPage, rows]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, categories.length]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
 
   const rootCount = categories.filter((c) => c.parentId === null).length;
   const childCount = categories.filter((c) => c.parentId !== null).length;
@@ -310,7 +326,7 @@ export default function CategoryListPage() {
                   </td>
                 </tr>
               ) : (
-                rows.map(({ cat, depth }) => {
+                pagedRows.map(({ cat, depth }) => {
                   const hasChildren = !!(childrenOf[cat.id]?.length);
                   const isOpen = expanded.has(cat.id);
                   const isRoot = cat.parentId === null;
@@ -458,15 +474,40 @@ export default function CategoryListPage() {
 
         {/* Footer */}
         {!loading && rows.length > 0 && (
-          <div className="px-8 py-3 border-t border-outline-variant/10 text-xs text-slate-400 flex items-center gap-2">
-            <span>
-              Hiển thị <strong className="text-on-surface">{rows.length}</strong> /{" "}
-              {categories.length} danh mục
-            </span>
-            {search && (
-              <span className="text-primary italic">
-                (đang lọc: &quot;{search}&quot;)
+          <div className="px-8 py-3 border-t border-outline-variant/10 text-xs text-slate-400 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span>
+                Hiển thị <strong className="text-on-surface">{pagedRows.length}</strong> /{" "}
+                {rows.length} danh mục
               </span>
+              {search && (
+                <span className="text-primary italic">
+                  (đang lọc: &quot;{search}&quot;)
+                </span>
+              )}
+            </div>
+            {rows.length > PAGE_SIZE && (
+              <div className="flex items-center gap-2">
+                <button
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-sm">chevron_left</span>
+                </button>
+                <span className="text-xs font-semibold text-slate-500">
+                  Trang {currentPage} / {totalPages}
+                </span>
+                <button
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-sm">chevron_right</span>
+                </button>
+              </div>
             )}
           </div>
         )}

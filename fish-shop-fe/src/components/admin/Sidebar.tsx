@@ -83,12 +83,12 @@ export default function Sidebar() {
           })}
         </div>
 
-        <div className="px-4 mt-10 mb-6">
+        {/* <div className="px-4 mt-10 mb-6">
           <button className="w-full bg-linear-to-br from-primary to-primary-container text-white py-3 rounded-full font-bold text-xs tracking-widest uppercase shadow-xl shadow-primary/20 hover:opacity-90 transition-all flex items-center justify-center gap-2">
             <span className="material-symbols-outlined text-sm">add</span>
             New Batch
           </button>
-        </div>
+        </div> */}
       </nav>
 
       <div className="p-6 bg-slate-100 dark:bg-slate-800/50 space-y-2 border-t border-slate-200 dark:border-slate-700/50">

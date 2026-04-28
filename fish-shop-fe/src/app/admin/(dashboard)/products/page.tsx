@@ -24,6 +24,7 @@ export default function AdminProductsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<ProductResponse | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [toast, setToast] = useState<{ show: boolean; message: string; variant: "success" | "error" }>({
@@ -67,7 +68,12 @@ export default function AdminProductsPage() {
   }, [pathname, router, searchParams, showToast]);
 
   const filteredProducts = useMemo(() => {
-    return products.filter((item) => {
+    const sortedProducts = [...products].sort((a, b) => {
+      const dateDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      return dateDiff !== 0 ? dateDiff : b.id - a.id;
+    });
+
+    return sortedProducts.filter((item) => {
       const keyword = search.trim().toLowerCase();
       const matchSearch =
         keyword.length === 0 ||
@@ -83,6 +89,21 @@ export default function AdminProductsPage() {
       return matchSearch && matchStatus;
     });
   }, [products, search, statusFilter]);
+
+  const PAGE_SIZE = 5;
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
+  const pagedProducts = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredProducts.slice(start, start + PAGE_SIZE);
+  }, [currentPage, filteredProducts]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter, products.length]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) {
@@ -164,7 +185,7 @@ export default function AdminProductsPage() {
                   <td colSpan={7} className="text-center py-10">Chưa có sản phẩm nào.</td>
                 </tr>
               ) : (
-                filteredProducts.map((product) => {
+                pagedProducts.map((product) => {
                   const mainImage = product.images.find((item) => item.isMain) ?? product.images[0];
 
                   return (
@@ -227,6 +248,36 @@ export default function AdminProductsPage() {
           </table>
         </div>
       </div>
+
+      {!loading && filteredProducts.length > 0 && (
+        <div className="flex items-center justify-between text-xs text-slate-500">
+          <span>
+            Hiển thị <strong className="text-on-surface">{pagedProducts.length}</strong> /{" "}
+            {filteredProducts.length} sản phẩm
+          </span>
+          {filteredProducts.length > PAGE_SIZE && (
+            <div className="flex items-center gap-2">
+              <button
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                type="button"
+              >
+                <span className="material-symbols-outlined text-sm">chevron_left</span>
+              </button>
+              <span className="text-xs font-semibold">Trang {currentPage} / {totalPages}</span>
+              <button
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                type="button"
+              >
+                <span className="material-symbols-outlined text-sm">chevron_right</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       <DeleteConfirmModal
         isOpen={Boolean(deleteTarget)}

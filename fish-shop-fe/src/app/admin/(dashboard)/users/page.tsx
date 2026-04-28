@@ -25,6 +25,7 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<UserResponse | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [toast, setToast] = useState<{ show: boolean; message: string; variant: "success" | "error" }>({
@@ -70,7 +71,12 @@ export default function AdminUsersPage() {
   const filteredUsers = useMemo(() => {
     const keyword = search.trim().toLowerCase();
 
-    return users.filter((item) => {
+    const sortedUsers = [...users].sort((a, b) => {
+      const dateDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      return dateDiff !== 0 ? dateDiff : b.id - a.id;
+    });
+
+    return sortedUsers.filter((item) => {
       const matchSearch =
         keyword.length === 0 ||
         item.username.toLowerCase().includes(keyword) ||
@@ -85,6 +91,21 @@ export default function AdminUsersPage() {
       return matchSearch && matchStatus;
     });
   }, [search, statusFilter, users]);
+
+  const PAGE_SIZE = 5;
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
+  const pagedUsers = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredUsers.slice(start, start + PAGE_SIZE);
+  }, [currentPage, filteredUsers]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter, users.length]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
 
   const totalAdmins = useMemo(() => {
     return users.filter((item) => item.role?.toUpperCase() === "ADMIN").length;
@@ -184,7 +205,7 @@ export default function AdminUsersPage() {
                   <td colSpan={6} className="text-center py-10">Chưa có người dùng nào.</td>
                 </tr>
               ) : (
-                filteredUsers.map((user) => (
+                pagedUsers.map((user) => (
                   <tr key={user.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-8 py-4">
                       <p className="font-semibold text-on-surface">{user.fullName}</p>
@@ -228,6 +249,36 @@ export default function AdminUsersPage() {
           </table>
         </div>
       </div>
+
+      {!loading && filteredUsers.length > 0 && (
+        <div className="flex items-center justify-between text-xs text-slate-500">
+          <span>
+            Hiển thị <strong className="text-on-surface">{pagedUsers.length}</strong> /{" "}
+            {filteredUsers.length} người dùng
+          </span>
+          {filteredUsers.length > PAGE_SIZE && (
+            <div className="flex items-center gap-2">
+              <button
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                type="button"
+              >
+                <span className="material-symbols-outlined text-sm">chevron_left</span>
+              </button>
+              <span className="text-xs font-semibold">Trang {currentPage} / {totalPages}</span>
+              <button
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                type="button"
+              >
+                <span className="material-symbols-outlined text-sm">chevron_right</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       <DeleteConfirmModal
         isOpen={Boolean(deleteTarget)}

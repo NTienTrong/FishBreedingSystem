@@ -13,18 +13,15 @@ export const ProductService = {
 		const formData = new FormData();
 		formData.append("file", file);
 
-		const response = await fetch("/api/admin/uploads/cloudinary", {
-			method: "POST",
-			credentials: "include",
-			body: formData,
-		});
+		const res = await apiClient.post<{ secureUrl: string; url: string }>(
+			"/api/admin/uploads/images?folder=products",
+			formData,
+			{ headers: { "Content-Type": "multipart/form-data" } }
+		);
 
-		const data = (await response.json()) as { secureUrl?: string; message?: string };
-		if (!response.ok || !data.secureUrl) {
-			throw new Error(data.message || "Upload ảnh thất bại.");
-		}
-
-		return data.secureUrl;
+		const url = res.data.secureUrl || res.data.url;
+		if (!url) throw new Error("Upload ảnh thất bại: không nhận được URL.");
+		return url;
 	},
 
 	async getById(id: number): Promise<ProductResponse> {

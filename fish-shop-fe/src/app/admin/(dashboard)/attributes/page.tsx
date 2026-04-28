@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AttributeService } from "@/services/attribute.service";
@@ -16,6 +16,7 @@ export default function AdminAttributesPage() {
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<AttributeResponse | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const [toast, setToast] = useState<{ show: boolean; message: string; variant: "success" | "error" }>({
     show: false,
     message: "",
@@ -55,6 +56,26 @@ export default function AdminAttributesPage() {
     showToast(message, variant);
     router.replace(pathname);
   }, [pathname, router, searchParams, showToast]);
+
+  const sortedAttributes = useMemo(
+    () => [...attributes].sort((a, b) => b.id - a.id),
+    [attributes]
+  );
+
+  const PAGE_SIZE = 5;
+  const totalPages = Math.max(1, Math.ceil(sortedAttributes.length / PAGE_SIZE));
+  const pagedAttributes = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return sortedAttributes.slice(start, start + PAGE_SIZE);
+  }, [currentPage, sortedAttributes]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [attributes.length]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) {
@@ -111,7 +132,7 @@ export default function AdminAttributesPage() {
                   <td colSpan={3} className="text-center py-10">Chưa có thuộc tính nào.</td>
                 </tr>
               ) : (
-                attributes.map((attribute) => (
+                pagedAttributes.map((attribute) => (
                   <tr key={attribute.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-8 py-4 font-mono text-xs font-bold text-slate-400">#{attribute.id}</td>
                     <td className="px-8 py-4 font-bold text-on-surface">{attribute.name}</td>
@@ -138,6 +159,36 @@ export default function AdminAttributesPage() {
           </table>
         </div>
       </div>
+
+      {!loading && attributes.length > 0 && (
+        <div className="flex items-center justify-between text-xs text-slate-500">
+          <span>
+            Hiển thị <strong className="text-on-surface">{pagedAttributes.length}</strong> /{" "}
+            {attributes.length} thuộc tính
+          </span>
+          {attributes.length > PAGE_SIZE && (
+            <div className="flex items-center gap-2">
+              <button
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                type="button"
+              >
+                <span className="material-symbols-outlined text-sm">chevron_left</span>
+              </button>
+              <span className="text-xs font-semibold">Trang {currentPage} / {totalPages}</span>
+              <button
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                type="button"
+              >
+                <span className="material-symbols-outlined text-sm">chevron_right</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       <DeleteConfirmModal
         isOpen={Boolean(deleteTarget)}
