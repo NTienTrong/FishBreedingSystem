@@ -1,6 +1,89 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { API_URL } from "@/app/config/api";
 
 export default function RegisterPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const nextUrl = searchParams.get("next") || "/profile";
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!fullName.trim()) {
+      setError("Vui lòng nhập họ tên.");
+      return;
+    }
+
+    if (!email.trim()) {
+      setError("Vui lòng nhập email.");
+      return;
+    }
+
+    if (!password || password.length < 6) {
+      setError("Mật khẩu phải có ít nhất 6 ký tự.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Mật khẩu xác nhận không khớp.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch(`${API_URL}/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: fullName.trim(),
+          email: email.trim(),
+          password,
+          phone: phone.trim() || null,
+          address: address.trim() || null,
+        }),
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || "Đăng ký thất bại.");
+      }
+
+      const data = (await response.json()) as { token: string; role: string };
+
+      const sessionResponse = await fetch("/api/customer/auth/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: data.token, role: data.role }),
+      });
+
+      if (!sessionResponse.ok) {
+        const sessionMessage = await sessionResponse.text();
+        throw new Error(sessionMessage || "Không thể khởi tạo phiên đăng nhập.");
+      }
+
+      router.push(nextUrl);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Đăng ký thất bại.";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden py-12 px-6 bg-background">
       {/* Background Decorative Elements */}
@@ -62,7 +145,7 @@ export default function RegisterPage() {
               <p className="text-slate-500 text-sm">Bắt đầu hành trình quản lý thủy sản chuyên nghiệp ngay hôm nay.</p>
             </header>
             
-            <form className="space-y-5">
+            <form className="space-y-5" onSubmit={handleSubmit}>
               {/* Full Name */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider" htmlFor="full_name">
@@ -78,6 +161,8 @@ export default function RegisterPage() {
                     name="full_name"
                     placeholder="Nguyễn Văn A"
                     type="text"
+                    value={fullName}
+                    onChange={(event) => setFullName(event.target.value)}
                   />
                 </div>
               </div>
@@ -97,6 +182,8 @@ export default function RegisterPage() {
                     name="email"
                     placeholder="example@fishsync.com"
                     type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
                   />
                 </div>
               </div>
@@ -116,6 +203,29 @@ export default function RegisterPage() {
                     name="phone"
                     placeholder="090 123 4567"
                     type="tel"
+                    value={phone}
+                    onChange={(event) => setPhone(event.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Address */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider" htmlFor="address">
+                  Địa chỉ
+                </label>
+                <div className="relative">
+                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline-variant text-[20px]">
+                    location_on
+                  </span>
+                  <input
+                    className="w-full pl-12 pr-4 py-3 bg-surface-container-high border-0 rounded-lg text-on-surface focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-highest transition-all outline-none"
+                    id="address"
+                    name="address"
+                    placeholder="Số nhà, tên đường..."
+                    type="text"
+                    value={address}
+                    onChange={(event) => setAddress(event.target.value)}
                   />
                 </div>
               </div>
@@ -136,6 +246,8 @@ export default function RegisterPage() {
                       name="password"
                       placeholder="••••••••"
                       type="password"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
                     />
                   </div>
                 </div>
@@ -153,6 +265,8 @@ export default function RegisterPage() {
                       name="confirm_password"
                       placeholder="••••••••"
                       type="password"
+                      value={confirmPassword}
+                      onChange={(event) => setConfirmPassword(event.target.value)}
                     />
                   </div>
                 </div>
@@ -175,15 +289,22 @@ export default function RegisterPage() {
               <button
                 className="w-full bg-gradient-to-r from-primary to-primary-container text-white py-4 rounded-full font-headline font-bold text-lg shadow-[0_8px_20px_-4px_rgba(0,66,83,0.3)] hover:shadow-[0_12px_24px_-4px_rgba(0,66,83,0.4)] transition-all transform active:scale-[0.98]"
                 type="submit"
+                disabled={loading}
               >
-                Đăng ký
+                {loading ? "Đang đăng ký..." : "Đăng ký"}
               </button>
             </form>
+
+            {error && (
+              <div className="mt-4 rounded-xl bg-error/10 text-error text-sm px-4 py-3 text-center">
+                {error}
+              </div>
+            )}
 
             <div className="mt-8 pt-8 border-t border-surface-container-high text-center">
               <p className="text-slate-500 text-sm">
                 Đã có tài khoản? 
-                <Link href="/auth/login" className="text-primary font-bold hover:underline ml-1">Đăng nhập ngay</Link>
+                <Link href={`/auth/login?next=${encodeURIComponent(nextUrl)}`} className="text-primary font-bold hover:underline ml-1">Đăng nhập ngay</Link>
               </p>
             </div>
           </div>

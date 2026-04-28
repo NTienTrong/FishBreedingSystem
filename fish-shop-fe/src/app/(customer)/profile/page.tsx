@@ -1,6 +1,42 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
+type CustomerProfile = {
+  fullName?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  provider?: string | null;
+};
 
 export default function ProfilePage() {
+  const router = useRouter();
+  const [profile, setProfile] = useState<CustomerProfile>({});
+
+  useEffect(() => {
+    const ensureSession = async () => {
+      const sessionResponse = await fetch("/api/customer/auth/session");
+      if (!sessionResponse.ok) {
+        router.replace("/auth/login?next=/profile");
+        return;
+      }
+
+      const meResponse = await fetch("/api/customer/me", { cache: "no-store" });
+      if (meResponse.ok) {
+        const data = (await meResponse.json()) as CustomerProfile;
+        setProfile({
+          fullName: data.fullName ?? "",
+          phone: data.phone ?? "",
+          address: data.address ?? "",
+          provider: data.provider ?? null,
+        });
+      }
+    };
+
+    ensureSession();
+  }, [router]);
   return (
     <main className="px-6 max-w-7xl mx-auto pb-20">
       {/* Header Section */}
@@ -28,6 +64,12 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+        {profile.provider?.toUpperCase() === "GOOGLE" && (
+          <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-surface-container-low px-4 py-2 text-xs font-semibold text-on-surface-variant">
+            <span className="material-symbols-outlined text-sm">verified</span>
+            Bạn đang đăng nhập bằng tài khoản Google.
+          </div>
+        )}
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">

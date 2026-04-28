@@ -1,16 +1,29 @@
 package com.fishbreeding.backend.controller;
 
-import com.fishbreeding.backend.dto.LoginRequest;
-import com.fishbreeding.backend.dto.LoginResponse;
-import com.fishbreeding.backend.service.AuthService;
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
-import lombok.RequiredArgsConstructor;
+import java.security.Principal;
+import java.util.Map;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Map;
+import com.fishbreeding.backend.dto.LoginRequest;
+import com.fishbreeding.backend.dto.LoginResponse;
+import com.fishbreeding.backend.dto.RegisterRequest;
+import com.fishbreeding.backend.dto.SocialLoginRequest;
+import com.fishbreeding.backend.dto.UpdateProfileRequest;
+import com.fishbreeding.backend.dto.UserResponse;
+import com.fishbreeding.backend.service.AuthService;
+
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -27,6 +40,35 @@ public class AuthController {
         } catch (Exception e) {
             return ResponseEntity.status(401).body(e.getMessage());
         }
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<LoginResponse> register(@Valid @RequestBody RegisterRequest request) {
+        return ResponseEntity.ok(authService.register(request));
+    }
+
+    @PostMapping("/social-login")
+    public ResponseEntity<LoginResponse> socialLogin(@Valid @RequestBody SocialLoginRequest request) {
+        return ResponseEntity.ok(authService.socialLogin(request));
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<UserResponse> me(Principal principal) {
+        if (principal == null || !StringUtils.hasText(principal.getName())) {
+            return ResponseEntity.status(401).build();
+        }
+
+        return ResponseEntity.ok(UserResponse.fromEntity(authService.getCurrentUser(principal.getName())));
+    }
+
+    @PutMapping("/profile")
+    public ResponseEntity<UserResponse> updateProfile(Principal principal,
+                                                      @Valid @RequestBody UpdateProfileRequest request) {
+        if (principal == null || !StringUtils.hasText(principal.getName())) {
+            return ResponseEntity.status(401).build();
+        }
+
+        return ResponseEntity.ok(UserResponse.fromEntity(authService.updateProfile(principal.getName(), request)));
     }
 
     @PostMapping("/logout")

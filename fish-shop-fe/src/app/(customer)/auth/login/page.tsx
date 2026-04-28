@@ -1,6 +1,68 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { API_URL } from "@/app/config/api";
 
 export default function LoginPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const nextUrl = searchParams.get("next") || "/profile";
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!identifier.trim() || !password) {
+      setError("Vui lòng nhập email/username và mật khẩu.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch(`${API_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: identifier.trim(), password }),
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || "Đăng nhập thất bại.");
+      }
+
+      const data = (await response.json()) as { token: string; role: string };
+
+      const sessionResponse = await fetch("/api/customer/auth/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: data.token, role: data.role }),
+      });
+
+      if (!sessionResponse.ok) {
+        const sessionMessage = await sessionResponse.text();
+        throw new Error(sessionMessage || "Không thể khởi tạo phiên đăng nhập.");
+      }
+
+      router.push(nextUrl);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Đăng nhập thất bại.";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = () => {
+    setError("Đăng nhập Google đang được cấu hình, vui lòng thử lại sau.");
+  };
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-background">
       {/* Background Layer with Blur */}
@@ -32,7 +94,7 @@ export default function LoginPage() {
           </div>
 
           {/* Login Form */}
-          <form className="space-y-6">
+          <form className="space-y-6" onSubmit={handleSubmit}>
             {/* Username/Email */}
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant ml-1" htmlFor="identifier">
@@ -48,6 +110,8 @@ export default function LoginPage() {
                   name="identifier"
                   placeholder="example@fishsync.com"
                   type="text"
+                  value={identifier}
+                  onChange={(event) => setIdentifier(event.target.value)}
                 />
               </div>
             </div>
@@ -67,6 +131,8 @@ export default function LoginPage() {
                   name="password"
                   placeholder="••••••••"
                   type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
                 />
                 <button
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-outline hover:text-primary transition-colors"
@@ -102,10 +168,17 @@ export default function LoginPage() {
             <button
               className="w-full bg-orange-500 hover:bg-orange-600 text-white font-headline font-bold py-4 rounded-full shadow-lg transition-all transform active:scale-95 text-lg"
               type="submit"
+              disabled={loading}
             >
-              Đăng nhập
+              {loading ? "Đang đăng nhập..." : "Đăng nhập"}
             </button>
           </form>
+
+          {error && (
+            <div className="mt-4 rounded-xl bg-error/10 text-error text-sm px-4 py-3 text-center">
+              {error}
+            </div>
+          )}
 
           {/* Divider */}
           <div className="relative my-10 flex items-center">
@@ -117,22 +190,20 @@ export default function LoginPage() {
           </div>
 
           {/* Social Logins */}
-          <div className="grid grid-cols-2 gap-4">
-            <button className="flex items-center justify-center gap-3 py-3 px-4 bg-white/50 border border-white/20 rounded-full hover:bg-white transition-all group">
-              <img
-                alt="Google"
-                className="w-5 h-5"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuBsqlMZNjUOl6m8aQSQVOeR5Op0dKy_Bb-lKMrmXtFvcv8OotbN3qGLJh2zPozlREOfxKycFAb8Cbxrr_ZRVKbR8g51oXPooCJ8m_RtNEU2FfyfbWHXSc07XNuOlddNkz0g1WdKTacNHnNDjkaM8roaFh5iKY1pwFfN-r5MQdZkakM4vjLaAYxYjAqdm_wbHuulry8xz8YHvFeNsJzgOCjzui10eymqdYqKGsSC8HX62sjX-it82bfzyu3Hljdw95WI8TA65ecDLZ-z"
-              />
-              <span className="text-sm font-semibold text-on-surface">Google</span>
-            </button>
-            <button className="flex items-center justify-center gap-3 py-3 px-4 bg-white/50 border border-white/20 rounded-full hover:bg-white transition-all group">
-              <img
-                alt="Facebook"
-                className="w-5 h-5"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuA6EHv_TzU08G8FmGJK3MKCQ_l1JKudqJ704Ehf4vultz0szCz8e8viT6qsdquPdc1ApS1O5K8sYxNjdhVZ_d9NZ0Fhe5Ie4G1EbfEyUVktDbSflEKY3Hw0Sr5dZlc13DLqtc3xxujbP7LqpdMl72FiHtCDaQdOIhISk_9Vq6-exJZt5GR4YdEdWJSMgNdp5kJu8nz6Q3d_KxS6gxebN9OBoO4qyy9MB1X0TQIcdbXB_d8Frh35gMSFs9oban01jrM_HpE8L2GNDvhn"
-              />
-              <span className="text-sm font-semibold text-on-surface">Facebook</span>
+          <div className="grid grid-cols-1 gap-4">
+            <button
+              className="flex items-center justify-center gap-3 py-3 px-4 bg-white/70 border border-white/30 rounded-full hover:bg-white transition-all group"
+              type="button"
+              onClick={handleGoogleLogin}
+            >
+              <span className="w-6 h-6 rounded-full bg-white flex items-center justify-center shadow-sm">
+                <img
+                  alt="Google"
+                  className="w-4 h-4"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuBsqlMZNjUOl6m8aQSQVOeR5Op0dKy_Bb-lKMrmXtFvcv8OotbN3qGLJh2zPozlREOfxKycFAb8Cbxrr_ZRVKbR8g51oXPooCJ8m_RtNEU2FfyfbWHXSc07XNuOlddNkz0g1WdKTacNHnNDjkaM8roaFh5iKY1pwFfN-r5MQdZkakM4vjLaAYxYjAqdm_wbHuulry8xz8YHvFeNsJzgOCjzui10eymqdYqKGsSC8HX62sjX-it82bfzyu3Hljdw95WI8TA65ecDLZ-z"
+                />
+              </span>
+              <span className="text-sm font-semibold text-on-surface">Đăng nhập với Google</span>
             </button>
           </div>
 
@@ -142,7 +213,7 @@ export default function LoginPage() {
               Chưa có tài khoản?
               <Link
                 className="text-primary font-bold ml-1 hover:underline decoration-2 underline-offset-4"
-                href="/auth/register"
+                href={`/auth/register?next=${encodeURIComponent(nextUrl)}`}
               >
                 Đăng ký ngay
               </Link>

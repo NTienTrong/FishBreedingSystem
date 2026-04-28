@@ -1,10 +1,93 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
+type CustomerProfile = {
+  fullName?: string | null;
+  phone?: string | null;
+  address?: string | null;
+};
+
 export default function CheckoutPage() {
+  const router = useRouter();
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [profile, setProfile] = useState<CustomerProfile>({});
+  const [error, setError] = useState<string | null>(null);
+  const [updatingProfile, setUpdatingProfile] = useState(false);
+
+  useEffect(() => {
+    const ensureSession = async () => {
+      const sessionResponse = await fetch("/api/customer/auth/session");
+      if (!sessionResponse.ok) {
+        router.replace("/auth/login?next=/checkout");
+        return;
+      }
+
+      try {
+        const meResponse = await fetch("/api/customer/me", { cache: "no-store" });
+        if (meResponse.ok) {
+          const data = (await meResponse.json()) as CustomerProfile;
+          setProfile({
+            fullName: data.fullName ?? "",
+            phone: data.phone ?? "",
+            address: data.address ?? "",
+          });
+        }
+      } finally {
+        setLoadingProfile(false);
+      }
+    };
+
+    ensureSession();
+  }, [router]);
+
+  const handleConfirmOrder = async () => {
+    if (!profile.fullName?.trim() || !profile.phone?.trim() || !profile.address?.trim()) {
+      setError("Vui lòng nhập đầy đủ họ tên, số điện thoại và địa chỉ trước khi đặt hàng.");
+      return;
+    }
+
+    try {
+      setUpdatingProfile(true);
+      setError(null);
+
+      const response = await fetch("/api/customer/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: profile.fullName?.trim(),
+          phone: profile.phone?.trim(),
+          address: profile.address?.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || "Không thể cập nhật thông tin khách hàng.");
+      }
+
+      // TODO: gọi API tạo đơn hàng khi backend sẵn sàng
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Không thể cập nhật thông tin khách hàng.";
+      setError(message);
+    } finally {
+      setUpdatingProfile(false);
+    }
+  };
+
   return (
     <main className="px-6 max-w-7xl mx-auto pb-20">
       <div className="mb-10">
         <h1 className="text-3xl font-extrabold tracking-tight text-primary mb-2">Hoàn tất đặt hàng</h1>
         <p className="text-on-surface-variant font-body">Vui lòng kiểm tra thông tin vận chuyển và chọn phương thức thanh toán.</p>
       </div>
+
+      {error && (
+        <div className="mb-6 rounded-xl bg-error/10 text-error text-sm px-4 py-3">
+          {error}
+        </div>
+      )}
 
       {/* 3-Column Bento/Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -28,6 +111,9 @@ export default function CheckoutPage() {
                 id="name"
                 placeholder="Nguyễn Văn A"
                 type="text"
+                value={profile.fullName ?? ""}
+                onChange={(event) => setProfile((prev) => ({ ...prev, fullName: event.target.value }))}
+                disabled={loadingProfile}
               />
             </div>
             <div className="space-y-1">
@@ -39,6 +125,9 @@ export default function CheckoutPage() {
                 id="phone"
                 placeholder="090 123 4567"
                 type="tel"
+                value={profile.phone ?? ""}
+                onChange={(event) => setProfile((prev) => ({ ...prev, phone: event.target.value }))}
+                disabled={loadingProfile}
               />
             </div>
             <div className="space-y-1">
@@ -50,6 +139,9 @@ export default function CheckoutPage() {
                 id="address"
                 placeholder="Số nhà, tên đường, phường/xã..."
                 rows={3}
+                value={profile.address ?? ""}
+                onChange={(event) => setProfile((prev) => ({ ...prev, address: event.target.value }))}
+                disabled={loadingProfile}
               ></textarea>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -167,8 +259,13 @@ export default function CheckoutPage() {
               </div>
             </div>
             
-            <button className="w-full bg-secondary-fixed text-on-secondary-fixed hover:bg-secondary-fixed-dim transition-colors py-4 rounded-full font-bold flex items-center justify-center gap-2 group">
-              Xác nhận đặt hàng
+            <button
+              className="w-full bg-secondary-fixed text-on-secondary-fixed hover:bg-secondary-fixed-dim transition-colors py-4 rounded-full font-bold flex items-center justify-center gap-2 group disabled:opacity-60"
+              onClick={handleConfirmOrder}
+              type="button"
+              disabled={updatingProfile || loadingProfile}
+            >
+              {updatingProfile ? "Đang cập nhật..." : "Xác nhận đặt hàng"}
               <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">arrow_forward</span>
             </button>
             <p className="text-center text-[10px] mt-4 opacity-60 uppercase tracking-widest font-bold">
