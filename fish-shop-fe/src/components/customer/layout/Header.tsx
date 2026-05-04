@@ -24,7 +24,7 @@ const Header = () => {
           <nav className="hidden md:flex items-center gap-8 font-['Manrope'] tracking-tight font-bold headline-sm">
             <div className="relative group">
               <button className="text-[#005B71] dark:text-[#00A3C4] border-b-2 border-[#005B71] font-bold pb-1 flex items-center gap-1">
-                Cá Koi
+                Danh mục
                 <span className="material-symbols-outlined text-sm">
                   keyboard_arrow_down
                 </span>
@@ -34,25 +34,25 @@ const Header = () => {
                   <li>
                     <Link
                       className="block text-slate-600 hover:text-[#005B71] transition-colors p-2 rounded-lg hover:bg-slate-100/50"
-                      href="#"
+                      href="/products"
                     >
-                      Cá Koi Nhật Bản
+                      Tất cả sản phẩm
                     </Link>
                   </li>
                   <li>
                     <Link
                       className="block text-slate-600 hover:text-[#005B71] transition-colors p-2 rounded-lg hover:bg-slate-100/50"
-                      href="#"
+                      href="/#danh-muc"
                     >
-                      Cá Koi Bướm
+                      Danh mục hiện có
                     </Link>
                   </li>
                   <li>
                     <Link
                       className="block text-slate-600 hover:text-[#005B71] transition-colors p-2 rounded-lg hover:bg-slate-100/50"
-                      href="#"
+                      href="/blog"
                     >
-                      Cá Koi Mini
+                      Blog kỹ thuật
                     </Link>
                   </li>
                 </ul>
@@ -62,25 +62,25 @@ const Header = () => {
               className="text-slate-600 dark:text-slate-400 hover:text-[#005B71] transition-colors"
               href="/products"
             >
-              Species
+              Sản phẩm
             </Link>
             <Link
               className="text-slate-600 dark:text-slate-400 hover:text-[#005B71] transition-colors"
-              href="#"
+              href="/blog"
             >
-              Supplies
+              Blog
             </Link>
             <Link
               className="text-slate-600 dark:text-slate-400 hover:text-[#005B71] transition-colors"
-              href="#"
+              href="/profile"
             >
-              Labs
+              Hồ sơ
             </Link>
             <Link
               className="text-slate-600 dark:text-slate-400 hover:text-[#005B71] transition-colors"
-              href="#"
+              href="/cart"
             >
-              Bulk Orders
+              Giỏ hàng
             </Link>
           </nav>
         </div>

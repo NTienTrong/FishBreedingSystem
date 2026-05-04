@@ -2,11 +2,13 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
 import ToastMessage from "@/components/common/ToastMessage";
 import { UserService } from "@/services/user.service";
 import { UserResponse } from "@/types/user";
+
+export const dynamic = "force-dynamic";
 
 const dateFormatter = new Intl.DateTimeFormat("vi-VN", {
   day: "2-digit",
@@ -19,7 +21,6 @@ type StatusFilter = "all" | "active" | "inactive";
 export default function AdminUsersPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,15 +59,16 @@ export default function AdminUsersPage() {
   }, [fetchUsers]);
 
   useEffect(() => {
-    const message = searchParams.get("message");
+    const params = new URLSearchParams(window.location.search);
+    const message = params.get("message");
     if (!message) {
       return;
     }
 
-    const variant = searchParams.get("variant") === "error" ? "error" : "success";
+    const variant = params.get("variant") === "error" ? "error" : "success";
     showToast(message, variant);
     router.replace(pathname);
-  }, [pathname, router, searchParams, showToast]);
+  }, [pathname, router, showToast]);
 
   const filteredUsers = useMemo(() => {
     const keyword = search.trim().toLowerCase();

@@ -2,11 +2,13 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
 import ToastMessage from "@/components/common/ToastMessage";
 import { BlogService } from "@/services/blog.service";
 import { BlogPostResponse } from "@/types/blog";
+
+export const dynamic = "force-dynamic";
 
 const dateFormatter = new Intl.DateTimeFormat("vi-VN", {
   day: "2-digit",
@@ -17,7 +19,6 @@ const dateFormatter = new Intl.DateTimeFormat("vi-VN", {
 export default function AdminBlogPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   const [blogPosts, setBlogPosts] = useState<BlogPostResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,6 +39,28 @@ export default function AdminBlogPage() {
     }, 2500);
   }, []);
 
+  const safeParseDate = (date?: unknown) => {
+    if (!date) return null;
+
+    if (date instanceof Date) {
+      return isNaN(date.getTime()) ? null : date;
+    }
+
+    if (typeof date === "number") {
+      const d = new Date(date);
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    if (typeof date === "string") {
+      const hasTimezone = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(date);
+      const normalized = hasTimezone ? date : `${date}Z`;
+      const d = new Date(normalized);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    
+    return null;
+  };
+
   const fetchBlogPosts = useCallback(async () => {
     try {
       const data = await BlogService.getAll();
@@ -55,21 +78,24 @@ export default function AdminBlogPage() {
   }, [fetchBlogPosts]);
 
   useEffect(() => {
-    const message = searchParams.get("message");
+    const params = new URLSearchParams(window.location.search);
+    const message = params.get("message");
     if (!message) {
       return;
     }
 
-    const variant = searchParams.get("variant") === "error" ? "error" : "success";
+    const variant = params.get("variant") === "error" ? "error" : "success";
     showToast(message, variant);
     router.replace(pathname);
-  }, [pathname, router, searchParams, showToast]);
+  }, [pathname, router, showToast]);
 
   const filteredPosts = useMemo(() => {
     const keyword = search.trim().toLowerCase();
     const sortedPosts = [...blogPosts].sort((a, b) => {
-      const dateDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      return dateDiff !== 0 ? dateDiff : b.id - a.id;
+      const dateA = safeParseDate(a.createdAt)?.getTime() || 0;
+      const dateB = safeParseDate(b.createdAt)?.getTime() || 0;
+
+      return dateB - dateA || b.id - a.id;
     });
 
     if (!keyword) {
@@ -193,9 +219,14 @@ export default function AdminBlogPage() {
                     </td>
                     <td className="px-8 py-4 text-sm text-slate-500">{post.authorFullName || "Hệ thống"}</td>
                     <td className="px-8 py-4 text-sm text-slate-600">
-                      {post.publishedAt 
-                        ? dateFormatter.format(new Date(post.publishedAt)) 
-                        : (post.createdAt ? dateFormatter.format(new Date(post.createdAt)) : "-")}
+                      {(() => {
+                        const published = safeParseDate(post.publishedAt);
+                        const created = safeParseDate(post.createdAt);
+
+                        if(published) return dateFormatter.format(published);
+                        if(created) return dateFormatter.format(created);
+                        return "-";
+                      })()}
                     </td>
                     <td className="px-8 py-4 text-xs">
                       {post.status === "PUBLISHED" ? (

@@ -18,6 +18,12 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: fish_redis
+    ports:
+      - "6379:6379"
+
   backend:
     build:
       context: ./fish-shop-be
@@ -26,14 +32,25 @@ services:
       - "8080:8080"
     environment:
       TERM: xterm-256color
+
+      # DB
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/fish_db
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
+
+      # JPA
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.PostgreSQLDialect
+
+      # ✅ REDIS (QUAN TRỌNG)
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   frontend:
     build:

@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { API_URL } from "@/app/config/api";
+
+export const dynamic = "force-dynamic";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -16,10 +17,14 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nextUrl, setNextUrl] = useState("/");
 
-  const returnUrl = searchParams.get("returnUrl") || searchParams.get("next");
-  const nextUrl = returnUrl || "/";
   const welcomeMessage = `Chào mừng ${fullName.trim()} đến với FishSync! Khám phá cá giống ngay.`;
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setNextUrl(params.get("returnUrl") || params.get("next") || "/");
+  }, []);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();

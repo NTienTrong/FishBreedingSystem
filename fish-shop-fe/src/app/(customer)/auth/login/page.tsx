@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { API_URL } from "@/app/config/api";
+
+export const dynamic = "force-dynamic";
 
 declare global {
   interface Window {
@@ -23,16 +25,18 @@ declare global {
 
 export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [googleReady, setGoogleReady] = useState(false);
+  const [nextUrl, setNextUrl] = useState("/");
   const tokenClientRef = useRef<{ requestAccessToken: (options?: { prompt?: string }) => void } | null>(null);
 
-  const returnUrl = searchParams.get("returnUrl") || searchParams.get("next");
-  const nextUrl = returnUrl || "/";
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setNextUrl(params.get("returnUrl") || params.get("next") || "/");
+  }, []);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -211,12 +215,12 @@ export default function LoginPage() {
           src="https://lh3.googleusercontent.com/aida-public/AB6AXuDG8uzkDMPRJesL0CTg3X7sa1xwnUOWkhSdkOghCKMUdnIprjOK9ExuS3xwbjUyLJQiAmGQHHC2C6XJ3mIFjUkJpfcsCdrTtUbzinfP8MGpcCapHeS5yu7AOQhwZDLKf1GCvLn3HoV8Wza1aD6Mof-r-woN5HEusHmLLbqCwdRDqsltEwRJiwq7Naa62Smn4tOEONHBkhKn5dnB1BcJHwTzmNpnx-jBicPr4N9Puvrk4jwSO6JA_KGfVEj5OEKZ21sirWzBkIDe6bSA"
           alt="Koi pond background"
         />
-        <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-transparent"></div>
+        <div className="absolute inset-0 bg-linear-to-tr from-primary/20 to-transparent"></div>
       </div>
 
       {/* Main Content Shell */}
       <main className="relative z-10 w-full max-w-md my-12">
-        <div className="bg-white/70 backdrop-blur-2xl p-8 md:p-10 rounded-[2rem] shadow-[0_20px_40px_rgba(25,28,30,0.08)] border border-white/30 transition-all duration-300">
+        <div className="bg-white/70 backdrop-blur-2xl p-8 md:p-10 rounded-4xl shadow-[0_20px_40px_rgba(25,28,30,0.08)] border border-white/30 transition-all duration-300">
           {/* Brand Anchor */}
           <div className="flex flex-col items-center mb-10 text-center">
             <div className="mb-4 bg-primary p-3 rounded-full shadow-lg">
@@ -321,11 +325,11 @@ export default function LoginPage() {
 
           {/* Divider */}
           <div className="relative my-10 flex items-center">
-            <div className="flex-grow border-t border-outline-variant/30"></div>
+            <div className="grow border-t border-outline-variant/30"></div>
             <span className="mx-4 text-xs font-bold uppercase tracking-widest text-outline">
               Hoặc tiếp tục với
             </span>
-            <div className="flex-grow border-t border-outline-variant/30"></div>
+            <div className="grow border-t border-outline-variant/30"></div>
           </div>
 
           {/* Social Logins */}

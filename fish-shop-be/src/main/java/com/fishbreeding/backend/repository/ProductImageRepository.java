@@ -10,6 +10,7 @@ import com.fishbreeding.backend.entity.ProductImage;
 @Repository
 public interface ProductImageRepository extends JpaRepository<ProductImage, Long> {
     List<ProductImage> findByProduct_IdOrderBySortOrderAscIdAsc(Long productId);
+    List<ProductImage> findByProduct_IdInOrderBySortOrderAscIdAsc(java.util.List<Long> productIds);
 
     void deleteByProduct_Id(Long productId);
 }

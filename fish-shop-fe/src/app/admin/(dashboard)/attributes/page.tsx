@@ -2,16 +2,17 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { AttributeService } from "@/services/attribute.service";
 import { AttributeResponse } from "@/types/attribute";
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
 import ToastMessage from "@/components/common/ToastMessage";
 
+export const dynamic = "force-dynamic";
+
 export default function AdminAttributesPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [attributes, setAttributes] = useState<AttributeResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<AttributeResponse | null>(null);
@@ -47,15 +48,16 @@ export default function AdminAttributesPage() {
   }, [fetchAttributes]);
 
   useEffect(() => {
-    const message = searchParams.get("message");
+    const params = new URLSearchParams(window.location.search);
+    const message = params.get("message");
     if (!message) {
       return;
     }
 
-    const variant = searchParams.get("variant") === "error" ? "error" : "success";
+    const variant = params.get("variant") === "error" ? "error" : "success";
     showToast(message, variant);
     router.replace(pathname);
-  }, [pathname, router, searchParams, showToast]);
+  }, [pathname, router, showToast]);
 
   const sortedAttributes = useMemo(
     () => [...attributes].sort((a, b) => b.id - a.id),

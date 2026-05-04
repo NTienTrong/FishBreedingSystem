@@ -1,10 +1,14 @@
 "use client";
 
-import React, { use } from "react";
+import React from "react";
 import AttributeForm from "@/components/admin/AttributeForm";
 
-export default function AdminAttributesEditPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function AdminAttributesEditPage({
+  params,
+}: {
+  params: { id: string };
+}) {
+  const id = Number(params.id);
 
-  return <AttributeForm mode="edit" attributeId={Number(id)} />;
+  return <AttributeForm mode="edit" attributeId={id} />;
 }

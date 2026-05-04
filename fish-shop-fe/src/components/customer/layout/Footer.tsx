@@ -9,8 +9,7 @@ const Footer = () => {
             FishSync
           </div>
           <p className="font-['Inter'] text-sm leading-relaxed text-slate-500">
-            Precision Aquatic Husbandry. Hệ thống quản lý và cung cấp cá cảnh
-            tiêu chuẩn cao nhất Việt Nam.
+            Hệ thống quản lý và cung cấp cá cảnh, sản phẩm và nội dung kỹ thuật cho khách hàng Việt Nam.
           </p>
           <div className="flex gap-4">
             <a
@@ -28,75 +27,75 @@ const Footer = () => {
           </div>
         </div>
         <div className="space-y-6">
-          <h4 className="font-bold text-primary font-headline">Danh mục</h4>
+          <h4 className="font-bold text-primary font-headline">Điều hướng</h4>
           <ul className="space-y-3 font-['Inter'] text-sm">
             <li>
               <Link
                 className="text-slate-500 hover:text-orange-500 hover:translate-x-1 transition-transform duration-200 block"
-                href="#"
+                href="/products"
               >
-                Cá Koi Nhật
+                Sản phẩm
               </Link>
             </li>
             <li>
               <Link
                 className="text-slate-500 hover:text-orange-500 hover:translate-x-1 transition-transform duration-200 block"
-                href="#"
+                href="/#danh-muc"
               >
-                Cá Rồng Cao Cấp
+                Danh mục
               </Link>
             </li>
             <li>
               <Link
                 className="text-slate-500 hover:text-orange-500 hover:translate-x-1 transition-transform duration-200 block"
-                href="#"
+                href="/blog"
               >
-                Thiết Bị Lọc
+                Blog kỹ thuật
               </Link>
             </li>
             <li>
               <Link
                 className="text-slate-500 hover:text-orange-500 hover:translate-x-1 transition-transform duration-200 block"
-                href="#"
+                href="/cart"
               >
-                Thức Ăn Dinh Dưỡng
+                Giỏ hàng
               </Link>
             </li>
           </ul>
         </div>
         <div className="space-y-6">
-          <h4 className="font-bold text-primary font-headline">Chính sách</h4>
+          <h4 className="font-bold text-primary font-headline">Tài khoản</h4>
           <ul className="space-y-3 font-['Inter'] text-sm">
             <li>
               <Link
                 className="text-slate-500 hover:text-orange-500 hover:translate-x-1 transition-transform duration-200 block"
-                href="#"
+                href="/profile"
               >
-                Privacy Policy
+                Hồ sơ cá nhân
               </Link>
             </li>
             <li>
               <Link
                 className="text-slate-500 hover:text-orange-500 hover:translate-x-1 transition-transform duration-200 block"
-                href="#"
+                href="/profile"
               >
-                Hatchery Standards
+                Địa chỉ giao hàng
               </Link>
             </li>
             <li>
               <Link
                 className="text-slate-500 hover:text-orange-500 hover:translate-x-1 transition-transform duration-200 block"
-                href="#"
+                href="/profile"
               >
-                Technical Support
+                Đơn hàng của tôi
               </Link>
             </li>
             <li>
               <Link
                 className="text-slate-500 hover:text-orange-500 hover:translate-x-1 transition-transform duration-200 block"
-                href="#"
+                href="/checkout"
               >
-                Global Shipping
+                Thanh toán
               </Link>
             </li>
           </ul>
@@ -113,7 +112,7 @@ const Footer = () => {
         </div>
       </div>
       <div className="mt-16 pt-8 border-t border-outline-variant/10 text-center font-['Inter'] text-sm text-slate-400">
-        © 2024 FishSync. Precision Aquatic Husbandry.
+        © 2026 FishSync. Hệ thống cá cảnh và nội dung kỹ thuật.
       </div>
     </footer>
   );

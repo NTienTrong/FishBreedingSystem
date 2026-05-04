@@ -4,6 +4,11 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.JsonNode;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+import org.hibernate.annotations.Type;
 
 @Entity
 @Table(name = "vnpay_transactions")
@@ -39,13 +44,15 @@ public class VnpayTransaction {
     @Column(name = "vnp_pay_date")
     private LocalDateTime vnpPayDate;
 
-    // We can map JSONB to String easily. For full jsonb support one can use hypersistence-utils, but String is native enough for raw logs.
+    // We can map JSONB to String easily. For full jsonb support one can use
+    // hypersistence-utils, but String is native enough for raw logs.
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "vnp_raw_response", columnDefinition = "jsonb")
-    private String vnpRawResponse;
+    private JsonNode vnpRawResponse;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
-    
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

@@ -1,52 +1,129 @@
-# Hoàn thiện Module Quản lý Blog
+# Sửa chức năng Checkout & VNPay Payment
 
-Mục tiêu: Bổ sung luồng xuất bản (Publish Workflow) cho bài viết và tích hợp tải ảnh lên Cloudinary. Đảm bảo cấu trúc code hiện tại không bị phá vỡ, chỉ chỉnh sửa trên các tệp đã có và bổ sung enum.
+## Phân tích lỗi hiện tại
 
-## Open Questions
-- Với trường `isPublished` và enum `PostStatus`, hệ thống sẽ đồng bộ 2 trường này: Khi `status` là `PUBLISHED`, `isPublished` tự động thành `true`, ngược lại là `false`. Bạn đồng ý với cách tiếp cận này không?
+### 🔴 Lỗi 1: VNPay thiếu credentials (CRITICAL)
 
-## Proposed Changes
+Trong file `.env` backend **không có** `VNPAY_TMN_CODE` và `VNPAY_HASH_SECRET`. Trong `application.properties`:
 
-### Backend
+```properties
+app.vnpay.tmn-code=${VNPAY_TMN_CODE:}   # ← TRỐNG!
+app.vnpay.hash-secret=${VNPAY_HASH_SECRET:}  # ← TRỐNG!
+```
 
-#### [NEW] [PostStatus.java](file:///d:/code/fish-breeding-system/fish-shop-be/src/main/java/com/fishbreeding/backend/entity/PostStatus.java)
-- Tạo mới Enum `PostStatus` gồm 3 trạng thái: `DRAFT`, `PUBLISHED`, `ARCHIVED`.
+Kết quả: hàm `hasCredentials()` trả về `false` → `buildPaymentUrl()` trả về `null` → Không tạo được link thanh toán VNPay.
 
-#### [MODIFY] [BlogPost.java](file:///d:/code/fish-breeding-system/fish-shop-be/src/main/java/com/fishbreeding/backend/entity/BlogPost.java)
-- Thêm trường `@Column(name = "is_published") private Boolean isPublished = false;`.
-- Thêm trường `@Enumerated(EnumType.STRING) @Column(nullable = false) private PostStatus status = PostStatus.DRAFT;`.
-- Thêm trường `@Column(name = "published_at") private LocalDateTime publishedAt;`.
+> [!CAUTION]
+> **Thiếu 2 key quan trọng nhất:**
+> - `VNPAY_TMN_CODE` – Mã Terminal (lấy từ VNPay Sandbox)
+> - `VNPAY_HASH_SECRET` – Khóa bí mật để ký giao dịch
+> 
+> Bạn cần đăng ký VNPay Sandbox tại https://sandbox.vnpayment.vn và thêm 2 key này vào file `.env`.
 
-#### [MODIFY] [BlogPostRequest.java](file:///d:/code/fish-breeding-system/fish-shop-be/src/main/java/com/fishbreeding/backend/dto/BlogPostRequest.java)
-- Bổ sung trường `PostStatus status;` để Frontend có thể chọn trạng thái khi tạo hoặc cập nhật bài viết.
+### 🔴 Lỗi 2: Cart `clear()` không chờ xong trước khi redirect
 
-#### [MODIFY] [BlogPostResponse.java](file:///d:/code/fish-breeding-system/fish-shop-be/src/main/java/com/fishbreeding/backend/dto/BlogPostResponse.java)
-- Bổ sung `isPublished`, `status`, `publishedAt` vào object trả về.
+Trong `handleConfirmOrder`:
+```ts
+await clear(); // ← clear() là fire-and-forget (void), KHÔNG trả về Promise!
+```
 
-#### [MODIFY] [BlogPostService.java](file:///d:/code/fish-breeding-system/fish-shop-be/src/main/java/com/fishbreeding/backend/service/BlogPostService.java)
-- Cập nhật logic `createBlogPost` và `updateBlogPost` để xử lý trạng thái.
-- Nếu cập nhật từ `DRAFT`/`ARCHIVED` sang `PUBLISHED`, gán `isPublished = true` và `publishedAt = LocalDateTime.now()` (nếu `publishedAt` đang null).
-- Nếu chuyển về `DRAFT` hoặc `ARCHIVED`, set `isPublished = false`.
+Hàm `clear()` trong `CartContext` gọi `fetch("/api/customer/cart", { method: "DELETE" })` bên trong `void (async () => { ... })()` → **Không trả về Promise** → `await clear()` thực chất **không chờ gì cả**.
+
+### 🔴 Lỗi 3: VNPay Return Page - searchParams phải `await` (Next.js 15+)
+
+Trong Next.js 15, `searchParams` là **async** và phải `await`. Hiện tại code dùng trực tiếp mà không `await`:
+```tsx
+export default function VnpayReturnPage({ searchParams }: VnpayReturnPageProps) {
+  const status = searchParams?.status; // ← Cần await searchParams
+```
+
+### 🟡 Lỗi 4: SecurityConfig `.anyRequest().permitAll()`
+
+Endpoint `/api/customer/checkout/vnpay` dùng `Principal principal` nhưng security config cho phép `anyRequest().permitAll()` - vậy thì JWT sẽ vẫn được resolve nếu có, nhưng không bắt buộc. Nếu token không hợp lệ hoặc hết hạn, `principal` sẽ `null` → endpoint throw `BadRequestException("Unauthorized")`.
+
+Phần này **hoạt động được** nhưng nên thêm `.requestMatchers("/api/customer/**").authenticated()` để chặt chẽ hơn.
 
 ---
 
-### Frontend
+## Proposed Changes
 
-#### [MODIFY] [types/blog.ts](file:///d:/code/fish-breeding-system/fish-shop-fe/src/types/blog.ts)
-- Bổ sung `status`, `isPublished`, `publishedAt` vào interface `BlogPostRequest` và `BlogPostResponse`.
+### 1. Backend – Thêm VNPay Sandbox Keys vào `.env`
 
-#### [MODIFY] [blog.service.ts](file:///d:/code/fish-breeding-system/fish-shop-fe/src/services/blog.service.ts)
-- Bổ sung phương thức `uploadImage(file: File)` gọi đến API `/api/admin/uploads/cloudinary` hiện có trên server.
+#### [MODIFY] [.env](file:///d:/code/fish-breeding-system/fish-shop-be/.env)
+- Thêm `VNPAY_TMN_CODE` và `VNPAY_HASH_SECRET` (VNPay Sandbox test keys)
 
-#### [MODIFY] [BlogForm.tsx](file:///d:/code/fish-breeding-system/fish-shop-fe/src/components/admin/BlogForm.tsx)
-- Thêm UI Dropdown/Select cho trường `Trạng thái` (Bản nháp, Xuất bản, Lưu trữ). Khi tạo mới, mặc định là Bản nháp.
-- Nâng cấp input nhập URL của `thumbnailUrl` thành giao diện Upload Image (sử dụng `useRef` và gọi `BlogService.uploadImage`) tương tự như ở module Category.
-- Hỗ trợ xem trước ảnh, xoá ảnh và loading khi đang upload.
+---
 
-#### [MODIFY] [blog/page.tsx](file:///d:/code/fish-breeding-system/fish-shop-fe/src/app/admin/(dashboard)/blog/page.tsx)
-- Cập nhật Table danh sách bài viết: Thêm cột `Trạng thái` hiển thị dạng Badge/Chip (VD: xanh cho Xuất bản, xám cho Bản nháp).
-- Điều chỉnh cột `Ngày đăng` ưu tiên hiển thị ngày xuất bản (`publishedAt`) hoặc ngày tạo.
+### 2. Frontend – Sửa `clear()` trong CartContext để trả về Promise
+
+#### [MODIFY] [CartContext.tsx](file:///d:/code/fish-breeding-system/fish-shop-fe/src/components/customer/cart/CartContext.tsx)
+- Sửa hàm `clear()` trả về `Promise<void>` thay vì fire-and-forget
+- Cập nhật type `CartContextValue`
+
+---
+
+### 3. Frontend – Thiết kế lại trang Checkout hoàn chỉnh
+
+#### [MODIFY] [page.tsx](file:///d:/code/fish-breeding-system/fish-shop-fe/src/app/%28customer%29/checkout/page.tsx)
+
+Thiết kế lại toàn bộ checkout form theo yêu cầu:
+
+**Section 1: Thông tin người nhận (Shipping Information)**
+- Họ và tên (Input Text) - Required
+- Số điện thoại (Input, validation 10 số) - Required
+- Tỉnh/Thành phố → Quận/Huyện → Phường/Xã (Cascading Select từ JSON data)
+- Địa chỉ chi tiết (Textarea) - Required
+
+**Section 2: Phương thức thanh toán (Payment Methods)**
+- COD (Radio) - Logo + mô tả
+- VNPay (Radio) - Logo VNPay + "Thanh toán qua thẻ ATM, QR Code hoặc Ví điện tử"
+
+**Section 3: Tóm tắt đơn hàng (Order Summary)**
+- Danh sách sản phẩm: Ảnh thu nhỏ, tên cá, số lượng, đơn giá
+- Tiền hàng (subtotal)
+- Phí vận chuyển
+- **Tổng thanh toán** (tổng cuối cùng gửi sang VNPay)
+
+**Section 4: Ghi chú đơn hàng**
+- Textarea với placeholder rõ ràng cho lĩnh vực cá giống
+
+---
+
+### 4. Frontend – Tạo file JSON dữ liệu Tỉnh/Quận/Phường Việt Nam
+
+#### [NEW] [vietnam-provinces.ts](file:///d:/code/fish-breeding-system/fish-shop-fe/src/data/vietnam-provinces.ts)
+- Dữ liệu cascading đầy đủ hơn cho 63 tỉnh/thành phố (hoặc ít nhất các thành phố lớn phổ biến)
+
+---
+
+### 5. Frontend – Sửa VNPay Return Page cho Next.js 15
+
+#### [MODIFY] [page.tsx](file:///d:/code/fish-breeding-system/fish-shop-fe/src/app/%28customer%29/checkout/vnpay-return/page.tsx)
+- Thêm `await` cho `searchParams` (Next.js 15 async requirement)
+
+---
+
+## Open Questions
+
+> [!IMPORTANT]
+> **Bạn đã có VNPay Sandbox credentials chưa?**
+> - Nếu có: cho tôi `TMN_CODE` và `HASH_SECRET` để thêm vào `.env`
+> - Nếu chưa: Tôi sẽ thêm VNPay Sandbox mặc định (test keys), bạn có thể đổi sau
+>
+> **Đăng ký VNPay Sandbox:** https://sandbox.vnpayment.vn/apis/vnpay-demo/
+
+> [!NOTE]
+> Dữ liệu Tỉnh/Quận/Phường: Tôi sẽ tạo file JSON tĩnh với các tỉnh/thành phố lớn phổ biến nhất. Nếu cần đầy đủ 63 tỉnh thành có thể tích hợp API GiaoHangNhanh sau.
 
 ## Verification Plan
-1. **API Verification:** Chạy Backend, dùng API test thử tạo bài viết, cập nhật bài viết qua các trạng thái để kiểm tra tính đúng đắn của logic lưu thời gian và đồng bộ `isPublished`.
-2. **Frontend UI:** Truy cập `/admin/blog/add`, kiểm tra thao tác tải ảnh lên có gọi đúng hàm Cloudinary và hiển thị preview hay không. Đăng bài với trạng thái Bản nháp rồi Cập nhật thành Xuất bản, kiểm tra dữ liệu thay đổi trên Table.
+
+### Automated Tests
+- Build frontend: `npm run build` để kiểm tra không có lỗi TypeScript
+- Kiểm tra backend khởi động bình thường với VNPay config mới
+
+### Manual Verification  
+- Mở trang checkout, kiểm tra form hiển thị đúng layout
+- Test cascading dropdown Tỉnh/Quận/Phường
+- Test validation form (để trống, SĐT sai format)
+- Test đặt hàng COD
+- Test đặt hàng VNPay (redirect đến VNPay Sandbox)

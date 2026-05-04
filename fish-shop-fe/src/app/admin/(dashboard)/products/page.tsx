@@ -2,11 +2,13 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
 import ToastMessage from "@/components/common/ToastMessage";
 import { ProductService } from "@/services/product.service";
 import { ProductResponse } from "@/types/product";
+
+export const dynamic = "force-dynamic";
 
 type StatusFilter = "all" | "active" | "inactive";
 
@@ -19,7 +21,6 @@ const currency = new Intl.NumberFormat("vi-VN", {
 export default function AdminProductsPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [products, setProducts] = useState<ProductResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -57,15 +58,16 @@ export default function AdminProductsPage() {
   }, [fetchProducts]);
 
   useEffect(() => {
-    const message = searchParams.get("message");
+    const params = new URLSearchParams(window.location.search);
+    const message = params.get("message");
     if (!message) {
       return;
     }
 
-    const variant = searchParams.get("variant") === "error" ? "error" : "success";
+    const variant = params.get("variant") === "error" ? "error" : "success";
     showToast(message, variant);
     router.replace(pathname);
-  }, [pathname, router, searchParams, showToast]);
+  }, [pathname, router, showToast]);
 
   const filteredProducts = useMemo(() => {
     const sortedProducts = [...products].sort((a, b) => {

@@ -4,6 +4,10 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.HashMap;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
@@ -19,10 +23,14 @@ import org.springframework.web.bind.annotation.RestController;
 import com.fishbreeding.backend.dto.CustomerAddressRequest;
 import com.fishbreeding.backend.dto.CustomerAddressResponse;
 import com.fishbreeding.backend.dto.CustomerAttributeValueResponse;
+import com.fishbreeding.backend.dto.CustomerCartItemRequest;
+import com.fishbreeding.backend.dto.CustomerCartItemResponse;
+import com.fishbreeding.backend.dto.CustomerCartSyncRequest;
 import com.fishbreeding.backend.dto.CustomerFishRecordResponse;
 import com.fishbreeding.backend.dto.CustomerOrderItemResponse;
 import com.fishbreeding.backend.dto.CustomerOrderResponse;
 import com.fishbreeding.backend.dto.CustomerWishlistItemResponse;
+import com.fishbreeding.backend.entity.CartItem;
 import com.fishbreeding.backend.entity.Order;
 import com.fishbreeding.backend.entity.OrderItem;
 import com.fishbreeding.backend.entity.Product;
@@ -31,7 +39,7 @@ import com.fishbreeding.backend.entity.User;
 import com.fishbreeding.backend.entity.UserAddress;
 import com.fishbreeding.backend.entity.WishlistItem;
 import com.fishbreeding.backend.exception.BadRequestException;
-import com.fishbreeding.backend.repository.OrderItemRepository;
+import com.fishbreeding.backend.repository.CartItemRepository;
 import com.fishbreeding.backend.repository.OrderRepository;
 import com.fishbreeding.backend.repository.ProductAttributeValueRepository;
 import com.fishbreeding.backend.repository.ProductImageRepository;
@@ -40,6 +48,7 @@ import com.fishbreeding.backend.repository.UserAddressRepository;
 import com.fishbreeding.backend.repository.UserRepository;
 import com.fishbreeding.backend.repository.WishlistItemRepository;
 
+import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -50,12 +59,12 @@ public class CustomerPortalController {
 
     private final UserRepository userRepository;
     private final OrderRepository orderRepository;
-    private final OrderItemRepository orderItemRepository;
     private final ProductRepository productRepository;
     private final ProductImageRepository productImageRepository;
     private final ProductAttributeValueRepository productAttributeValueRepository;
     private final WishlistItemRepository wishlistItemRepository;
     private final UserAddressRepository userAddressRepository;
+    private final CartItemRepository cartItemRepository;
 
     @GetMapping("/orders")
     public ResponseEntity<List<CustomerOrderResponse>> listOrders(java.security.Principal principal) {
@@ -63,8 +72,17 @@ public class CustomerPortalController {
         List<Order> orders = orderRepository.findByUser_IdOrderByCreatedAtDescIdDesc(user.getId());
         List<CustomerOrderResponse> responses = new ArrayList<>();
 
+        // collect product ids used by these orders and batch-load related collections
+        Set<Long> productIds = orders.stream()
+                .flatMap(o -> o.getItems().stream())
+                .map(i -> i.getProduct().getId())
+                .collect(Collectors.toSet());
+
+        Map<Long, String> imageMap = loadMainImageMap(productIds);
+        Map<Long, List<CustomerAttributeValueResponse>> attributeMap = loadAttributeValuesMap(productIds);
+
         for (Order order : orders) {
-            responses.add(mapOrder(order));
+            responses.add(mapOrder(order, imageMap, attributeMap));
         }
 
         return ResponseEntity.ok(responses);
@@ -76,28 +94,28 @@ public class CustomerPortalController {
         List<Order> orders = orderRepository.findByUser_IdOrderByCreatedAtDescIdDesc(user.getId());
         List<CustomerFishRecordResponse> records = new ArrayList<>();
 
-        for (Order order : orders) {
-            List<OrderItem> items = orderItemRepository.findByOrder_Id(order.getId());
-            for (OrderItem item : items) {
-                Product product = item.getProduct();
-                String imageUrl = resolveProductImage(product.getId());
-                List<CustomerAttributeValueResponse> attributes = productAttributeValueRepository
-                        .findByProduct_IdOrderByAttribute_IdAsc(product.getId())
-                        .stream()
-                        .map(attr -> CustomerAttributeValueResponse.builder()
-                                .attributeName(attr.getAttribute().getName())
-                                .value(attr.getAttrValue())
-                                .build())
-                        .toList();
+        Set<Long> productIds = orders.stream()
+            .flatMap(o -> o.getItems().stream())
+            .map(i -> i.getProduct().getId())
+            .collect(Collectors.toSet());
 
-                records.add(CustomerFishRecordResponse.builder()
-                        .productId(product.getId())
-                        .name(product.getName())
-                        .imageUrl(imageUrl)
-                        .purchasedAt(order.getCreatedAt())
-                        .attributes(attributes)
-                        .certificateUrl(null)
-                        .build());
+        Map<Long, String> imageMap = loadMainImageMap(productIds);
+        Map<Long, List<CustomerAttributeValueResponse>> attributeMap = loadAttributeValuesMap(productIds);
+
+        for (Order order : orders) {
+            for (OrderItem item : order.getItems()) {
+            Product product = item.getProduct();
+            String imageUrl = imageMap.get(product.getId());
+            List<CustomerAttributeValueResponse> attributes = attributeMap.getOrDefault(product.getId(), List.of());
+
+            records.add(CustomerFishRecordResponse.builder()
+                .productId(product.getId())
+                .name(product.getName())
+                .imageUrl(imageUrl)
+                .purchasedAt(order.getCreatedAt())
+                .attributes(attributes)
+                .certificateUrl(null)
+                .build());
             }
         }
 
@@ -110,6 +128,9 @@ public class CustomerPortalController {
         List<WishlistItem> items = wishlistItemRepository.findByUser_IdOrderByCreatedAtDesc(user.getId());
         List<CustomerWishlistItemResponse> responses = new ArrayList<>();
 
+        Set<Long> productIds = items.stream().map(i -> i.getProduct().getId()).collect(Collectors.toSet());
+        Map<Long, String> imageMap = loadMainImageMap(productIds);
+
         for (WishlistItem item : items) {
             Product product = item.getProduct();
             responses.add(CustomerWishlistItemResponse.builder()
@@ -118,7 +139,7 @@ public class CustomerPortalController {
                     .sku(product.getSku())
                     .price(product.getPrice())
                     .stockQuantity(product.getStockQuantity())
-                    .imageUrl(resolveProductImage(product.getId()))
+                    .imageUrl(imageMap.get(product.getId()))
                     .build());
         }
 
@@ -154,6 +175,7 @@ public class CustomerPortalController {
                 .build());
     }
 
+    @Transactional
     @DeleteMapping("/wishlist/{productId}")
     public ResponseEntity<?> removeWishlist(java.security.Principal principal, @PathVariable Long productId) {
         User user = requireUser(principal);
@@ -161,10 +183,145 @@ public class CustomerPortalController {
         return ResponseEntity.ok(java.util.Map.of("message", "Removed"));
     }
 
+    @GetMapping("/cart")
+    public ResponseEntity<List<CustomerCartItemResponse>> listCart(java.security.Principal principal) {
+        User user = requireUser(principal);
+        return ResponseEntity.ok(buildCartResponse(user));
+    }
+
+    @PostMapping("/cart")
+    public ResponseEntity<List<CustomerCartItemResponse>> addToCart(
+            java.security.Principal principal,
+            @RequestBody CustomerCartItemRequest request) {
+        User user = requireUser(principal);
+        Long productId = request != null ? request.getProductId() : null;
+        Integer quantity = request != null && request.getQuantity() != null ? request.getQuantity() : 1;
+
+        if (productId == null) {
+            throw new BadRequestException("Product ID is required");
+        }
+
+        if (quantity <= 0) {
+            throw new BadRequestException("Quantity must be greater than 0");
+        }
+
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new BadRequestException("Product not found"));
+
+        CartItem item = cartItemRepository.findByUser_IdAndProduct_Id(user.getId(), productId)
+                .map(existing -> {
+                    existing.setQuantity(existing.getQuantity() + quantity);
+                    return existing;
+                })
+                .orElseGet(() -> CartItem.builder()
+                        .user(user)
+                        .product(product)
+                        .quantity(quantity)
+                        .build());
+
+        cartItemRepository.save(item);
+        return ResponseEntity.ok(buildCartResponse(user));
+    }
+
+    @Transactional
+    @PutMapping("/cart/{productId}")
+    public ResponseEntity<List<CustomerCartItemResponse>> updateCartItem(
+            java.security.Principal principal,
+            @PathVariable Long productId,
+            @RequestBody CustomerCartItemRequest request) {
+        User user = requireUser(principal);
+        Integer quantity = request != null ? request.getQuantity() : null;
+
+        if (quantity == null) {
+            throw new BadRequestException("Quantity is required");
+        }
+
+        if (quantity <= 0) {
+            cartItemRepository.deleteByUser_IdAndProduct_Id(user.getId(), productId);
+            return ResponseEntity.ok(buildCartResponse(user));
+        }
+
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new BadRequestException("Product not found"));
+
+        CartItem item = cartItemRepository.findByUser_IdAndProduct_Id(user.getId(), productId)
+                .orElseGet(() -> CartItem.builder()
+                        .user(user)
+                        .product(product)
+                        .quantity(0)
+                        .build());
+
+        item.setQuantity(quantity);
+        cartItemRepository.save(item);
+        return ResponseEntity.ok(buildCartResponse(user));
+    }
+
+    @Transactional
+    @DeleteMapping("/cart/{productId}")
+    public ResponseEntity<List<CustomerCartItemResponse>> removeCartItem(
+            java.security.Principal principal,
+            @PathVariable Long productId) {
+        User user = requireUser(principal);
+        cartItemRepository.deleteByUser_IdAndProduct_Id(user.getId(), productId);
+        return ResponseEntity.ok(buildCartResponse(user));
+    }
+
+    @Transactional
+    @DeleteMapping("/cart")
+    public ResponseEntity<List<CustomerCartItemResponse>> clearCart(java.security.Principal principal) {
+        User user = requireUser(principal);
+        cartItemRepository.deleteByUser_Id(user.getId());
+        return ResponseEntity.ok(List.of());
+    }
+
+    @PostMapping("/cart/sync")
+    public ResponseEntity<List<CustomerCartItemResponse>> syncCart(
+            java.security.Principal principal,
+            @RequestBody CustomerCartSyncRequest request) {
+        User user = requireUser(principal);
+        List<CustomerCartItemRequest> items = request != null ? request.getItems() : null;
+
+        if (items == null || items.isEmpty()) {
+            return ResponseEntity.ok(buildCartResponse(user));
+        }
+
+        for (CustomerCartItemRequest entry : items) {
+            Long productId = entry != null ? entry.getProductId() : null;
+            Integer quantity = entry != null ? entry.getQuantity() : null;
+
+            if (productId == null) {
+                throw new BadRequestException("Product ID is required");
+            }
+
+            if (quantity == null || quantity <= 0) {
+                continue;
+            }
+
+            Product product = productRepository.findById(productId)
+                    .orElseThrow(() -> new BadRequestException("Product not found"));
+
+            CartItem item = cartItemRepository.findByUser_IdAndProduct_Id(user.getId(), productId)
+                    .map(existing -> {
+                        existing.setQuantity(existing.getQuantity() + quantity);
+                        return existing;
+                    })
+                    .orElseGet(() -> CartItem.builder()
+                            .user(user)
+                            .product(product)
+                            .quantity(quantity)
+                            .build());
+
+            cartItemRepository.save(item);
+        }
+
+        return ResponseEntity.ok(buildCartResponse(user));
+    }
+
     @GetMapping("/addresses")
     public ResponseEntity<List<CustomerAddressResponse>> listAddresses(java.security.Principal principal) {
         User user = requireUser(principal);
-        List<UserAddress> addresses = userAddressRepository.findByUser_IdOrderByIsDefaultDescCreatedAtDesc(user.getId());
+        List<UserAddress> addresses = userAddressRepository
+                .findByUser_IdOrderByIsDefaultDescCreatedAtDesc(user.getId());
         List<CustomerAddressResponse> responses = addresses.stream()
                 .map(address -> CustomerAddressResponse.builder()
                         .id(address.getId())
@@ -233,6 +390,7 @@ public class CustomerPortalController {
         return ResponseEntity.ok(java.util.Map.of("message", "Default updated"));
     }
 
+    @Transactional
     @DeleteMapping("/addresses/{id}")
     public ResponseEntity<?> deleteAddress(java.security.Principal principal, @PathVariable Long id) {
         User user = requireUser(principal);
@@ -251,11 +409,10 @@ public class CustomerPortalController {
                 .orElseThrow(() -> new BadRequestException("User not found"));
     }
 
-    private CustomerOrderResponse mapOrder(Order order) {
-        List<OrderItem> items = orderItemRepository.findByOrder_Id(order.getId());
+    private CustomerOrderResponse mapOrder(Order order, Map<Long, String> imageMap, Map<Long, List<CustomerAttributeValueResponse>> attributeMap) {
         List<CustomerOrderItemResponse> itemResponses = new ArrayList<>();
 
-        for (OrderItem item : items) {
+        for (OrderItem item : order.getItems()) {
             Product product = item.getProduct();
             BigDecimal price = item.getPriceAtPurchase();
             BigDecimal lineTotal = price.multiply(BigDecimal.valueOf(item.getQuantity()));
@@ -263,7 +420,7 @@ public class CustomerPortalController {
                     .productId(product.getId())
                     .name(product.getName())
                     .sku(product.getSku())
-                    .imageUrl(resolveProductImage(product.getId()))
+                    .imageUrl(imageMap.get(product.getId()))
                     .quantity(item.getQuantity())
                     .price(price)
                     .lineTotal(lineTotal)
@@ -281,12 +438,53 @@ public class CustomerPortalController {
     }
 
     private String resolveProductImage(Long productId) {
+        // fallback single-load method; prefer batch methods
         return productImageRepository.findByProduct_IdOrderBySortOrderAscIdAsc(productId)
                 .stream()
                 .sorted((a, b) -> Boolean.compare(!a.getIsMain(), !b.getIsMain()))
                 .map(ProductImage::getImageUrl)
                 .findFirst()
                 .orElse(null);
+    }
+
+    private Map<Long, String> loadMainImageMap(java.util.Collection<Long> productIds) {
+        if (productIds == null || productIds.isEmpty()) {
+            return Map.of();
+        }
+
+        List<ProductImage> images = productImageRepository.findByProduct_IdInOrderBySortOrderAscIdAsc(new java.util.ArrayList<>(productIds));
+        Map<Long, List<ProductImage>> grouped = images.stream().collect(Collectors.groupingBy(pi -> pi.getProduct().getId()));
+
+        Map<Long, String> result = new HashMap<>();
+        for (var entry : grouped.entrySet()) {
+            List<ProductImage> list = entry.getValue();
+            // choose main image if exists, otherwise first
+            String url = list.stream()
+                    .sorted((a, b) -> Boolean.compare(!a.getIsMain(), !b.getIsMain()))
+                    .map(ProductImage::getImageUrl)
+                    .findFirst()
+                    .orElse(null);
+            result.put(entry.getKey(), url);
+        }
+
+        return result;
+    }
+
+    private Map<Long, List<CustomerAttributeValueResponse>> loadAttributeValuesMap(java.util.Collection<Long> productIds) {
+        if (productIds == null || productIds.isEmpty()) {
+            return Map.of();
+        }
+
+        List<com.fishbreeding.backend.entity.ProductAttributeValue> attrs = productAttributeValueRepository
+                .findByProduct_IdInOrderByAttribute_IdAsc(new java.util.ArrayList<>(productIds));
+
+        return attrs.stream()
+                .collect(Collectors.groupingBy(a -> a.getProduct().getId(),
+                        Collectors.mapping(a -> CustomerAttributeValueResponse.builder()
+                                .attributeName(a.getAttribute().getName())
+                                .value(a.getAttrValue())
+                                .build(),
+                                Collectors.toList())));
     }
 
     private CustomerAddressResponse toAddressResponse(UserAddress address) {
@@ -308,4 +506,26 @@ public class CustomerPortalController {
         }
         userAddressRepository.saveAll(addresses);
     }
+
+    private List<CustomerCartItemResponse> buildCartResponse(User user) {
+        List<CartItem> items = cartItemRepository.findByUserIdWithProduct(user.getId());
+        Set<Long> productIds = items.stream().map(i -> i.getProduct().getId()).collect(Collectors.toSet());
+        Map<Long, String> imageMap = loadMainImageMap(productIds);
+
+        return items.stream()
+            .map(i -> mapCartItem(i, imageMap))
+            .toList();
+    }
+
+        private CustomerCartItemResponse mapCartItem(CartItem item, Map<Long, String> imageMap) {
+        Product product = item.getProduct();
+        return CustomerCartItemResponse.builder()
+            .productId(product.getId())
+            .name(product.getName())
+            .sku(product.getSku())
+            .price(product.getPrice())
+            .imageUrl(imageMap.get(product.getId()))
+            .quantity(item.getQuantity())
+            .build();
+        }
 }

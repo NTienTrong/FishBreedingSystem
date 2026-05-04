@@ -3,6 +3,7 @@ package com.fishbreeding.backend.service;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 
 import com.fishbreeding.backend.dto.AttributeRequest;
@@ -11,6 +12,7 @@ import com.fishbreeding.backend.entity.Attribute;
 import com.fishbreeding.backend.exception.BadRequestException;
 import com.fishbreeding.backend.exception.NotFoundException;
 import com.fishbreeding.backend.repository.AttributeRepository;
+import com.fishbreeding.backend.repository.ProductAttributeValueRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -19,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 public class AttributeService {
 
     private final AttributeRepository attributeRepository;
+    private final ProductAttributeValueRepository productAttributeValueRepository;
 
     public List<AttributeResponse> getAllAttributes() {
         return attributeRepository.findAll().stream()
@@ -70,6 +73,7 @@ public class AttributeService {
         return AttributeResponse.fromEntity(updated);
     }
 
+    @Transactional
     public void deleteAttribute(Long id) {
         validateId(id);
 
@@ -77,6 +81,7 @@ public class AttributeService {
             throw new NotFoundException("Attribute not found with id: " + id);
         }
 
+        productAttributeValueRepository.deleteByAttribute_Id(id);
         attributeRepository.deleteById(id);
     }
 

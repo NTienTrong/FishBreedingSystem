@@ -2,17 +2,18 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { CategoryService } from "@/services/category.service";
 import { CategoryResponse } from "@/types/category";
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
 import ToastMessage from "@/components/common/ToastMessage";
 import Image from "next/image";
 
+export const dynamic = "force-dynamic";
+
 export default function CategoryListPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,13 +36,14 @@ export default function CategoryListPage() {
   }, []);
 
   useEffect(() => {
-    const message = searchParams.get("message");
+    const params = new URLSearchParams(window.location.search);
+    const message = params.get("message");
     if (!message) return;
-    const variant = searchParams.get("variant") === "error" ? "error" : "success";
+    const variant = params.get("variant") === "error" ? "error" : "success";
     setToast({ show: true, message, variant });
     setTimeout(() => setToast((prev) => ({ ...prev, show: false })), 2500);
     router.replace(pathname);
-  }, [pathname, router, searchParams]);
+  }, [pathname, router]);
 
   const fetchCategories = async () => {
     try {

@@ -3,6 +3,8 @@ package com.fishbreeding.backend.service;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -32,6 +34,7 @@ public class BlogPostService {
     private final BlogPostValidator blogPostValidator;
 
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "adminBlogPosts")
     public List<BlogPostResponse> getAllBlogPosts() {
         return blogPostRepository.findAllByOrderByCreatedAtDescIdDesc().stream()
                 .map(BlogPostResponse::fromEntity)
@@ -39,6 +42,15 @@ public class BlogPostService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "publicBlogPosts")
+    public List<BlogPostResponse> getPublicBlogPosts() {
+        return blogPostRepository.findAllByIsPublishedTrueOrderByPublishedAtDescCreatedAtDescIdDesc().stream()
+                .map(BlogPostResponse::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "blogById", key = "#id")
     public BlogPostResponse getBlogPostById(Long id) {
         blogPostValidator.validateId(id);
 
@@ -49,6 +61,7 @@ public class BlogPostService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"adminBlogPosts", "publicBlogPosts", "blogById"}, allEntries = true)
     public BlogPostResponse createBlogPost(BlogPostRequest request) {
         String title = request.getTitle().trim();
         String content = request.getContent().trim();
@@ -80,6 +93,7 @@ public class BlogPostService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"adminBlogPosts", "publicBlogPosts", "blogById"}, allEntries = true)
     public BlogPostResponse updateBlogPost(Long id, BlogPostRequest request) {
         blogPostValidator.validateId(id);
 
@@ -123,6 +137,7 @@ public class BlogPostService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"adminBlogPosts", "publicBlogPosts", "blogById"}, allEntries = true)
     public void deleteBlogPost(Long id) {
         blogPostValidator.validateId(id);
 

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { API_URL } from "@/app/config/api";
 
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const cookieStore = await cookies();
   const token = cookieStore.get("customerToken")?.value;
 
@@ -12,7 +13,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
   const body = await request.json();
 
-  const response = await fetch(`${API_URL}/api/customer/addresses/${params.id}`, {
+  const response = await fetch(`${API_URL}/api/customer/addresses/${id}`, {
     method: "PUT",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -25,7 +26,8 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   return NextResponse.json(data, { status: response.status });
 }
 
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const cookieStore = await cookies();
   const token = cookieStore.get("customerToken")?.value;
 
@@ -33,7 +35,7 @@ export async function DELETE(_: Request, { params }: { params: { id: string } })
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
-  const response = await fetch(`${API_URL}/api/customer/addresses/${params.id}`, {
+  const response = await fetch(`${API_URL}/api/customer/addresses/${id}`, {
     method: "DELETE",
     headers: {
       Authorization: `Bearer ${token}`,

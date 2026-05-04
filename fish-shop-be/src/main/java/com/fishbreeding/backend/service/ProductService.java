@@ -10,6 +10,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,13 +49,32 @@ public class ProductService {
     private final ProductValidator productValidator;
 
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "products")
     public List<ProductResponse> getAllProducts() {
-        return productRepository.findAll().stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+        List<Product> products = productRepository.findAllByOrderByIdAsc();
+        if (products.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> productIds = products.stream().map(Product::getId).toList();
+
+        Map<Long, List<ProductImage>> imagesByProduct = productImageRepository
+            .findByProduct_IdInOrderBySortOrderAscIdAsc(productIds)
+            .stream()
+            .collect(Collectors.groupingBy(image -> image.getProduct().getId()));
+
+        Map<Long, List<ProductAttributeValue>> attributesByProduct = productAttributeValueRepository
+            .findByProduct_IdInOrderByAttribute_IdAsc(productIds)
+            .stream()
+            .collect(Collectors.groupingBy(value -> value.getProduct().getId()));
+
+        return products.stream()
+            .map(product -> toResponse(product, imagesByProduct, attributesByProduct))
+            .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "productById", key = "#id")
     public ProductResponse getProductById(Long id) {
         productValidator.validateId(id);
 
@@ -64,6 +85,7 @@ public class ProductService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"products", "productById"}, allEntries = true)
     public ProductResponse createProduct(ProductRequest request) {
         String name = request.getName().trim();
         String slug = buildUniqueSlug(name, null);
@@ -94,6 +116,7 @@ public class ProductService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"products", "productById"}, allEntries = true)
     public ProductResponse updateProduct(Long id, ProductRequest request) {
         productValidator.validateId(id);
 
@@ -127,6 +150,7 @@ public class ProductService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = {"products", "productById"}, allEntries = true)
     public void deleteProduct(Long id) {
         productValidator.validateId(id);
 
@@ -142,7 +166,22 @@ public class ProductService {
         productRepository.delete(product);
     }
 
-    private ProductResponse toResponse(Product product) {
+        private ProductResponse toResponse(Product product) {
+        Map<Long, List<ProductImage>> imagesByProduct = new HashMap<>();
+        Map<Long, List<ProductAttributeValue>> attributesByProduct = new HashMap<>();
+
+        imagesByProduct.put(product.getId(), productImageRepository
+            .findByProduct_IdOrderBySortOrderAscIdAsc(product.getId()));
+        attributesByProduct.put(product.getId(), productAttributeValueRepository
+            .findByProduct_IdOrderByAttribute_IdAsc(product.getId()));
+
+        return toResponse(product, imagesByProduct, attributesByProduct);
+        }
+
+        private ProductResponse toResponse(
+            Product product,
+            Map<Long, List<ProductImage>> imagesByProduct,
+            Map<Long, List<ProductAttributeValue>> attributesByProduct) {
         List<ProductResponse.ProductCategoryItemResponse> categories = product.getCategories().stream()
                 .sorted(Comparator.comparing(Category::getId))
                 .map(category -> ProductResponse.ProductCategoryItemResponse.builder()
@@ -151,9 +190,9 @@ public class ProductService {
                         .build())
                 .collect(Collectors.toList());
 
-        List<ProductResponse.ProductImageItemResponse> images = productImageRepository
-                .findByProduct_IdOrderBySortOrderAscIdAsc(product.getId())
-                .stream()
+        List<ProductResponse.ProductImageItemResponse> images = imagesByProduct
+            .getOrDefault(product.getId(), List.of())
+            .stream()
                 .map(image -> ProductResponse.ProductImageItemResponse.builder()
                         .id(image.getId())
                         .imageUrl(image.getImageUrl())
@@ -162,9 +201,9 @@ public class ProductService {
                         .build())
                 .collect(Collectors.toList());
 
-        List<ProductResponse.ProductAttributeValueItemResponse> attributeValues = productAttributeValueRepository
-                .findByProduct_IdOrderByAttribute_IdAsc(product.getId())
-                .stream()
+        List<ProductResponse.ProductAttributeValueItemResponse> attributeValues = attributesByProduct
+            .getOrDefault(product.getId(), List.of())
+            .stream()
                 .map(value -> ProductResponse.ProductAttributeValueItemResponse.builder()
                         .attributeId(value.getAttribute().getId())
                         .attributeName(value.getAttribute().getName())

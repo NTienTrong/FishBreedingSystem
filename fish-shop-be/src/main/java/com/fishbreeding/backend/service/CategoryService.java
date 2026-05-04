@@ -3,7 +3,10 @@ package com.fishbreeding.backend.service;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.fishbreeding.backend.dto.CategoryRequest;
 import com.fishbreeding.backend.dto.CategoryResponse;
@@ -22,12 +25,16 @@ public class CategoryService {
     private final CategoryRepository categoryRepository;
     private final CategoryValidator categoryValidator;
 
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "categories")
     public List<CategoryResponse> getAllCategories() {
         return categoryRepository.findAll().stream()
                 .map(CategoryResponse::fromEntity)
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "categoryById", key = "#id")
     public CategoryResponse getCategoryById(Long id) {
         categoryValidator.validateId(id);
 
@@ -37,6 +44,7 @@ public class CategoryService {
         return CategoryResponse.fromEntity(category);
     }
 
+    @CacheEvict(cacheNames = {"categories", "categoryById"}, allEntries = true)
     public CategoryResponse createCategory(CategoryRequest request) {
         String name = request.getName().trim();
 
@@ -62,6 +70,7 @@ public class CategoryService {
         return CategoryResponse.fromEntity(saved);
     }
 
+    @CacheEvict(cacheNames = {"categories", "categoryById"}, allEntries = true)
     public CategoryResponse updateCategory(Long id, CategoryRequest request) {
         categoryValidator.validateId(id);
         categoryValidator.validateParent(id, request.getParentId());
@@ -95,6 +104,8 @@ public class CategoryService {
         return CategoryResponse.fromEntity(updated);
     }
 
+    @Transactional
+    @CacheEvict(cacheNames = {"categories", "categoryById"}, allEntries = true)
     public void deleteCategory(Long id) {
         categoryValidator.validateId(id);
 
@@ -102,6 +113,7 @@ public class CategoryService {
             throw new NotFoundException("Category not found with id: " + id);
         }
 
+        categoryRepository.deleteProductCategoryMappings(id);
         categoryRepository.deleteById(id);
     }
 }
