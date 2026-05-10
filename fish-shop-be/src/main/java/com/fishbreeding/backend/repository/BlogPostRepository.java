@@ -15,6 +15,15 @@ public interface BlogPostRepository extends JpaRepository<BlogPost, Long> {
     boolean existsBySlugAndIdNot(String slug, Long id);
 
     @EntityGraph(attributePaths = "author")
+    java.util.Optional<BlogPost> findBySlug(String slug);
+
+    @EntityGraph(attributePaths = "author")
+    java.util.Optional<BlogPost> findBySlugAndIsPublishedTrue(String slug);
+
+    @EntityGraph(attributePaths = "author")
+    java.util.Optional<BlogPost> findByIdAndIsPublishedTrue(Long id);
+
+    @EntityGraph(attributePaths = "author")
     java.util.Optional<BlogPost> findById(Long id);
 
     @EntityGraph(attributePaths = "author")

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { CategoryService } from "@/services/category.service";
 import { CategoryResponse } from "@/types/category";
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
+import DetailModal from "@/components/common/DetailModal";
 import ToastMessage from "@/components/common/ToastMessage";
 import Image from "next/image";
 
@@ -21,6 +22,9 @@ export default function CategoryListPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [detailTarget, setDetailTarget] = useState<CategoryResponse | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
 
   /** Set chứa id các danh mục gốc đang được mở (expanded) */
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
@@ -75,6 +79,33 @@ export default function CategoryListPage() {
   const closeDeleteModal = () => {
     if (!isDeleting) setDeleteTarget(null);
   };
+
+  const handleOpenDetail = async (categoryId: number) => {
+    setIsDetailOpen(true);
+    setDetailLoading(true);
+    try {
+      const data = await CategoryService.getById(categoryId);
+      setDetailTarget(data);
+    } catch (error) {
+      console.error(error);
+      showToast("Không thể tải chi tiết danh mục.", "error");
+      setIsDetailOpen(false);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const handleCloseDetail = () => {
+    setIsDetailOpen(false);
+    setDetailTarget(null);
+  };
+
+  const renderDetailItem = (label: string, value: React.ReactNode) => (
+    <div className="grid grid-cols-[160px_1fr] gap-4 border-b border-slate-100 py-3">
+      <p className="text-xs uppercase tracking-wider text-slate-400">{label}</p>
+      <div className="text-sm text-slate-700">{value ?? "-"}</div>
+    </div>
+  );
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
@@ -450,6 +481,14 @@ export default function CategoryListPage() {
                       {/* Thao tác */}
                       <td className="px-8 py-4">
                         <div className="flex items-center justify-center gap-3">
+                          <button
+                            onClick={() => handleOpenDetail(cat.id)}
+                            className="text-slate-400 hover:text-primary transition-colors p-1 rounded-lg hover:bg-primary/10"
+                            title="Xem chi tiết"
+                            type="button"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">visibility</span>
+                          </button>
                           <Link
                             href={`/admin/categories/${cat.id}/edit`}
                             className="text-slate-400 hover:text-primary transition-colors p-1 rounded-lg hover:bg-primary/10"
@@ -514,6 +553,48 @@ export default function CategoryListPage() {
           </div>
         )}
       </div>
+
+      <DetailModal
+        isOpen={isDetailOpen}
+        onClose={handleCloseDetail}
+        title="Chi tiết danh mục"
+        subtitle={detailTarget ? `#${detailTarget.id} - ${detailTarget.name}` : undefined}
+      >
+        {detailLoading ? (
+          <div className="flex items-center justify-center py-10 text-slate-500">Đang tải...</div>
+        ) : detailTarget ? (
+          <div className="space-y-6">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex items-center gap-4">
+              {detailTarget.imageUrl ? (
+                <img
+                  src={detailTarget.imageUrl}
+                  alt={detailTarget.name}
+                  className="h-20 w-20 rounded-2xl object-cover border border-slate-200"
+                />
+              ) : (
+                <div className="h-20 w-20 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-400">
+                  <span className="material-symbols-outlined text-[20px]">image</span>
+                </div>
+              )}
+              <div>
+                <p className="text-lg font-bold text-slate-900">{detailTarget.name}</p>
+                <p className="text-sm text-slate-500">/{detailTarget.slug}</p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white">
+              {renderDetailItem("ID", `#${detailTarget.id}`)}
+              {renderDetailItem("Slug", detailTarget.slug)}
+              {renderDetailItem("Mô tả", detailTarget.description || "-")}
+              {renderDetailItem("Danh mục cha", detailTarget.parentName || "Danh mục gốc")}
+              {renderDetailItem("Parent ID", detailTarget.parentId ?? "-")}
+              {renderDetailItem("Ảnh", detailTarget.imageUrl || "-")}
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-10 text-slate-500">Không có dữ liệu.</div>
+        )}
+      </DetailModal>
 
       <DeleteConfirmModal
         isOpen={Boolean(deleteTarget)}

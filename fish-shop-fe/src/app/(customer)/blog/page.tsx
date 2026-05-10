@@ -48,27 +48,29 @@ export default async function BlogPage() {
         <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {blogPosts.map((post) => (
             <article key={post.id} className="rounded-[1.75rem] overflow-hidden bg-surface-container-low border border-surface-container-high hover:shadow-xl transition-all">
-              <div className="aspect-video bg-surface-container-high overflow-hidden">
+              <Link href={`/blog/${post.slug || `id-${post.id}`}`} className="block aspect-video bg-surface-container-high overflow-hidden">
                 <img
                   alt={post.title}
                   src={post.thumbnailUrl || "https://via.placeholder.com/800x450?text=Blog"}
                   className="h-full w-full object-cover transition-transform duration-700 hover:scale-110"
                 />
-              </div>
+              </Link>
               <div className="p-5 space-y-3">
                 <div className="flex items-center justify-between gap-3 text-xs font-bold uppercase tracking-[0.3em] text-secondary">
                   <span>{post.authorFullName || post.authorUsername || "Tác giả"}</span>
                   <span>{dateFormat.format(new Date(post.publishedAt || post.createdAt))}</span>
                 </div>
-                <h2 className="font-headline text-2xl font-black text-primary leading-tight">
-                  {post.title}
-                </h2>
+                <Link href={`/blog/${post.slug || `id-${post.id}`}`} className="block">
+                  <h2 className="font-headline text-2xl font-black text-primary leading-tight hover:underline">
+                    {post.title}
+                  </h2>
+                </Link>
                 <p className="text-sm text-on-surface-variant line-clamp-4">
                   {stripHtml(post.content).slice(0, 220) || "Chưa có mô tả bài viết."}
                 </p>
                 <div className="pt-2">
-                  <Link href="/" className="inline-flex items-center gap-1 text-primary font-bold hover:underline">
-                    Quay lại trang chủ <span className="material-symbols-outlined text-sm">arrow_back</span>
+                  <Link href={`/blog/${post.slug || `id-${post.id}`}`} className="inline-flex items-center gap-2 text-primary font-bold hover:underline">
+                    Xem chi tiết <span className="material-symbols-outlined text-sm">arrow_forward</span>
                   </Link>
                 </div>
               </div>

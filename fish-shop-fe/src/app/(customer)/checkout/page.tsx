@@ -1,14 +1,9 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCart } from "@/components/customer/cart/CartContext";
-import {
-  PROVINCES,
-  getProvinceNames,
-  getDistricts,
-  getWards,
-} from "@/data/vietnam-provinces";
+import { API_URL } from "@/app/config/api";
 
 type CustomerProfile = {
   fullName?: string | null;
@@ -20,42 +15,181 @@ const SHIPPING_FEE = 45000;
 
 type PaymentMethod = "COD" | "VNPAY";
 
+type ProvinceOption = {
+  id: number;
+  name: string;
+};
+
+type DistrictOption = {
+  id: number;
+  name: string;
+  provinceId: number;
+};
+
+type WardOption = {
+  code: string;
+  name: string;
+  districtId: number;
+};
+
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, totalPrice, totalItems, clear } = useCart();
+  const searchParams = useSearchParams();
+  const { batches, removeBatches, syncServerCart } = useCart();
+  const batchId = searchParams.get("batchId");
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [profile, setProfile] = useState<CustomerProfile>({});
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("COD");
+  const [provinceId, setProvinceId] = useState<number | null>(null);
   const [province, setProvince] = useState("");
+  const [districtId, setDistrictId] = useState<number | null>(null);
   const [district, setDistrict] = useState("");
+  const [wardCode, setWardCode] = useState("");
   const [ward, setWard] = useState("");
   const [orderNote, setOrderNote] = useState("");
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-
-  const provinceNames = useMemo(() => getProvinceNames(), []);
-  const districts = useMemo(() => getDistricts(province), [province]);
-  const wards = useMemo(() => getWards(province, district), [province, district]);
+  const [provinces, setProvinces] = useState<ProvinceOption[]>([]);
+  const [districts, setDistricts] = useState<DistrictOption[]>([]);
+  const [wards, setWards] = useState<WardOption[]>([]);
 
   useEffect(() => {
-    if (provinceNames.length > 0 && !province) {
-      setProvince(provinceNames[0]);
+    const loadProvinces = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/public/ghn/provinces`, { cache: "no-store" });
+        if (!response.ok) {
+          return;
+        }
+
+        const data = (await response.json()) as Array<{
+          provinceId?: number;
+          provinceName?: string;
+          ProvinceID?: number;
+          ProvinceName?: string;
+        }>;
+        const mapped = data
+          .map((item) => ({
+            id: item.provinceId ?? item.ProvinceID,
+            name: item.provinceName ?? item.ProvinceName,
+          }))
+          .filter((item): item is ProvinceOption => Number.isFinite(item.id) && Boolean(item.name));
+        setProvinces(mapped);
+      } catch {
+        setProvinces([]);
+      }
+    };
+
+    loadProvinces();
+  }, []);
+
+  useEffect(() => {
+    if (provinces.length > 0 && provinceId === null) {
+      setProvinceId(provinces[0].id);
+      setProvince(provinces[0].name);
     }
-  }, [provinceNames, province]);
+  }, [provinces, provinceId]);
+
+  useEffect(() => {
+    const loadDistricts = async () => {
+      if (provinceId === null) {
+        setDistricts([]);
+        setDistrictId(null);
+        setDistrict("");
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/api/public/ghn/districts?provinceId=${provinceId}`, { cache: "no-store" });
+        if (!response.ok) {
+          return;
+        }
+
+        const data = (await response.json()) as Array<{
+          districtId?: number;
+          districtName?: string;
+          provinceId?: number;
+          DistrictID?: number;
+          DistrictName?: string;
+          ProvinceID?: number;
+        }>;
+        const mapped = data
+          .map((item) => ({
+            id: item.districtId ?? item.DistrictID,
+            name: item.districtName ?? item.DistrictName,
+            provinceId: item.provinceId ?? item.ProvinceID,
+          }))
+          .filter(
+            (item): item is DistrictOption =>
+              Number.isFinite(item.id) && Number.isFinite(item.provinceId) && Boolean(item.name)
+          );
+        setDistricts(mapped);
+      } catch {
+        setDistricts([]);
+      }
+    };
+
+    loadDistricts();
+  }, [provinceId]);
 
   useEffect(() => {
     if (districts.length > 0) {
+      setDistrictId(districts[0].id);
       setDistrict(districts[0].name);
     } else {
+      setDistrictId(null);
       setDistrict("");
     }
   }, [districts]);
 
   useEffect(() => {
+    const loadWards = async () => {
+      if (districtId === null) {
+        setWards([]);
+        setWardCode("");
+        setWard("");
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/api/public/ghn/wards?districtId=${districtId}`, { cache: "no-store" });
+        if (!response.ok) {
+          return;
+        }
+
+        const data = (await response.json()) as Array<{
+          wardCode?: string;
+          wardName?: string;
+          districtId?: number;
+          WardCode?: string;
+          WardName?: string;
+          DistrictID?: number;
+        }>;
+        const mapped = data
+          .map((item) => ({
+            code: item.wardCode ?? item.WardCode,
+            name: item.wardName ?? item.WardName,
+            districtId: item.districtId ?? item.DistrictID,
+          }))
+          .filter(
+            (item): item is WardOption =>
+              Boolean(item.code) && Boolean(item.name) && Number.isFinite(item.districtId)
+          );
+        setWards(mapped);
+      } catch {
+        setWards([]);
+      }
+    };
+
+    loadWards();
+  }, [districtId]);
+
+  useEffect(() => {
     if (wards.length > 0) {
+      setWardCode(wards[0].code);
       setWard(wards[0].name);
     } else {
+      setWardCode("");
       setWard("");
     }
   }, [wards]);
@@ -64,7 +198,8 @@ export default function CheckoutPage() {
     const ensureSession = async () => {
       const sessionResponse = await fetch("/api/customer/auth/session");
       if (!sessionResponse.ok) {
-        router.replace("/auth/login?returnUrl=/checkout");
+        const returnUrl = batchId ? `/checkout?batchId=${batchId}` : "/checkout";
+        router.replace(`/auth/login?returnUrl=${encodeURIComponent(returnUrl)}`);
         return;
       }
 
@@ -84,7 +219,7 @@ export default function CheckoutPage() {
     };
 
     ensureSession();
-  }, [router]);
+  }, [router, batchId]);
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
@@ -107,6 +242,14 @@ export default function CheckoutPage() {
       errors.province = "Vui lòng chọn Tỉnh/Thành phố";
     }
 
+    if (!district) {
+      errors.district = "Vui lòng chọn Quận/Huyện";
+    }
+
+    if (!ward) {
+      errors.ward = "Vui lòng chọn Phường/Xã";
+    }
+
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -118,11 +261,38 @@ export default function CheckoutPage() {
       maximumFractionDigits: 0,
     }).format(amount);
 
-  const grandTotal = totalPrice + (totalItems > 0 ? SHIPPING_FEE : 0);
+  const selectedBatches = useMemo(() => {
+    if (!batchId) {
+      return batches;
+    }
+
+    const selected = batches.find((batch) => batch.id === batchId);
+    return selected ? [selected] : [];
+  }, [batchId, batches]);
+
+  const selectedItems = useMemo(
+    () => selectedBatches.flatMap((batch) => batch.items),
+    [selectedBatches]
+  );
+
+  const selectedTotalItems = useMemo(
+    () => selectedBatches.reduce((sum, batch) => sum + batch.items.reduce((sub, item) => sub + item.quantity, 0), 0),
+    [selectedBatches]
+  );
+
+  const selectedTotalPrice = useMemo(
+    () => selectedBatches.reduce((sum, batch) => sum + batch.items.reduce((sub, item) => sub + item.price * item.quantity, 0), 0),
+    [selectedBatches]
+  );
+
+  const grandTotal = selectedTotalPrice + (selectedTotalItems > 0 ? SHIPPING_FEE : 0);
 
   const handleConfirmOrder = async () => {
-    if (items.length === 0) {
-      setError("Giỏ hàng đang trống. Vui lòng thêm sản phẩm trước khi thanh toán.");
+    if (selectedBatches.length === 0) {
+      const message = batchId
+        ? "Không tìm thấy lượt thêm hợp lệ để thanh toán. Vui lòng quay lại giỏ hàng."
+        : "Giỏ hàng đang trống. Vui lòng thêm sản phẩm trước khi thanh toán.";
+      setError(message);
       return;
     }
 
@@ -151,6 +321,8 @@ export default function CheckoutPage() {
         throw new Error(msg || "Không thể cập nhật thông tin khách hàng.");
       }
 
+      await syncServerCart(selectedBatches);
+
       // Create checkout
       const checkoutRes = await fetch("/api/customer/checkout/vnpay", {
         method: "POST",
@@ -178,7 +350,11 @@ export default function CheckoutPage() {
         throw new Error(checkoutData.message || "Không thể tạo đơn hàng.");
       }
 
-      await clear();
+      const paidBatchIds = new Set(selectedBatches.map((batch) => batch.id));
+      const remainingBatches = batches.filter((batch) => !paidBatchIds.has(batch.id));
+
+      removeBatches(Array.from(paidBatchIds));
+      await syncServerCart(remainingBatches);
 
       if (paymentMethod === "VNPAY" && checkoutData.paymentUrl) {
         window.location.href = checkoutData.paymentUrl;
@@ -289,40 +465,73 @@ export default function CheckoutPage() {
                     <label className="text-xs font-semibold text-on-surface-variant">Tỉnh / Thành phố</label>
                     <select
                       className="w-full bg-surface-container-highest border-0 rounded-lg p-3 focus:ring-2 focus:ring-primary/20 transition-all outline-none appearance-none text-sm cursor-pointer"
-                      value={province}
-                      onChange={(e) => setProvince(e.target.value)}
+                      value={provinceId ?? ""}
+                      onChange={(e) => {
+                        if (!e.target.value) {
+                          setProvinceId(null);
+                          setProvince("");
+                          setDistrictId(null);
+                          setDistrict("");
+                          setWardCode("");
+                          setWard("");
+                          return;
+                        }
+
+                        const nextId = Number(e.target.value);
+                        const selected = provinces.find((item) => item.id === nextId);
+
+                        setProvinceId(nextId);
+                        setProvince(selected?.name ?? "");
+
+                        setDistrictId(null);
+                        setDistrict("");
+                        setWardCode("");
+                        setWard("");
+                      }}
                     >
-                      {provinceNames.map((p) => (
-                        <option key={p} value={p}>{p}</option>
+                      {provinces.map((item) => (
+                        <option key={item.id} value={item.id}>{item.name}</option>
                       ))}
                     </select>
+                    {validationErrors.province && <p className="text-error text-xs px-1">{validationErrors.province}</p>}
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-on-surface-variant">Quận / Huyện</label>
                     <select
                       className="w-full bg-surface-container-highest border-0 rounded-lg p-3 focus:ring-2 focus:ring-primary/20 transition-all outline-none appearance-none text-sm cursor-pointer"
-                      value={district}
-                      onChange={(e) => setDistrict(e.target.value)}
+                      value={districtId ?? ""}
+                      onChange={(e) => {
+                        const nextId = Number(e.target.value);
+                        const selected = districts.find((item) => item.id === nextId);
+                        setDistrictId(Number.isFinite(nextId) ? nextId : null);
+                        setDistrict(selected?.name ?? "");
+                      }}
                     >
-                      {districts.map((d) => (
-                        <option key={d.name} value={d.name}>{d.name}</option>
+                      {districts.map((item) => (
+                        <option key={item.id} value={item.id}>{item.name}</option>
                       ))}
                     </select>
+                    {validationErrors.district && <p className="text-error text-xs px-1">{validationErrors.district}</p>}
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-on-surface-variant">Phường / Xã</label>
                     <select
                       className="w-full bg-surface-container-highest border-0 rounded-lg p-3 focus:ring-2 focus:ring-primary/20 transition-all outline-none appearance-none text-sm cursor-pointer"
-                      value={ward}
-                      onChange={(e) => setWard(e.target.value)}
+                      value={wardCode}
+                      onChange={(e) => {
+                        const nextCode = e.target.value;
+                        const selected = wards.find((item) => item.code === nextCode);
+                        setWardCode(nextCode);
+                        setWard(selected?.name ?? "");
+                      }}
                     >
-                      {wards.map((w) => (
-                        <option key={w.name} value={w.name}>{w.name}</option>
+                      {wards.map((item) => (
+                        <option key={item.code} value={item.code}>{item.name}</option>
                       ))}
                     </select>
+                    {validationErrors.ward && <p className="text-error text-xs px-1">{validationErrors.ward}</p>}
                   </div>
                 </div>
-                {validationErrors.province && <p className="text-error text-xs px-1">{validationErrors.province}</p>}
               </div>
 
               {/* Address Detail */}
@@ -453,14 +662,14 @@ export default function CheckoutPage() {
 
             <h2 className="text-lg font-bold mb-5 flex items-center gap-2 relative">
               <span className="material-symbols-outlined">receipt_long</span>
-              Tóm tắt đơn hàng ({totalItems} sản phẩm)
+              Tóm tắt đơn hàng ({selectedTotalItems} sản phẩm)
             </h2>
 
             {/* Product List */}
             <div className="space-y-3 border-b border-white/10 pb-5 mb-5 max-h-72 overflow-y-auto relative">
-              {items.length > 0 ? (
-                items.map((item) => (
-                  <div key={item.id} className="flex items-center gap-3 opacity-90">
+              {selectedItems.length > 0 ? (
+                selectedItems.map((item, index) => (
+                  <div key={`${item.id}-${index}`} className="flex items-center gap-3 opacity-90">
                     <img
                       src={item.imageUrl || "/placeholder-fish.png"}
                       alt={item.name}
@@ -486,14 +695,14 @@ export default function CheckoutPage() {
             <div className="space-y-2.5 mb-6 relative">
               <div className="flex justify-between items-center text-sm opacity-85">
                 <span>Tiền hàng</span>
-                <span>{formatCurrency(totalPrice)}</span>
+                <span>{formatCurrency(selectedTotalPrice)}</span>
               </div>
               <div className="flex justify-between items-center text-sm opacity-85">
                 <span className="flex items-center gap-1">
                   <span className="material-symbols-outlined text-xs">local_shipping</span>
                   Phí vận chuyển
                 </span>
-                <span>{formatCurrency(totalItems > 0 ? SHIPPING_FEE : 0)}</span>
+                <span>{formatCurrency(selectedTotalItems > 0 ? SHIPPING_FEE : 0)}</span>
               </div>
               <div className="flex justify-between items-center pt-3 mt-3 border-t border-white/20">
                 <span className="text-base font-bold">Tổng thanh toán</span>

@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
+import DetailModal from "@/components/common/DetailModal";
 import ToastMessage from "@/components/common/ToastMessage";
 import { ProductService } from "@/services/product.service";
 import { ProductResponse } from "@/types/product";
@@ -18,6 +19,11 @@ const currency = new Intl.NumberFormat("vi-VN", {
   maximumFractionDigits: 0,
 });
 
+const dateTimeFormatter = new Intl.DateTimeFormat("vi-VN", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
 export default function AdminProductsPage() {
   const router = useRouter();
   const pathname = usePathname();
@@ -28,6 +34,9 @@ export default function AdminProductsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<ProductResponse | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [detailTarget, setDetailTarget] = useState<ProductResponse | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [toast, setToast] = useState<{ show: boolean; message: string; variant: "success" | "error" }>({
     show: false,
     message: "",
@@ -125,6 +134,33 @@ export default function AdminProductsPage() {
       setIsDeleting(false);
     }
   };
+
+  const handleOpenDetail = useCallback(async (productId: number) => {
+    setIsDetailOpen(true);
+    setDetailLoading(true);
+    try {
+      const data = await ProductService.getById(productId);
+      setDetailTarget(data);
+    } catch (error) {
+      console.error(error);
+      showToast("Không thể tải chi tiết sản phẩm.", "error");
+      setIsDetailOpen(false);
+    } finally {
+      setDetailLoading(false);
+    }
+  }, [showToast]);
+
+  const handleCloseDetail = () => {
+    setIsDetailOpen(false);
+    setDetailTarget(null);
+  };
+
+  const renderDetailItem = (label: string, value: React.ReactNode) => (
+    <div className="grid grid-cols-[160px_1fr] gap-4 border-b border-slate-100 py-3">
+      <p className="text-xs uppercase tracking-wider text-slate-400">{label}</p>
+      <div className="text-sm text-slate-700">{value ?? "-"}</div>
+    </div>
+  );
 
   return (
     <div className="p-8 space-y-8">
@@ -227,6 +263,14 @@ export default function AdminProductsPage() {
                       </td>
                       <td className="px-8 py-4">
                         <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => handleOpenDetail(product.id)}
+                            className="text-slate-400 hover:text-primary transition-colors"
+                            type="button"
+                            aria-label="Xem chi tiết"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">visibility</span>
+                          </button>
                           <Link
                             href={`/admin/products/${product.id}/edit`}
                             className="text-slate-400 hover:text-primary transition-colors"
@@ -280,6 +324,111 @@ export default function AdminProductsPage() {
           )}
         </div>
       )}
+
+      <DetailModal
+        isOpen={isDetailOpen}
+        onClose={handleCloseDetail}
+        title="Chi tiết sản phẩm"
+        subtitle={detailTarget ? `#${detailTarget.id} - ${detailTarget.name}` : undefined}
+      >
+        {detailLoading ? (
+          <div className="flex items-center justify-center py-10 text-slate-500">
+            Đang tải...
+          </div>
+        ) : detailTarget ? (
+          <div className="space-y-6">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-center gap-4">
+                {detailTarget.images?.length ? (
+                  <img
+                    src={(detailTarget.images.find((item) => item.isMain) ?? detailTarget.images[0]).imageUrl}
+                    alt={detailTarget.name}
+                    className="h-20 w-20 rounded-2xl object-cover border border-slate-200"
+                  />
+                ) : (
+                  <div className="h-20 w-20 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-400">
+                    <span className="material-symbols-outlined text-[20px]">image</span>
+                  </div>
+                )}
+                <div>
+                  <p className="text-lg font-bold text-slate-900">{detailTarget.name}</p>
+                  <p className="text-sm text-slate-500">/{detailTarget.slug}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white">
+              {renderDetailItem("ID", `#${detailTarget.id}`)}
+              {renderDetailItem("SKU", detailTarget.sku || "-")}
+              {renderDetailItem("Giá", currency.format(detailTarget.price))}
+              {renderDetailItem("Tồn kho", detailTarget.stockQuantity)}
+              {renderDetailItem("Trạng thái", detailTarget.isActive ? "Đang bán" : "Ngừng bán")}
+              {renderDetailItem("Ngày tạo", detailTarget.createdAt ? dateTimeFormatter.format(new Date(detailTarget.createdAt)) : "-")}
+              {renderDetailItem("Tóm tắt", detailTarget.summary || "-")}
+              {renderDetailItem("Mô tả", detailTarget.description || "-")}
+              {renderDetailItem(
+                "Danh mục",
+                detailTarget.categories.length ? (
+                  <div className="flex flex-wrap gap-2">
+                    {detailTarget.categories.map((cat) => (
+                      <span
+                        key={cat.id}
+                        className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600"
+                      >
+                        {cat.name}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  "-"
+                ),
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Hình ảnh</p>
+              {detailTarget.images.length ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {detailTarget.images.map((image) => (
+                    <div key={image.id} className="relative">
+                      <img
+                        src={image.imageUrl}
+                        alt={detailTarget.name}
+                        className="h-24 w-full rounded-xl object-cover border border-slate-200"
+                      />
+                      {image.isMain && (
+                        <span className="absolute left-2 top-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-white">
+                          Chính
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500">-</p>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Thuộc tính</p>
+              {detailTarget.attributeValues.length ? (
+                <div className="grid gap-2">
+                  {detailTarget.attributeValues.map((item) => (
+                    <div key={item.attributeId} className="flex items-center justify-between rounded-xl border border-slate-100 px-3 py-2">
+                      <span className="text-sm font-semibold text-slate-700">{item.attributeName}</span>
+                      <span className="text-sm text-slate-500">{item.attrValue}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500">-</p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-10 text-slate-500">Không có dữ liệu.</div>
+        )}
+      </DetailModal>
 
       <DeleteConfirmModal
         isOpen={Boolean(deleteTarget)}

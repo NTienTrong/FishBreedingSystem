@@ -7,7 +7,7 @@ import { useCustomerSession } from "@/components/customer/auth/useCustomerSessio
 
 const Header = () => {
   const pathname = usePathname();
-  const { totalItems, hydrated } = useCart();
+  const { totalBatches, hydrated } = useCart();
   const { session } = useCustomerSession();
 
   const returnUrl = pathname || "/";
@@ -98,9 +98,9 @@ const Header = () => {
               <span className="material-symbols-outlined text-primary text-2xl">
                 shopping_cart
               </span>
-              {hydrated && totalItems > 0 ? (
+              {hydrated && totalBatches > 0 ? (
                 <span className="absolute -top-1 -right-1 bg-tertiary-container text-on-tertiary-container text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                  {totalItems}
+                  {totalBatches}
                 </span>
               ) : null}
             </Link>

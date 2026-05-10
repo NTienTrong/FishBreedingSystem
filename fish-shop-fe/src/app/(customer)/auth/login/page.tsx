@@ -29,6 +29,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [googleReady, setGoogleReady] = useState(false);
   const [nextUrl, setNextUrl] = useState("/");
   const tokenClientRef = useRef<{ requestAccessToken: (options?: { prompt?: string }) => void } | null>(null);
@@ -41,8 +42,18 @@ export default function LoginPage() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!identifier.trim() || !password) {
-      setError("Vui lòng nhập email/username và mật khẩu.");
+    const nextErrors: Record<string, string> = {};
+
+    if (!identifier.trim()) {
+      nextErrors.identifier = "Vui lòng nhập email hoặc tên đăng nhập.";
+    }
+
+    if (!password) {
+      nextErrors.password = "Vui lòng nhập mật khẩu.";
+    }
+
+    setValidationErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
       return;
     }
 
@@ -254,9 +265,17 @@ export default function LoginPage() {
                   placeholder="example@fishsync.com"
                   type="text"
                   value={identifier}
-                  onChange={(event) => setIdentifier(event.target.value)}
+                  onChange={(event) => {
+                    setIdentifier(event.target.value);
+                    if (validationErrors.identifier) {
+                      setValidationErrors((prev) => ({ ...prev, identifier: "" }));
+                    }
+                  }}
                 />
               </div>
+              {validationErrors.identifier ? (
+                <p className="text-error text-xs px-1">{validationErrors.identifier}</p>
+              ) : null}
             </div>
 
             {/* Password */}
@@ -275,7 +294,12 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   type="password"
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    if (validationErrors.password) {
+                      setValidationErrors((prev) => ({ ...prev, password: "" }));
+                    }
+                  }}
                 />
                 <button
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-outline hover:text-primary transition-colors"
@@ -284,6 +308,9 @@ export default function LoginPage() {
                   <span className="material-symbols-outlined">visibility</span>
                 </button>
               </div>
+              {validationErrors.password ? (
+                <p className="text-error text-xs px-1">{validationErrors.password}</p>
+              ) : null}
             </div>
 
             {/* Secondary Actions */}

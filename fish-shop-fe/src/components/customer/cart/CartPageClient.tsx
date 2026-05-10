@@ -10,9 +10,9 @@ const currency = new Intl.NumberFormat("vi-VN", {
 });
 
 export default function CartPageClient() {
-  const { items, totalItems, totalPrice, updateQuantity, removeItem } = useCart();
+  const { batches, totalBatches, totalPrice, removeBatch } = useCart();
 
-  if (items.length === 0) {
+  if (batches.length === 0) {
     return (
       <main className="px-6 max-w-7xl mx-auto pb-20">
         <section className="mb-12">
@@ -41,72 +41,81 @@ export default function CartPageClient() {
           Giỏ hàng của bạn
         </h1>
         <p className="text-on-surface-variant max-w-xl text-lg">
-          Bạn đang có {totalItems} sản phẩm trong giỏ hàng.
+          Bạn đang có {totalBatches} lượt thêm trong giỏ hàng.
         </p>
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
         <div className="lg:col-span-8 space-y-6">
-          <div className="hidden md:grid grid-cols-12 px-6 py-4 text-sm font-bold text-on-surface-variant tracking-widest uppercase">
-            <div className="col-span-6">Sản phẩm</div>
-            <div className="col-span-2 text-center">Giá</div>
-            <div className="col-span-2 text-center">Số lượng</div>
-            <div className="col-span-2 text-right">Tổng</div>
-          </div>
+          {batches.map((batch, index) => {
+            const batchTotalItems = batch.items.reduce((sum, item) => sum + item.quantity, 0);
+            const batchTotalPrice = batch.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-          {items.map((item) => (
-            <div key={item.id} className="bg-surface-container-low rounded-xl p-6 transition-all hover:bg-surface-container-high group">
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-                <div className="col-span-1 md:col-span-6 flex gap-6 items-center">
-                  <div className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 bg-surface-container-highest">
-                    <img
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      src={item.imageUrl}
-                      alt={item.name}
-                    />
-                  </div>
+            return (
+              <div key={batch.id} className="bg-surface-container-low rounded-2xl p-6 space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                   <div>
-                    <h3 className="font-display font-bold text-xl text-primary mb-1">{item.name}</h3>
-                    <p className="text-sm text-on-surface-variant font-medium">Mã: {item.sku || "Đang cập nhật"}</p>
-                    <button
-                      className="mt-2 text-xs font-bold text-secondary hover:text-primary"
-                      type="button"
-                      onClick={() => removeItem(item.id)}
+                    <h3 className="font-display font-black text-2xl text-primary tracking-tight">
+                      Lượt thêm #{index + 1}
+                    </h3>
+                    <p className="text-sm text-on-surface-variant font-medium">
+                      {batchTotalItems} sản phẩm · {currency.format(batchTotalPrice)}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <Link
+                      href={`/checkout?batchId=${batch.id}`}
+                      className="inline-flex items-center gap-2 rounded-full bg-primary text-white px-5 py-2 text-sm font-bold hover:bg-primary-container transition-colors"
                     >
-                      Xóa khỏi giỏ
+                      Thanh toán lượt này
+                      <span className="material-symbols-outlined text-base">payments</span>
+                    </Link>
+                    <button
+                      className="inline-flex items-center gap-2 rounded-full bg-surface-container-highest text-primary px-5 py-2 text-sm font-bold hover:bg-surface-container-high transition-colors"
+                      type="button"
+                      onClick={() => removeBatch(batch.id)}
+                    >
+                      Xóa lượt này
+                      <span className="material-symbols-outlined text-base">delete</span>
                     </button>
                   </div>
                 </div>
-                <div className="col-span-1 md:col-span-2 text-center">
-                  <span className="text-on-surface font-semibold">{currency.format(item.price)}</span>
-                </div>
-                <div className="col-span-1 md:col-span-2 flex justify-center">
-                  <div className="flex items-center bg-surface-container-highest rounded-full px-3 py-1 gap-4">
-                    <button
-                      className="hover:text-primary transition-colors"
-                      type="button"
-                      onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                    >
-                      <span className="material-symbols-outlined text-lg leading-none">remove</span>
-                    </button>
-                    <span className="font-bold text-primary w-4 text-center">{item.quantity}</span>
-                    <button
-                      className="hover:text-primary transition-colors"
-                      type="button"
-                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                    >
-                      <span className="material-symbols-outlined text-lg leading-none">add</span>
-                    </button>
-                  </div>
-                </div>
-                <div className="col-span-1 md:col-span-2 text-right">
-                  <span className="text-primary font-extrabold text-lg">
-                    {currency.format(item.price * item.quantity)}
-                  </span>
+
+                <div className="space-y-4">
+                  {batch.items.map((item) => (
+                    <div key={`${batch.id}-${item.id}`} className="bg-surface-container-highest rounded-xl p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                        <div className="col-span-1 md:col-span-7 flex gap-4 items-center">
+                          <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-surface-container-high">
+                            <img
+                              className="w-full h-full object-cover"
+                              src={item.imageUrl}
+                              alt={item.name}
+                            />
+                          </div>
+                          <div>
+                            <h4 className="font-display font-bold text-lg text-primary mb-1">{item.name}</h4>
+                            <p className="text-sm text-on-surface-variant font-medium">Mã: {item.sku || "Đang cập nhật"}</p>
+                          </div>
+                        </div>
+                        <div className="col-span-1 md:col-span-2 text-center">
+                          <span className="text-on-surface font-semibold">{currency.format(item.price)}</span>
+                        </div>
+                        <div className="col-span-1 md:col-span-1 text-center">
+                          <span className="text-on-surface-variant font-semibold">x{item.quantity}</span>
+                        </div>
+                        <div className="col-span-1 md:col-span-2 text-right">
+                          <span className="text-primary font-extrabold text-lg">
+                            {currency.format(item.price * item.quantity)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           <div className="flex flex-col md:flex-row gap-6 justify-between items-center pt-6">
             <Link href="/products" className="flex items-center gap-2 text-secondary font-bold hover:gap-4 transition-all">

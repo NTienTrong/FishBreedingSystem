@@ -17,8 +17,9 @@ export default function BuyNowButton({ productId, name, sku, price, imageUrl, cl
   const { addItem } = useCart();
 
   const handleClick = () => {
-    addItem({ id: productId, name, sku, price, imageUrl }, 1);
-    router.push("/checkout");
+    const batchId = addItem({ id: productId, name, sku, price, imageUrl }, 1);
+    const nextUrl = batchId ? `/checkout?batchId=${batchId}` : "/checkout";
+    router.push(nextUrl);
   };
 
   return (

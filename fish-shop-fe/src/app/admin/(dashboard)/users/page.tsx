@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
+import DetailModal from "@/components/common/DetailModal";
 import ToastMessage from "@/components/common/ToastMessage";
 import { UserService } from "@/services/user.service";
 import { UserResponse } from "@/types/user";
@@ -29,6 +30,9 @@ export default function AdminUsersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<UserResponse | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [detailTarget, setDetailTarget] = useState<UserResponse | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [toast, setToast] = useState<{ show: boolean; message: string; variant: "success" | "error" }>({
     show: false,
     message: "",
@@ -132,6 +136,33 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleOpenDetail = useCallback(async (userId: number) => {
+    setIsDetailOpen(true);
+    setDetailLoading(true);
+    try {
+      const data = await UserService.getById(userId);
+      setDetailTarget(data);
+    } catch (error) {
+      console.error(error);
+      showToast("Không thể tải chi tiết người dùng.", "error");
+      setIsDetailOpen(false);
+    } finally {
+      setDetailLoading(false);
+    }
+  }, [showToast]);
+
+  const handleCloseDetail = () => {
+    setIsDetailOpen(false);
+    setDetailTarget(null);
+  };
+
+  const renderDetailItem = (label: string, value: React.ReactNode) => (
+    <div className="grid grid-cols-[160px_1fr] gap-4 border-b border-slate-100 py-3">
+      <p className="text-xs uppercase tracking-wider text-slate-400">{label}</p>
+      <div className="text-sm text-slate-700">{value ?? "-"}</div>
+    </div>
+  );
+
   return (
     <div className="p-8 space-y-8">
       <ToastMessage show={toast.show} message={toast.message} variant={toast.variant} />
@@ -232,6 +263,14 @@ export default function AdminUsersPage() {
                     </td>
                     <td className="px-8 py-4">
                       <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => handleOpenDetail(user.id)}
+                          className="text-slate-400 hover:text-primary transition-colors"
+                          type="button"
+                          aria-label="Xem chi tiết"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">visibility</span>
+                        </button>
                         <Link href={`/admin/users/${user.id}/edit`} className="text-slate-400 hover:text-primary transition-colors">
                           <span className="material-symbols-outlined text-[18px]">edit</span>
                         </Link>
@@ -281,6 +320,39 @@ export default function AdminUsersPage() {
           )}
         </div>
       )}
+
+      <DetailModal
+        isOpen={isDetailOpen}
+        onClose={handleCloseDetail}
+        title="Chi tiết người dùng"
+        subtitle={detailTarget ? `#${detailTarget.id} - ${detailTarget.fullName}` : undefined}
+      >
+        {detailLoading ? (
+          <div className="flex items-center justify-center py-10 text-slate-500">Đang tải...</div>
+        ) : detailTarget ? (
+          <div className="space-y-6">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-lg font-bold text-slate-900">{detailTarget.fullName}</p>
+              <p className="text-sm text-slate-500">@{detailTarget.username}</p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white">
+              {renderDetailItem("ID", `#${detailTarget.id}`)}
+              {renderDetailItem("Username", detailTarget.username)}
+              {renderDetailItem("Họ tên", detailTarget.fullName)}
+              {renderDetailItem("Email", detailTarget.email)}
+              {renderDetailItem("Số điện thoại", detailTarget.phone || "-")}
+              {renderDetailItem("Địa chỉ", detailTarget.address || "-")}
+              {renderDetailItem("Vai trò", detailTarget.role?.toUpperCase() || "-")}
+              {renderDetailItem("Provider", detailTarget.provider || "-")}
+              {renderDetailItem("Trạng thái", detailTarget.isActive ? "Đang hoạt động" : "Đã khóa")}
+              {renderDetailItem("Ngày tạo", detailTarget.createdAt ? dateFormatter.format(new Date(detailTarget.createdAt)) : "-")}
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-10 text-slate-500">Không có dữ liệu.</div>
+        )}
+      </DetailModal>
 
       <DeleteConfirmModal
         isOpen={Boolean(deleteTarget)}

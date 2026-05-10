@@ -12,22 +12,31 @@ export type CartItem = {
   quantity: number;
 };
 
-type CartContextValue = {
+export type CartBatch = {
+  id: string;
+  createdAt: string;
   items: CartItem[];
+};
+
+type CartContextValue = {
+  batches: CartBatch[];
+  totalBatches: number;
   totalItems: number;
   totalPrice: number;
   hydrated: boolean;
-  addItem: (item: Omit<CartItem, "quantity">, quantity?: number) => void;
-  updateQuantity: (id: number, quantity: number) => void;
-  removeItem: (id: number) => void;
+  addItem: (item: Omit<CartItem, "quantity">, quantity?: number) => string;
+  removeBatch: (batchId: string) => void;
+  removeBatches: (batchIds: string[]) => void;
+  getBatchById: (batchId: string) => CartBatch | undefined;
+  syncServerCart: (selectedBatches?: CartBatch[]) => Promise<void>;
   clear: () => Promise<void>;
 };
 
-const CART_STORAGE_KEY = "cartItems";
+const CART_STORAGE_KEY = "cartBatches";
 
 const CartContext = createContext<CartContextValue | null>(null);
 
-function readFromStorage(): CartItem[] {
+function readFromStorage(): CartBatch[] {
   if (typeof window === "undefined") {
     return [];
   }
@@ -38,34 +47,52 @@ function readFromStorage(): CartItem[] {
       return [];
     }
 
-    const parsed = JSON.parse(raw) as CartItem[];
+    const parsed = JSON.parse(raw) as CartBatch[];
     if (!Array.isArray(parsed)) {
       return [];
     }
 
-    return parsed.filter(
-      (item) =>
-        typeof item?.id === "number"
-        && typeof item?.price === "number"
-        && typeof item?.quantity === "number"
-        && item.quantity > 0
-    );
+    return parsed
+      .map((batch) => {
+        if (!batch || typeof batch.id !== "string" || !Array.isArray(batch.items)) {
+          return null;
+        }
+
+        const items = batch.items.filter(
+          (item) =>
+            typeof item?.id === "number"
+            && typeof item?.price === "number"
+            && typeof item?.quantity === "number"
+            && item.quantity > 0
+        );
+
+        if (items.length === 0) {
+          return null;
+        }
+
+        return {
+          id: batch.id,
+          createdAt: typeof batch.createdAt === "string" ? batch.createdAt : new Date().toISOString(),
+          items,
+        } satisfies CartBatch;
+      })
+      .filter((batch): batch is CartBatch => batch !== null);
   } catch {
     return [];
   }
 }
 
-function writeToStorage(items: CartItem[]) {
+function writeToStorage(batches: CartBatch[]) {
   if (typeof window === "undefined") {
     return;
   }
 
-  if (items.length === 0) {
+  if (batches.length === 0) {
     window.localStorage.removeItem(CART_STORAGE_KEY);
     return;
   }
 
-  window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+  window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(batches));
 }
 
 function clearStorage() {
@@ -111,23 +138,44 @@ function normalizeApiItems(payload: unknown): CartItem[] {
   return mapped.filter((item): item is CartItem => item !== null);
 }
 
+function buildBatchId() {
+  return `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+}
+
+function aggregateItems(batches: CartBatch[]): CartItem[] {
+  const map = new Map<number, CartItem>();
+
+  batches.forEach((batch) => {
+    batch.items.forEach((item) => {
+      const existing = map.get(item.id);
+      if (existing) {
+        existing.quantity += item.quantity;
+      } else {
+        map.set(item.id, { ...item });
+      }
+    });
+  });
+
+  return Array.from(map.values());
+}
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>([]);
+  const [batches, setBatches] = useState<CartBatch[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const { session, loading: sessionLoading } = useCustomerSession();
 
   useEffect(() => {
-    setItems(readFromStorage());
+    setBatches(readFromStorage());
     setHydrated(true);
   }, []);
 
   useEffect(() => {
-    if (!hydrated || session.authenticated) {
+    if (!hydrated) {
       return;
     }
 
-    writeToStorage(items);
-  }, [hydrated, items, session.authenticated]);
+    writeToStorage(batches);
+  }, [hydrated, batches]);
 
   useEffect(() => {
     if (sessionLoading) {
@@ -135,173 +183,155 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (!session.authenticated) {
-      setItems(readFromStorage());
+      setBatches(readFromStorage());
       setHydrated(true);
       return;
     }
 
     let cancelled = false;
 
-    const syncCart = async () => {
+    const loadServerCart = async () => {
+      if (batches.length > 0) {
+        return;
+      }
+
       setHydrated(false);
-      const localItems = readFromStorage();
-      let syncSucceeded = false;
 
       try {
-        let response: Response;
-
-        if (localItems.length > 0) {
-          response = await fetch("/api/customer/cart/sync", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              items: localItems.map((item) => ({
-                productId: item.id,
-                quantity: item.quantity,
-              })),
-            }),
-          });
-          syncSucceeded = response.ok;
-        } else {
-          response = await fetch("/api/customer/cart", { cache: "no-store" });
-          syncSucceeded = response.ok;
-        }
-
+        const response = await fetch("/api/customer/cart", { cache: "no-store" });
         const data = await response.json().catch(() => []);
-        if (!cancelled) {
-          setItems(normalizeApiItems(data));
-        }
-      } catch {
-        if (!cancelled && localItems.length > 0) {
-          setItems(localItems);
+        if (!cancelled && response.ok) {
+          const normalized = normalizeApiItems(data);
+          if (normalized.length > 0) {
+            setBatches([
+              {
+                id: buildBatchId(),
+                createdAt: new Date().toISOString(),
+                items: normalized,
+              },
+            ]);
+          }
         }
       } finally {
         if (!cancelled) {
-          if (syncSucceeded) {
-            clearStorage();
-          }
           setHydrated(true);
         }
       }
     };
 
-    void syncCart();
+    void loadServerCart();
 
     return () => {
       cancelled = true;
     };
-  }, [session.authenticated, sessionLoading]);
+  }, [session.authenticated, sessionLoading, batches.length]);
+
+  const totalBatches = useMemo(() => batches.length, [batches.length]);
 
   const totalItems = useMemo(
-    () => items.reduce((sum, item) => sum + item.quantity, 0),
-    [items]
+    () => batches.reduce((sum, batch) => sum + batch.items.reduce((sub, item) => sub + item.quantity, 0), 0),
+    [batches]
   );
 
   const totalPrice = useMemo(
-    () => items.reduce((sum, item) => sum + item.price * item.quantity, 0),
-    [items]
+    () => batches.reduce((sum, batch) => sum + batch.items.reduce((sub, item) => sub + item.price * item.quantity, 0), 0),
+    [batches]
   );
 
   const addItem = (item: Omit<CartItem, "quantity">, quantity = 1) => {
     if (quantity <= 0) {
-      return;
+      return "";
     }
 
-    if (!session.authenticated || sessionLoading) {
-      setItems((prev) => {
-        const existing = prev.find((entry) => entry.id === item.id);
-        if (existing) {
-          return prev.map((entry) =>
-            entry.id === item.id
-              ? { ...entry, quantity: entry.quantity + quantity }
-              : entry
-          );
-        }
+    const batchId = buildBatchId();
+    const createdAt = new Date().toISOString();
 
-        return [...prev, { ...item, quantity }];
-      });
-      return;
-    }
+    setBatches((prev) => [
+      ...prev,
+      {
+        id: batchId,
+        createdAt,
+        items: [{ ...item, quantity }],
+      },
+    ]);
 
-    void (async () => {
-      const response = await fetch("/api/customer/cart", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId: item.id, quantity }),
-      });
-
-      const data = await response.json().catch(() => []);
-      if (response.ok) {
-        setItems(normalizeApiItems(data));
-      }
-    })();
+    return batchId;
   };
 
-  const updateQuantity = (id: number, quantity: number) => {
+  const removeBatch = (batchId: string) => {
+    setBatches((prev) => prev.filter((batch) => batch.id !== batchId));
+  };
+
+  const removeBatches = (batchIds: string[]) => {
+    if (batchIds.length === 0) {
+      return;
+    }
+
+    setBatches((prev) => prev.filter((batch) => !batchIds.includes(batch.id)));
+  };
+
+  const getBatchById = (batchId: string) => batches.find((batch) => batch.id === batchId);
+
+  const syncServerCart = async (selectedBatches?: CartBatch[]) => {
     if (!session.authenticated || sessionLoading) {
-      if (quantity <= 0) {
-        setItems((prev) => prev.filter((entry) => entry.id !== id));
+      return;
+    }
+
+    const batchesToSync = selectedBatches ?? batches;
+    const aggregated = aggregateItems(batchesToSync);
+
+    try {
+      await fetch("/api/customer/cart", { method: "DELETE" });
+
+      if (aggregated.length === 0) {
         return;
       }
 
-      setItems((prev) =>
-        prev.map((entry) => (entry.id === id ? { ...entry, quantity } : entry))
-      );
-      return;
-    }
-
-    void (async () => {
-      const response = await fetch(`/api/customer/cart/${id}`, {
-        method: "PUT",
+      await fetch("/api/customer/cart/sync", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quantity }),
+        body: JSON.stringify({
+          items: aggregated.map((item) => ({
+            productId: item.id,
+            quantity: item.quantity,
+          })),
+        }),
       });
-
-      const data = await response.json().catch(() => []);
-      if (response.ok) {
-        setItems(normalizeApiItems(data));
-      }
-    })();
-  };
-
-  const removeItem = (id: number) => {
-    if (!session.authenticated || sessionLoading) {
-      setItems((prev) => prev.filter((entry) => entry.id !== id));
-      return;
+    } catch {
+      // Best-effort sync.
     }
-
-    void (async () => {
-      const response = await fetch(`/api/customer/cart/${id}`, { method: "DELETE" });
-      const data = await response.json().catch(() => []);
-      if (response.ok) {
-        setItems(normalizeApiItems(data));
-      }
-    })();
   };
 
   const clear = async (): Promise<void> => {
+    setBatches([]);
+    clearStorage();
+
     if (!session.authenticated || sessionLoading) {
-      setItems([]);
-      clearStorage();
       return;
     }
 
     try {
-      const response = await fetch("/api/customer/cart", { method: "DELETE" });
-      const data = await response.json().catch(() => []);
-      if (response.ok) {
-        setItems(normalizeApiItems(data));
-      }
-      clearStorage();
+      await fetch("/api/customer/cart", { method: "DELETE" });
     } catch {
-      setItems([]);
-      clearStorage();
+      // Ignore server clear errors.
     }
   };
 
   const value = useMemo(
-    () => ({ items, totalItems, totalPrice, hydrated, addItem, updateQuantity, removeItem, clear }),
-    [items, totalItems, totalPrice, hydrated]
+    () => ({
+      batches,
+      totalBatches,
+      totalItems,
+      totalPrice,
+      hydrated,
+      addItem,
+      removeBatch,
+      removeBatches,
+      getBatchById,
+      syncServerCart,
+      clear,
+    }),
+    [batches, totalBatches, totalItems, totalPrice, hydrated]
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

@@ -17,6 +17,7 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [nextUrl, setNextUrl] = useState("/");
 
   const welcomeMessage = `Chào mừng ${fullName.trim()} đến với FishSync! Khám phá cá giống ngay.`;
@@ -29,23 +30,34 @@ export default function RegisterPage() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
+    const nextErrors: Record<string, string> = {};
+    const emailValue = email.trim();
+    const passwordPolicy = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{6,}$/;
+
     if (!fullName.trim()) {
-      setError("Vui lòng nhập họ tên.");
-      return;
+      nextErrors.fullName = "Vui lòng nhập họ tên.";
     }
 
-    if (!email.trim()) {
-      setError("Vui lòng nhập email.");
-      return;
+    if (!emailValue) {
+      nextErrors.email = "Vui lòng nhập email.";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+      nextErrors.email = "Email không hợp lệ.";
     }
 
-    if (!password || password.length < 6) {
-      setError("Mật khẩu phải có ít nhất 6 ký tự.");
-      return;
+    if (!password) {
+      nextErrors.password = "Vui lòng nhập mật khẩu.";
+    } else if (!passwordPolicy.test(password)) {
+      nextErrors.password = "Mật khẩu tối thiểu 6 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.";
     }
 
-    if (password !== confirmPassword) {
-      setError("Mật khẩu xác nhận không khớp.");
+    if (!confirmPassword) {
+      nextErrors.confirmPassword = "Vui lòng xác nhận mật khẩu.";
+    } else if (password !== confirmPassword) {
+      nextErrors.confirmPassword = "Mật khẩu xác nhận không khớp.";
+    }
+
+    setValidationErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
       return;
     }
 
@@ -171,9 +183,17 @@ export default function RegisterPage() {
                     placeholder="Nguyễn Văn A"
                     type="text"
                     value={fullName}
-                    onChange={(event) => setFullName(event.target.value)}
+                    onChange={(event) => {
+                      setFullName(event.target.value);
+                      if (validationErrors.fullName) {
+                        setValidationErrors((prev) => ({ ...prev, fullName: "" }));
+                      }
+                    }}
                   />
                 </div>
+                {validationErrors.fullName ? (
+                  <p className="text-error text-xs px-1">{validationErrors.fullName}</p>
+                ) : null}
               </div>
 
               {/* Email */}
@@ -192,9 +212,17 @@ export default function RegisterPage() {
                     placeholder="example@fishsync.com"
                     type="email"
                     value={email}
-                    onChange={(event) => setEmail(event.target.value)}
+                    onChange={(event) => {
+                      setEmail(event.target.value);
+                      if (validationErrors.email) {
+                        setValidationErrors((prev) => ({ ...prev, email: "" }));
+                      }
+                    }}
                   />
                 </div>
+                {validationErrors.email ? (
+                  <p className="text-error text-xs px-1">{validationErrors.email}</p>
+                ) : null}
               </div>
 
               {/* Phone Number */}
@@ -256,9 +284,17 @@ export default function RegisterPage() {
                       placeholder="••••••••"
                       type="password"
                       value={password}
-                      onChange={(event) => setPassword(event.target.value)}
+                      onChange={(event) => {
+                        setPassword(event.target.value);
+                        if (validationErrors.password) {
+                          setValidationErrors((prev) => ({ ...prev, password: "" }));
+                        }
+                      }}
                     />
                   </div>
+                  {validationErrors.password ? (
+                    <p className="text-error text-xs px-1">{validationErrors.password}</p>
+                  ) : null}
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider" htmlFor="confirm_password">
@@ -275,9 +311,17 @@ export default function RegisterPage() {
                       placeholder="••••••••"
                       type="password"
                       value={confirmPassword}
-                      onChange={(event) => setConfirmPassword(event.target.value)}
+                      onChange={(event) => {
+                        setConfirmPassword(event.target.value);
+                        if (validationErrors.confirmPassword) {
+                          setValidationErrors((prev) => ({ ...prev, confirmPassword: "" }));
+                        }
+                      }}
                     />
                   </div>
+                  {validationErrors.confirmPassword ? (
+                    <p className="text-error text-xs px-1">{validationErrors.confirmPassword}</p>
+                  ) : null}
                 </div>
               </div>
 

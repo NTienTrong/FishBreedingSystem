@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/components/customer/cart/CartContext";
 import LogoutConfirmModal from "@/components/common/LogoutConfirmModal";
+import ToastMessage from "@/components/common/ToastMessage";
 
 type CustomerProfile = {
   fullName?: string | null;
@@ -93,6 +94,11 @@ export default function ProfilePage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [toast, setToast] = useState<{ show: boolean; message: string; variant: "success" | "error" }>({
+    show: false,
+    message: "",
+    variant: "success",
+  });
   const [addressForm, setAddressForm] = useState({
     label: "Nhà",
     phone: "",
@@ -102,6 +108,13 @@ export default function ProfilePage() {
 
   const isLocalAccount = profile.provider?.toUpperCase() === "LOCAL";
   const isGoogleAccount = profile.provider?.toUpperCase() === "GOOGLE";
+
+  const showToast = useCallback((message: string, variant: "success" | "error") => {
+    setToast({ show: true, message, variant });
+    window.setTimeout(() => {
+      setToast((prev) => ({ ...prev, show: false }));
+    }, 2500);
+  }, []);
 
   useEffect(() => {
     const ensureSession = async () => {
@@ -198,6 +211,8 @@ export default function ProfilePage() {
         const message = await response.text();
         throw new Error(message || "Không thể cập nhật thông tin.");
       }
+
+      showToast("Cập nhật hồ sơ thành công.", "success");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Không thể cập nhật thông tin.";
       setError(message);
@@ -341,6 +356,7 @@ export default function ProfilePage() {
 
   return (
     <main className="px-6 max-w-7xl mx-auto pb-20">
+      <ToastMessage show={toast.show} message={toast.message} variant={toast.variant} />
       <header className="mb-10">
         <nav className="flex items-center gap-2 text-label-md text-on-surface-variant mb-4">
           <Link href="/" className="hover:text-primary transition-colors">Trang chủ</Link>

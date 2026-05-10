@@ -50,6 +50,31 @@ public class BlogPostService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "publicBlogBySlug", key = "#slug")
+    public BlogPostResponse getPublicBlogPostBySlug(String slug) {
+        String normalizedSlug = trimToNull(slug);
+        if (normalizedSlug == null) {
+            throw new NotFoundException("Blog post slug is required");
+        }
+
+        BlogPost blogPost = blogPostRepository.findBySlugAndIsPublishedTrue(normalizedSlug)
+                .orElseThrow(() -> new NotFoundException("Blog post not found with slug: " + normalizedSlug));
+
+        return BlogPostResponse.fromEntity(blogPost);
+    }
+
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "publicBlogById", key = "#id")
+    public BlogPostResponse getPublicBlogPostById(Long id) {
+        blogPostValidator.validateId(id);
+
+        BlogPost blogPost = blogPostRepository.findByIdAndIsPublishedTrue(id)
+                .orElseThrow(() -> new NotFoundException("Blog post not found with id: " + id));
+
+        return BlogPostResponse.fromEntity(blogPost);
+    }
+
+    @Transactional(readOnly = true)
     @Cacheable(cacheNames = "blogById", key = "#id")
     public BlogPostResponse getBlogPostById(Long id) {
         blogPostValidator.validateId(id);
@@ -61,7 +86,7 @@ public class BlogPostService {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = {"adminBlogPosts", "publicBlogPosts", "blogById"}, allEntries = true)
+    @CacheEvict(cacheNames = {"adminBlogPosts", "publicBlogPosts", "blogById", "publicBlogBySlug", "publicBlogById"}, allEntries = true)
     public BlogPostResponse createBlogPost(BlogPostRequest request) {
         String title = request.getTitle().trim();
         String content = request.getContent().trim();
@@ -93,7 +118,7 @@ public class BlogPostService {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = {"adminBlogPosts", "publicBlogPosts", "blogById"}, allEntries = true)
+    @CacheEvict(cacheNames = {"adminBlogPosts", "publicBlogPosts", "blogById", "publicBlogBySlug", "publicBlogById"}, allEntries = true)
     public BlogPostResponse updateBlogPost(Long id, BlogPostRequest request) {
         blogPostValidator.validateId(id);
 
@@ -137,7 +162,7 @@ public class BlogPostService {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = {"adminBlogPosts", "publicBlogPosts", "blogById"}, allEntries = true)
+    @CacheEvict(cacheNames = {"adminBlogPosts", "publicBlogPosts", "blogById", "publicBlogBySlug", "publicBlogById"}, allEntries = true)
     public void deleteBlogPost(Long id) {
         blogPostValidator.validateId(id);
 
