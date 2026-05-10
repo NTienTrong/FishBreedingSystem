@@ -42,6 +42,7 @@ export default function Sidebar() {
   const menuItems = [
     { name: "Dashboard", href: "/admin", icon: "dashboard" },
     { name: "Products", href: "/admin/products", icon: "inventory_2" },
+    { name: "Inventory", href: "/admin/inventory", icon: "inventory" },
     { name: "Categories", href: "/admin/categories", icon: "category" },
     { name: 'Attributes', href: "/admin/attributes", icon: "tune" },
     { name: "Orders", href: "/admin/orders", icon: "shopping_cart" },

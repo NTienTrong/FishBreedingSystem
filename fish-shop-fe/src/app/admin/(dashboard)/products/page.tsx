@@ -258,7 +258,7 @@ export default function AdminProductsPage() {
                           className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold ${product.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"
                             }`}
                         >
-                          {product.isActive ? "Đang bán" : "Ngừng bán"}
+                          {product.isActive ? "Đang kinh doanh" : "Ngừng kinh doanh"}
                         </span>
                       </td>
                       <td className="px-8 py-4">
@@ -362,7 +362,7 @@ export default function AdminProductsPage() {
               {renderDetailItem("SKU", detailTarget.sku || "-")}
               {renderDetailItem("Giá", currency.format(detailTarget.price))}
               {renderDetailItem("Tồn kho", detailTarget.stockQuantity)}
-              {renderDetailItem("Trạng thái", detailTarget.isActive ? "Đang bán" : "Ngừng bán")}
+              {renderDetailItem("Trạng thái", detailTarget.isActive ? "Đang kinh doanh" : "Ngừng kinh doanh")}
               {renderDetailItem("Ngày tạo", detailTarget.createdAt ? dateTimeFormatter.format(new Date(detailTarget.createdAt)) : "-")}
               {renderDetailItem("Tóm tắt", detailTarget.summary || "-")}
               {renderDetailItem("Mô tả", detailTarget.description || "-")}

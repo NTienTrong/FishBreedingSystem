@@ -37,6 +37,7 @@ public class VnpayCheckoutService {
     private final CartItemRepository cartItemRepository;
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
+    private final InventoryService inventoryService;
 
     @Value("${app.vnpay.tmn-code:}")
     private String tmnCode;
@@ -78,6 +79,13 @@ public class VnpayCheckoutService {
         List<CartItem> cartItems = cartItemRepository.findByUserIdWithProduct(user.getId());
         if (cartItems.isEmpty()) {
             throw new BadRequestException("Giỏ hàng trống");
+        }
+
+        for (CartItem cartItem : cartItems) {
+            boolean available = inventoryService.checkAvailability(cartItem.getProduct().getId(), cartItem.getQuantity());
+            if (!available) {
+                throw new BadRequestException("Sản phẩm " + cartItem.getProduct().getName() + " không đủ tồn kho");
+            }
         }
 
         BigDecimal totalAmount = cartItems.stream()
@@ -224,13 +232,38 @@ public class VnpayCheckoutService {
 
         boolean success = "00".equals(params.get("vnp_ResponseCode"));
 
-        order.setPaymentStatus(success ? 1 : 2);
-        order.setOrderStatus(success ? "paid" : "failed");
+        if (success) {
+            if (order.getPaymentStatus() != null && order.getPaymentStatus() == 1) {
+                return new CallbackResult(true, orderCode, "Thanh toán đã được ghi nhận", null);
+            }
+
+            try {
+                List<OrderItem> items = orderItemRepository.findByOrder_Id(order.getId());
+                for (OrderItem item : items) {
+                    inventoryService.deductStock(
+                        item.getProduct().getId(),
+                        item.getQuantity(),
+                        "Đơn hàng " + order.getOrderCode());
+                }
+
+                order.setPaymentStatus(1);
+                order.setOrderStatus("paid");
+            } catch (BadRequestException ex) {
+                order.setPaymentStatus(2);
+                order.setOrderStatus("stock_issue");
+                orderRepository.save(order);
+                return new CallbackResult(false, orderCode,
+                        "Thanh toán thành công nhưng tồn kho không đủ", null);
+            }
+        } else {
+            order.setPaymentStatus(2);
+            order.setOrderStatus("failed");
+        }
 
         orderRepository.save(order);
 
         return new CallbackResult(success, orderCode,
-                success ? "Thanh toán thành công" : "Thanh toán thất bại", null);
+            success ? "Thanh toán thành công" : "Thanh toán thất bại", null);
     }
 
     // ================== SIGNATURE ==================

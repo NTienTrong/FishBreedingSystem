@@ -76,18 +76,24 @@ export default async function Home() {
     .slice(0, 3);
 
   return (
-    <main className="px-6 pb-24">
-      <section className="max-w-7xl mx-auto pt-10 pb-8">
-        <div className="grid lg:grid-cols-[1.4fr_0.8fr] gap-8 items-stretch">
-          <div className="rounded-[2rem] bg-gradient-to-br from-surface-container-low via-surface-container-lowest to-secondary-container/30 p-8 lg:p-12 shadow-[0_24px_60px_rgba(0,0,0,0.06)]">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/70 px-4 py-2 text-xs font-bold uppercase tracking-[0.3em] text-secondary">
+    <main className="relative px-6 pb-24">
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        <div className="absolute -top-28 left-1/2 h-72 w-[760px] -translate-x-1/2 rounded-full bg-secondary/20 blur-3xl" />
+        <div className="absolute top-40 -right-24 h-64 w-64 rounded-full bg-primary/15 blur-3xl" />
+        <div className="absolute bottom-0 -left-20 h-64 w-64 rounded-full bg-secondary/20 blur-3xl" />
+      </div>
+
+      <section className="max-w-7xl mx-auto pt-10 pb-12">
+        <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-10 items-stretch">
+          <div className="rounded-[2.5rem] bg-surface-container-lowest border border-surface-container-high p-8 lg:p-12 shadow-[0_30px_80px_rgba(0,0,0,0.06)]">
+            <div className="inline-flex items-center gap-2 rounded-full bg-secondary/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.3em] text-secondary">
               Dashboard khách hàng
             </div>
             <h1 className="mt-6 text-4xl lg:text-6xl font-black tracking-tight text-primary font-headline leading-tight">
-              Toàn bộ dữ liệu đang có trong hệ thống
+              Trung tâm mua sắm và quản lý cá cảnh
             </h1>
             <p className="mt-5 max-w-2xl text-base lg:text-lg text-on-surface-variant leading-relaxed">
-              Trang này hiển thị các danh mục, sản phẩm nổi bật và bài viết blog hiện có từ database. Mục nào chưa có dữ liệu sẽ tự động được ẩn đi để giao diện gọn và đúng nội dung.
+              Tổng hợp danh mục, sản phẩm và bài viết mới nhất từ hệ thống. Thông tin sẽ tự động ẩn khi chưa có dữ liệu.
             </p>
 
             <div className="mt-8 grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -95,49 +101,96 @@ export default async function Home() {
                 { label: "Danh mục", value: categories.length },
                 { label: "Danh mục gốc", value: topCategories.length },
                 { label: "Sản phẩm", value: products.length },
-                { label: "Bài viết blog", value: latestBlogPosts.length > 0 ? latestBlogPosts.length : blogPosts.length },
+                { label: "Bài viết", value: latestBlogPosts.length > 0 ? latestBlogPosts.length : blogPosts.length },
               ].map((item) => (
-                <div key={item.label} className="rounded-2xl bg-white/70 backdrop-blur px-4 py-5 border border-white/60">
+                <div key={item.label} className="rounded-2xl bg-white/80 px-4 py-5 border border-surface-container-high">
                   <div className="text-3xl font-black text-primary">{item.value}</div>
                   <div className="mt-1 text-sm font-semibold text-on-surface-variant">{item.label}</div>
                 </div>
               ))}
             </div>
+
+            <div className="mt-8 flex flex-wrap gap-3">
+              {[
+                { label: "Khám phá sản phẩm", href: "/products" },
+                { label: "Mở giỏ hàng", href: "/cart" },
+                { label: "Hồ sơ cá nhân", href: "/profile" },
+              ].map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className="inline-flex items-center gap-2 rounded-full border border-primary/15 bg-white px-5 py-2 text-sm font-bold text-primary hover:border-primary/40 hover:bg-primary/5 transition-all"
+                >
+                  {item.label}
+                  <span className="material-symbols-outlined text-base">arrow_forward</span>
+                </Link>
+              ))}
+            </div>
           </div>
 
-          <div className="grid gap-4">
-            {[
-              { title: "Xem sản phẩm", desc: "Khám phá toàn bộ sản phẩm đang bán", href: "/products", icon: "storefront" },
-              { title: "Giỏ hàng", desc: "Kiểm tra các món đang chờ thanh toán", href: "/cart", icon: "shopping_cart" },
-              { title: "Đơn hàng", desc: "Theo dõi lịch sử mua hàng", href: "/profile", icon: "receipt_long" },
-              { title: "Bài viết mới", desc: "Xem blog và hướng dẫn kỹ thuật", href: "/blog", icon: "article" },
-            ].map((action) => (
-              <Link
-                key={action.title}
-                href={action.href}
-                className="rounded-3xl bg-surface-container-low p-5 border border-surface-container-high hover:border-primary/20 hover:shadow-lg transition-all"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="shrink-0 w-12 h-12 rounded-2xl bg-primary text-white flex items-center justify-center">
-                    <span className="material-symbols-outlined">{action.icon}</span>
+          <div className="grid gap-5">
+            <div className="rounded-[2rem] bg-gradient-to-br from-primary via-primary to-secondary text-white p-6 lg:p-8 shadow-[0_24px_60px_rgba(0,66,83,0.25)]">
+              <div className="text-xs font-bold uppercase tracking-[0.35em] text-white/80">
+                Tổng quan nhanh
+              </div>
+              <h2 className="mt-4 text-2xl lg:text-3xl font-black font-headline">
+                Sản phẩm mới và bài viết đang được cập nhật liên tục
+              </h2>
+              <p className="mt-3 text-sm lg:text-base text-white/80 leading-relaxed">
+                Theo dõi xu hướng, đơn hàng gần đây và các gợi ý từ hệ thống của bạn.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link
+                  href="/products"
+                  className="inline-flex items-center gap-2 rounded-full bg-white text-primary px-4 py-2 text-sm font-bold"
+                >
+                  Xem sản phẩm hot
+                  <span className="material-symbols-outlined text-base">local_fire_department</span>
+                </Link>
+                <Link
+                  href="/blog"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/30 px-4 py-2 text-sm font-bold text-white hover:bg-white/10 transition-all"
+                >
+                  Đọc bài viết mới
+                  <span className="material-symbols-outlined text-base">auto_stories</span>
+                </Link>
+              </div>
+            </div>
+
+            <div className="grid gap-4">
+              {[
+                { title: "Xem sản phẩm", desc: "Khám phá toàn bộ sản phẩm đang bán", href: "/products", icon: "storefront" },
+                { title: "Giỏ hàng", desc: "Kiểm tra các món đang chờ thanh toán", href: "/cart", icon: "shopping_cart" },
+                { title: "Đơn hàng", desc: "Theo dõi lịch sử mua hàng", href: "/profile", icon: "receipt_long" },
+                { title: "Bài viết mới", desc: "Xem blog và hướng dẫn kỹ thuật", href: "/blog", icon: "article" },
+              ].map((action) => (
+                <Link
+                  key={action.title}
+                  href={action.href}
+                  className="rounded-3xl bg-surface-container-low p-5 border border-surface-container-high hover:border-primary/30 hover:shadow-lg transition-all"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="shrink-0 w-12 h-12 rounded-2xl bg-primary text-white flex items-center justify-center">
+                      <span className="material-symbols-outlined">{action.icon}</span>
+                    </div>
+                    <div>
+                      <div className="font-bold text-primary">{action.title}</div>
+                      <div className="mt-1 text-sm text-on-surface-variant leading-relaxed">{action.desc}</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="font-bold text-primary">{action.title}</div>
-                    <div className="mt-1 text-sm text-on-surface-variant leading-relaxed">{action.desc}</div>
-                  </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
       {topCategories.length > 0 ? (
-        <section id="danh-muc" className="max-w-7xl mx-auto py-8">
+        <section id="danh-muc" className="max-w-7xl mx-auto py-10">
           <div className="flex items-end justify-between gap-6 mb-8">
             <div>
-              <h2 className="text-3xl font-black font-headline text-primary">Danh mục hiện có</h2>
-              <p className="mt-2 text-on-surface-variant">Chỉ hiển thị các danh mục có trong database.</p>
+              <h2 className="text-3xl font-black font-headline text-primary">Danh mục nổi bật</h2>
+              <p className="mt-2 text-on-surface-variant">Chọn nhanh danh mục phù hợp với bạn.</p>
             </div>
             <Link href="/products" className="text-primary font-bold hover:underline flex items-center gap-1">
               Xem tất cả <span className="material-symbols-outlined">chevron_right</span>
@@ -149,7 +202,7 @@ export default async function Home() {
               <Link
                 key={category.id}
                 href={`/products?category=${category.slug}`}
-                className="group rounded-3xl overflow-hidden bg-surface-container-low hover:shadow-xl transition-all"
+                className="group rounded-3xl overflow-hidden bg-surface-container-low border border-surface-container-high hover:shadow-xl transition-all"
               >
                 <div className="aspect-square bg-surface-container-highest overflow-hidden">
                   <img
@@ -176,7 +229,7 @@ export default async function Home() {
             <div className="flex items-end justify-between gap-6 mb-8 px-6">
               <div>
                 <h2 className="text-3xl font-black font-headline text-primary">Sản phẩm nổi bật</h2>
-                <p className="mt-2 text-on-surface-variant">Lấy trực tiếp từ bảng sản phẩm.</p>
+                <p className="mt-2 text-on-surface-variant">Đề xuất dựa trên các sản phẩm mới nhất.</p>
               </div>
               <Link href="/products" className="text-primary font-bold hover:underline flex items-center gap-1">
                 Xem tất cả <span className="material-symbols-outlined">chevron_right</span>
@@ -188,7 +241,7 @@ export default async function Home() {
                 <Link
                   key={product.id}
                   href={`/products/${product.slug}`}
-                  className="rounded-[1.75rem] overflow-hidden bg-surface-container-lowest shadow-sm hover:shadow-2xl transition-all"
+                  className="rounded-[1.75rem] overflow-hidden bg-surface-container-lowest border border-surface-container-high shadow-sm hover:shadow-2xl transition-all"
                 >
                   <div className="aspect-4/3 overflow-hidden bg-surface-container-high">
                     <img
@@ -226,16 +279,19 @@ export default async function Home() {
           <div className="flex items-end justify-between gap-6 mb-8">
             <div>
               <h2 className="text-3xl font-black font-headline text-primary">Blog kỹ thuật</h2>
-              <p className="mt-2 text-on-surface-variant">Bài viết công khai được lấy từ API blog.</p>
+              <p className="mt-2 text-on-surface-variant">Cập nhật bài viết và hướng dẫn mới nhất.</p>
             </div>
-            <Link href="#" className="text-primary font-bold hover:underline flex items-center gap-1">
+            <Link href="/blog" className="text-primary font-bold hover:underline flex items-center gap-1">
               Tất cả bài viết <span className="material-symbols-outlined">chevron_right</span>
             </Link>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {latestBlogPosts.map((post) => (
-              <article key={post.id} className="rounded-[1.75rem] overflow-hidden bg-surface-container-low border border-surface-container-high hover:shadow-xl transition-all">
+              <article
+                key={post.id}
+                className="rounded-[1.75rem] overflow-hidden bg-surface-container-low border border-surface-container-high hover:shadow-xl transition-all"
+              >
                 <div className="aspect-video bg-surface-container-high overflow-hidden">
                   <img
                     alt={post.title}
