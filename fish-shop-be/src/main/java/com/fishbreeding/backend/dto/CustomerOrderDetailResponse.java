@@ -1,6 +1,8 @@
 package com.fishbreeding.backend.dto;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
 
 import com.fishbreeding.backend.entity.OrderStatus;
 import com.fishbreeding.backend.entity.PaymentMethod;
@@ -15,14 +17,19 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class CustomerCheckoutResponse {
-    private Long orderId;
+public class CustomerOrderDetailResponse {
+    private Long id;
     private String orderCode;
-    private BigDecimal totalAmount;
     private OrderStatus orderStatus;
     private PaymentStatus paymentStatus;
     private PaymentMethod paymentMethod;
-    private String paymentUrl;
-    private Boolean vnpayConfigured;
-    private String message;
+    private BigDecimal totalAmount;
+    private BigDecimal shippingFee;
+    private LocalDateTime createdAt;
+    private String recipientName;
+    private String recipientPhone;
+    private String shippingAddress;
+    private String orderNote;
+    private String cancelReason;
+    private List<CustomerOrderItemResponse> items;
 }

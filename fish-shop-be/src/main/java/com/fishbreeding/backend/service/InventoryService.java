@@ -88,6 +88,31 @@ public class InventoryService {
 
     @Transactional
     @CacheEvict(cacheNames = {"products", "productById"}, allEntries = true)
+    public StockLogResponse restock(Long productId, int quantity, String reason) {
+        productValidator.validateId(productId);
+        if (quantity <= 0) {
+            throw new BadRequestException("Số lượng hoàn kho phải lớn hơn 0");
+        }
+
+        Product product = productRepository.findByIdForUpdate(productId)
+                .orElseThrow(() -> new NotFoundException("Product not found with id: " + productId));
+
+        int currentStock = safeStock(product);
+        product.setStockQuantity(currentStock + quantity);
+        productRepository.save(product);
+
+        StockLog log = stockLogRepository.save(StockLog.builder()
+                .product(product)
+                .changeType(StockChangeType.RETURN)
+                .quantityChanged(quantity)
+                .reason(trimToNull(reason))
+                .build());
+
+        return toResponse(log);
+    }
+
+    @Transactional
+    @CacheEvict(cacheNames = {"products", "productById"}, allEntries = true)
     public StockLogResponse adjustStock(InventoryAdjustRequest request) {
         productValidator.validateId(request.getProductId());
 

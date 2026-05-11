@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await request.json();
+  const body = await request.text();
 
   const response = await fetch(`${API_URL}/api/customer/checkout/vnpay`, {
     method: "POST",
@@ -18,9 +18,15 @@ export async function POST(request: Request) {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(body),
+    body,
   });
 
-  const data = await response.json().catch(() => ({}));
-  return NextResponse.json(data, { status: response.status });
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    const data = await response.json().catch(() => ({}));
+    return NextResponse.json(data, { status: response.status });
+  }
+
+  const text = await response.text();
+  return NextResponse.json({ message: text }, { status: response.status });
 }

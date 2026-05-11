@@ -11,8 +11,10 @@ import java.util.*;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fishbreeding.backend.dto.CustomerCheckoutRequest;
 import com.fishbreeding.backend.dto.CustomerCheckoutResponse;
+import com.fishbreeding.backend.dto.ghn.GhnShippingFeeResponse;
 import com.fishbreeding.backend.entity.*;
 import com.fishbreeding.backend.exception.BadRequestException;
 import com.fishbreeding.backend.repository.*;
@@ -37,7 +39,10 @@ public class VnpayCheckoutService {
     private final CartItemRepository cartItemRepository;
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
+    private final VnpayTransactionRepository vnpayTransactionRepository;
     private final InventoryService inventoryService;
+    private final GhnLocationService ghnLocationService;
+    private final ObjectMapper objectMapper;
 
     @Value("${app.vnpay.tmn-code:}")
     private String tmnCode;
@@ -88,23 +93,31 @@ public class VnpayCheckoutService {
             }
         }
 
-        BigDecimal totalAmount = cartItems.stream()
+        // Calculate subtotal (product amount)
+        BigDecimal subtotal = cartItems.stream()
             .map(i -> i.getProduct().getPrice()
                 .multiply(BigDecimal.valueOf(i.getQuantity())))
             .reduce(BigDecimal.ZERO, BigDecimal::add)
             .setScale(2, RoundingMode.HALF_UP);
 
-        String paymentMethod = request.getPaymentMethod();
-        String orderStatus = "VNPAY".equals(paymentMethod)
-                ? "pending_payment"
-                : "pending_confirmation";
+        // Calculate shipping fee from GHN API
+        BigDecimal shippingFee = calculateShippingFee(request);
+
+        // Total amount = subtotal + shipping fee
+        BigDecimal totalAmount = subtotal.add(shippingFee).setScale(2, RoundingMode.HALF_UP);
+
+        PaymentMethod paymentMethod = parsePaymentMethod(request.getPaymentMethod());
+        OrderStatus orderStatus = paymentMethod == PaymentMethod.VNPAY
+            ? OrderStatus.PENDING_PAYMENT
+            : OrderStatus.PENDING;
 
         Order order = orderRepository.save(Order.builder()
                 .user(user)
                 .orderCode(generateOrderCode())
                 .totalAmount(totalAmount)
+                .shippingFee(shippingFee)
                 .orderStatus(orderStatus)
-                .paymentStatus(0)
+                .paymentStatus(PaymentStatus.UNPAID)
                 .paymentMethod(paymentMethod)
                 .recipientName(request.getFullName())
                 .recipientPhone(request.getPhone())
@@ -125,17 +138,36 @@ public class VnpayCheckoutService {
         }
         orderItemRepository.saveAll(items);
 
+        // For COD: deduct stock immediately
+        if (paymentMethod == PaymentMethod.COD) {
+            try {
+                for (OrderItem item : items) {
+                    inventoryService.deductStock(
+                        item.getProduct().getId(),
+                        item.getQuantity(),
+                        "Đơn hàng " + order.getOrderCode());
+                }
+                order.setStockDeducted(true);
+                orderRepository.save(order);
+            } catch (BadRequestException ex) {
+                order.setPaymentStatus(PaymentStatus.FAILED);
+                order.setOrderStatus(OrderStatus.CANCELLED);
+                orderRepository.save(order);
+                throw new BadRequestException("Không đủ tồn kho để xử lý đơn hàng COD: " + ex.getMessage());
+            }
+        }
+
         // Clear cart
         cartItemRepository.deleteByUser_Id(user.getId());
 
         String paymentUrl = null;
         String message;
 
-        if ("VNPAY".equals(paymentMethod)) {
+        if (paymentMethod == PaymentMethod.VNPAY) {
             paymentUrl = buildPaymentUrl(order);
             message = "Đang chuyển sang VNPay...";
         } else {
-            message = "Đơn COD đã tạo thành công";
+            message = "Đơn COD đã tạo thành công. Bạn sẽ thanh toán khi nhận hàng.";
         }
 
         return CustomerCheckoutResponse.builder()
@@ -149,6 +181,26 @@ public class VnpayCheckoutService {
                 .vnpayConfigured(paymentUrl != null)
                 .message(message)
                 .build();
+    }
+
+    private BigDecimal calculateShippingFee(CustomerCheckoutRequest request) {
+        try {
+            if (request.getDistrictId() == null || request.getDistrictId() <= 0) {
+                log.warn("District ID not provided or invalid, using default shipping fee");
+                return BigDecimal.valueOf(45000); // Default fee
+            }
+
+            GhnShippingFeeResponse feeResponse = ghnLocationService.calculateShippingFee(request.getDistrictId(), 1000);
+            if (feeResponse != null && feeResponse.getTotal() > 0) {
+                return BigDecimal.valueOf(feeResponse.getTotal());
+            }
+
+            log.warn("GHN API returned invalid fee, using default shipping fee");
+            return BigDecimal.valueOf(45000);
+        } catch (Exception ex) {
+            log.error("Failed to calculate shipping fee from GHN API: {}", ex.getMessage(), ex);
+            return BigDecimal.valueOf(45000); // Fallback to default fee
+        }
     }
 
     // ================== BUILD URL ==================
@@ -214,7 +266,7 @@ public class VnpayCheckoutService {
         log.debug("VNPay hashData={} secureHash={}", hashData.toString(), secureHash);
 
         return payUrl + "?" + query +
-                "&vnp_SecureHashType=HmacSHA512&vnp_SecureHash=" + secureHash;
+            "&vnp_SecureHashType=HmacSHA512&vnp_SecureHash=" + secureHash;
     }
 
     // ================== CALLBACK ==================
@@ -231,39 +283,89 @@ public class VnpayCheckoutService {
                 .orElseThrow(() -> new BadRequestException("Order not found"));
 
         boolean success = "00".equals(params.get("vnp_ResponseCode"));
+        recordTransaction(order, params);
 
         if (success) {
-            if (order.getPaymentStatus() != null && order.getPaymentStatus() == 1) {
+            if (order.getPaymentStatus() == PaymentStatus.PAID) {
                 return new CallbackResult(true, orderCode, "Thanh toán đã được ghi nhận", null);
             }
 
             try {
-                List<OrderItem> items = orderItemRepository.findByOrder_Id(order.getId());
-                for (OrderItem item : items) {
-                    inventoryService.deductStock(
-                        item.getProduct().getId(),
-                        item.getQuantity(),
-                        "Đơn hàng " + order.getOrderCode());
+                if (!Boolean.TRUE.equals(order.getStockDeducted())) {
+                    List<OrderItem> items = orderItemRepository.findByOrder_Id(order.getId());
+                    for (OrderItem item : items) {
+                        inventoryService.deductStock(
+                            item.getProduct().getId(),
+                            item.getQuantity(),
+                            "Đơn hàng " + order.getOrderCode());
+                    }
+                    order.setStockDeducted(true);
                 }
 
-                order.setPaymentStatus(1);
-                order.setOrderStatus("paid");
+                order.setPaymentStatus(PaymentStatus.PAID);
+                order.setOrderStatus(OrderStatus.PENDING);
             } catch (BadRequestException ex) {
-                order.setPaymentStatus(2);
-                order.setOrderStatus("stock_issue");
+                order.setPaymentStatus(PaymentStatus.FAILED);
+                order.setOrderStatus(OrderStatus.CANCELLED);
                 orderRepository.save(order);
                 return new CallbackResult(false, orderCode,
                         "Thanh toán thành công nhưng tồn kho không đủ", null);
             }
         } else {
-            order.setPaymentStatus(2);
-            order.setOrderStatus("failed");
+            order.setPaymentStatus(PaymentStatus.FAILED);
+            order.setOrderStatus(OrderStatus.CANCELLED);
         }
 
         orderRepository.save(order);
 
         return new CallbackResult(success, orderCode,
             success ? "Thanh toán thành công" : "Thanh toán thất bại", null);
+    }
+
+    private void recordTransaction(Order order, Map<String, String> params) {
+        String txnRef = params.get("vnp_TxnRef");
+        if (!StringUtils.hasText(txnRef)) {
+            return;
+        }
+
+        VnpayTransaction transaction = vnpayTransactionRepository.findByVnpTxnRef(txnRef)
+            .orElseGet(VnpayTransaction::new);
+
+        transaction.setOrder(order);
+        transaction.setVnpTxnRef(txnRef);
+        transaction.setVnpTransactionNo(params.get("vnp_TransactionNo"));
+        transaction.setVnpResponseCode(params.get("vnp_ResponseCode"));
+        transaction.setVnpBankCode(params.get("vnp_BankCode"));
+        transaction.setVnpAmount(parseVnpAmount(params.get("vnp_Amount")));
+        transaction.setVnpPayDate(parseVnpPayDate(params.get("vnp_PayDate")));
+        transaction.setVnpRawResponse(objectMapper.valueToTree(params));
+
+        vnpayTransactionRepository.save(transaction);
+    }
+
+    private BigDecimal parseVnpAmount(String amount) {
+        if (!StringUtils.hasText(amount)) {
+            return null;
+        }
+
+        try {
+            BigDecimal raw = new BigDecimal(amount);
+            return raw.movePointLeft(2).setScale(2, RoundingMode.HALF_UP);
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    private LocalDateTime parseVnpPayDate(String payDate) {
+        if (!StringUtils.hasText(payDate)) {
+            return null;
+        }
+
+        try {
+            return LocalDateTime.parse(payDate, VNPAY_DATE_FORMAT);
+        } catch (Exception ex) {
+            return null;
+        }
     }
 
     // ================== SIGNATURE ==================
@@ -314,7 +416,7 @@ public class VnpayCheckoutService {
 
             StringBuilder hex = new StringBuilder();
             for (byte b : hash) {
-                hex.append(String.format("%02x", b));
+                hex.append(String.format("%02X", b));
             }
 
             return hex.toString();
@@ -337,6 +439,18 @@ public class VnpayCheckoutService {
 
     private String generateOrderCode() {
         return "ORD" + System.currentTimeMillis();
+    }
+
+    private PaymentMethod parsePaymentMethod(String method) {
+        if (!StringUtils.hasText(method)) {
+            throw new BadRequestException("Payment method is required");
+        }
+
+        try {
+            return PaymentMethod.valueOf(method.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw new BadRequestException("Invalid payment method: " + method);
+        }
     }
 
     // ================== RETURN ==================

@@ -25,6 +25,9 @@ public class CustomerCheckoutRequest {
     private String province;
     private String district;
     private String ward;
+    private Integer provinceId;
+    private Integer districtId;
+    private String wardCode;
 
     @NotBlank(message = "Payment method is required")
     private String paymentMethod; // "VNPAY" or "COD"

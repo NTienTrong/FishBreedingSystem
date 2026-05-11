@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 import java.util.HashMap;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,6 +28,7 @@ import com.fishbreeding.backend.dto.CustomerCartItemRequest;
 import com.fishbreeding.backend.dto.CustomerCartItemResponse;
 import com.fishbreeding.backend.dto.CustomerCartSyncRequest;
 import com.fishbreeding.backend.dto.CustomerFishRecordResponse;
+import com.fishbreeding.backend.dto.CustomerOrderDetailResponse;
 import com.fishbreeding.backend.dto.CustomerOrderItemResponse;
 import com.fishbreeding.backend.dto.CustomerOrderResponse;
 import com.fishbreeding.backend.dto.CustomerWishlistItemResponse;
@@ -86,6 +88,46 @@ public class CustomerPortalController {
         }
 
         return ResponseEntity.ok(responses);
+    }
+
+    @GetMapping("/orders/{orderCode}")
+    public ResponseEntity<CustomerOrderDetailResponse> getOrderDetail(
+            java.security.Principal principal,
+            @PathVariable String orderCode) {
+        User user = requireUser(principal);
+        Order order = orderRepository.findWithUserByOrderCode(orderCode)
+            .orElseThrow(() -> new BadRequestException("Order not found"));
+
+        if (!order.getUser().getId().equals(user.getId())) {
+            throw new BadRequestException("Unauthorized");
+        }
+
+        Set<Long> productIds = order.getItems().stream()
+            .map(i -> i.getProduct().getId())
+            .collect(Collectors.toSet());
+
+        Map<Long, String> imageMap = loadMainImageMap(productIds);
+        Map<Long, List<CustomerAttributeValueResponse>> attributeMap = loadAttributeValuesMap(productIds);
+
+        CustomerOrderResponse baseResponse = mapOrder(order, imageMap, attributeMap);
+        CustomerOrderDetailResponse detailResponse = CustomerOrderDetailResponse.builder()
+            .id(baseResponse.getId())
+            .orderCode(baseResponse.getOrderCode())
+            .orderStatus(baseResponse.getOrderStatus())
+            .totalAmount(baseResponse.getTotalAmount())
+            .createdAt(baseResponse.getCreatedAt())
+            .paymentStatus(order.getPaymentStatus())
+            .paymentMethod(order.getPaymentMethod())
+            .shippingFee(order.getShippingFee())
+            .recipientName(order.getRecipientName())
+            .recipientPhone(order.getRecipientPhone())
+            .shippingAddress(order.getShippingAddress())
+            .orderNote(order.getOrderNote())
+            .cancelReason(order.getCancelReason())
+            .items(baseResponse.getItems())
+            .build();
+
+        return ResponseEntity.ok(detailResponse);
     }
 
     @GetMapping("/fish-records")
@@ -431,6 +473,8 @@ public class CustomerPortalController {
                 .id(order.getId())
                 .orderCode(order.getOrderCode())
                 .orderStatus(order.getOrderStatus())
+            .paymentMethod(order.getPaymentMethod())
+            .paymentStatus(order.getPaymentStatus())
                 .totalAmount(order.getTotalAmount())
                 .createdAt(order.getCreatedAt())
                 .items(itemResponses)

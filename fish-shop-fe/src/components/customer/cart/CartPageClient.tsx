@@ -31,9 +31,6 @@ export default function CartPageClient() {
     );
   }
 
-  const shippingFee = totalPrice > 0 ? 150000 : 0;
-  const total = totalPrice + shippingFee;
-
   return (
     <main className="px-6 max-w-7xl mx-auto pb-20">
       <section className="mb-12">
@@ -41,7 +38,7 @@ export default function CartPageClient() {
           Giỏ hàng của bạn
         </h1>
         <p className="text-on-surface-variant max-w-xl text-lg">
-          Bạn đang có {totalBatches} lượt thêm trong giỏ hàng.
+          Bạn đang có {totalBatches} lượt thêm trong giỏ hàng. Phí vận chuyển sẽ được tính khi thanh toán.
         </p>
       </section>
 
@@ -147,8 +144,8 @@ export default function CartPageClient() {
                 <span className="font-bold">{currency.format(totalPrice)}</span>
               </div>
               <div className="flex justify-between items-center text-on-surface-variant">
-                <span className="font-medium">Phí vận chuyển thủy sinh</span>
-                <span className="font-bold">{currency.format(shippingFee)}</span>
+                <span className="font-medium text-xs">Phí vận chuyển <br/><span className="text-[10px] opacity-70">(Tính lại khi thanh toán)</span></span>
+                <span className="font-bold">Tùy quận huyện</span>
               </div>
               <div className="flex justify-between items-center text-secondary">
                 <span className="font-medium">Giảm giá mã voucher</span>
@@ -161,9 +158,10 @@ export default function CartPageClient() {
             <div className="flex justify-between items-end mb-10">
               <div>
                 <p className="text-xs uppercase font-black tracking-widest text-on-surface-variant mb-1">
-                  Tổng cộng
+                  Tạm cộng
                 </p>
-                <p className="text-3xl font-black text-primary tracking-tighter">{currency.format(total)}</p>
+                <p className="text-3xl font-black text-primary tracking-tighter">{currency.format(totalPrice)}</p>
+                <p className="text-xs text-on-surface-variant mt-2">Phí vận chuyển sẽ tính khi thanh toán</p>
               </div>
               <span className="material-symbols-outlined text-secondary opacity-50">verified_user</span>
             </div>

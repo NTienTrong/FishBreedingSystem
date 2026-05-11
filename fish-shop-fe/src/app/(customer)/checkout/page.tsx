@@ -11,8 +11,6 @@ type CustomerProfile = {
   address?: string | null;
 };
 
-const SHIPPING_FEE = 45000;
-
 type PaymentMethod = "COD" | "VNPAY";
 
 type ProvinceOption = {
@@ -53,6 +51,8 @@ export default function CheckoutPage() {
   const [provinces, setProvinces] = useState<ProvinceOption[]>([]);
   const [districts, setDistricts] = useState<DistrictOption[]>([]);
   const [wards, setWards] = useState<WardOption[]>([]);
+  const [shippingFee, setShippingFee] = useState<number>(45000); // Default fee
+  const [loadingShippingFee, setLoadingShippingFee] = useState(false);
 
   useEffect(() => {
     const loadProvinces = async () => {
@@ -194,6 +194,41 @@ export default function CheckoutPage() {
     }
   }, [wards]);
 
+  // Fetch shipping fee when district changes
+  useEffect(() => {
+    if (districtId === null || districtId <= 0) {
+      setShippingFee(45000); // Default fee
+      return;
+    }
+
+    const fetchShippingFee = async () => {
+      try {
+        setLoadingShippingFee(true);
+        const response = await fetch(`${API_URL}/api/public/ghn/shipping-fee?districtId=${districtId}`, {
+          cache: "no-store",
+        });
+
+        if (response.ok) {
+          const data = (await response.json()) as { shippingFee?: number };
+          if (data.shippingFee && data.shippingFee > 0) {
+            setShippingFee(data.shippingFee);
+          } else {
+            setShippingFee(45000);
+          }
+        } else {
+          setShippingFee(45000);
+        }
+      } catch (err) {
+        console.error("Failed to fetch shipping fee:", err);
+        setShippingFee(45000); // Fallback to default
+      } finally {
+        setLoadingShippingFee(false);
+      }
+    };
+
+    fetchShippingFee();
+  }, [districtId]);
+
   useEffect(() => {
     const ensureSession = async () => {
       const sessionResponse = await fetch("/api/customer/auth/session");
@@ -285,7 +320,7 @@ export default function CheckoutPage() {
     [selectedBatches]
   );
 
-  const grandTotal = selectedTotalPrice + (selectedTotalItems > 0 ? SHIPPING_FEE : 0);
+  const grandTotal = selectedTotalPrice + (selectedTotalItems > 0 ? shippingFee : 0);
 
   const handleConfirmOrder = async () => {
     if (selectedBatches.length === 0) {
@@ -334,6 +369,9 @@ export default function CheckoutPage() {
           province,
           district,
           ward,
+          provinceId,
+          districtId,
+          wardCode,
           paymentMethod,
           note: orderNote.trim(),
         }),
@@ -344,10 +382,14 @@ export default function CheckoutPage() {
         message?: string;
         orderCode?: string;
         vnpayConfigured?: boolean;
+        errors?: Record<string, string>;
       };
 
       if (!checkoutRes.ok) {
-        throw new Error(checkoutData.message || "Không thể tạo đơn hàng.");
+        const fallbackMessage = checkoutData.errors
+          ? Object.values(checkoutData.errors).join(" ")
+          : "Không thể tạo đơn hàng.";
+        throw new Error(checkoutData.message || fallbackMessage);
       }
 
       const paidBatchIds = new Set(selectedBatches.map((batch) => batch.id));
@@ -701,8 +743,9 @@ export default function CheckoutPage() {
                 <span className="flex items-center gap-1">
                   <span className="material-symbols-outlined text-xs">local_shipping</span>
                   Phí vận chuyển
+                  {loadingShippingFee && <span className="material-symbols-outlined text-xs animate-spin">progress_activity</span>}
                 </span>
-                <span>{formatCurrency(selectedTotalItems > 0 ? SHIPPING_FEE : 0)}</span>
+                <span>{formatCurrency(selectedTotalItems > 0 ? shippingFee : 0)}</span>
               </div>
               <div className="flex justify-between items-center pt-3 mt-3 border-t border-white/20">
                 <span className="text-base font-bold">Tổng thanh toán</span>

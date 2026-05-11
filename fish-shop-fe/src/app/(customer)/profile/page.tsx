@@ -29,18 +29,11 @@ type CustomerOrder = {
   id: number;
   orderCode: string;
   orderStatus: string;
+  paymentMethod?: string | null;
+  paymentStatus?: string | null;
   totalAmount: number;
   createdAt: string;
   items: CustomerOrderItem[];
-};
-
-type WishlistItem = {
-  productId: number;
-  name: string;
-  sku?: string | null;
-  imageUrl?: string | null;
-  price: number;
-  stockQuantity: number;
 };
 
 type FishRecord = {
@@ -63,7 +56,6 @@ type AddressItem = {
 const tabs = [
   { id: "account", label: "Thông tin tài khoản" },
   { id: "orders", label: "Đơn hàng của tôi" },
-  { id: "wishlist", label: "Danh sách yêu thích" },
   { id: "fish", label: "Hồ sơ sức khỏe cá" },
   { id: "addresses", label: "Sổ địa chỉ" },
 ];
@@ -74,6 +66,28 @@ const currency = new Intl.NumberFormat("vi-VN", {
   maximumFractionDigits: 0,
 });
 
+const STATUS_LABELS: Record<string, string> = {
+  PENDING_PAYMENT: "Chờ thanh toán",
+  PENDING: "Chờ xác nhận",
+  PENDING_REFUND: "Chờ hoàn tiền",
+  PROCESSING: "Đang xử lý",
+  DELIVERING: "Đang giao",
+  COMPLETED: "Hoàn thành",
+  CANCELLED: "Đã hủy",
+};
+
+const PAYMENT_LABELS: Record<string, string> = {
+  UNPAID: "Chưa thanh toán",
+  PAID: "Đã thanh toán",
+  FAILED: "Thất bại",
+  REFUNDED: "Đã hoàn tiền",
+};
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  COD: "Thanh toán khi nhận hàng",
+  VNPAY: "Thanh toán VNPay",
+};
+
 export default function ProfilePage() {
   const router = useRouter();
   const { addItem } = useCart();
@@ -82,10 +96,12 @@ export default function ProfilePage() {
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
-  const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [fishRecords, setFishRecords] = useState<FishRecord[]>([]);
   const [addresses, setAddresses] = useState<AddressItem[]>([]);
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
+  const [actionOrder, setActionOrder] = useState<CustomerOrder | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
@@ -149,14 +165,6 @@ export default function ProfilePage() {
     }
   };
 
-  const loadWishlist = async () => {
-    const response = await fetch("/api/customer/wishlist", { cache: "no-store" });
-    if (response.ok) {
-      const data = (await response.json()) as WishlistItem[];
-      setWishlist(data);
-    }
-  };
-
   const loadFishRecords = async () => {
     const response = await fetch("/api/customer/fish-records", { cache: "no-store" });
     if (response.ok) {
@@ -173,12 +181,48 @@ export default function ProfilePage() {
     }
   };
 
+  const closeCancelModal = () => {
+    setActionOrder(null);
+    setCancelReason("");
+  };
+
+  const handleSubmitCancel = async () => {
+    if (!actionOrder) {
+      return;
+    }
+
+    if (!cancelReason.trim()) {
+      showToast("Vui lòng nhập lý do hủy đơn.", "error");
+      return;
+    }
+
+    try {
+      setCancelSubmitting(true);
+      const response = await fetch(`/api/customer/orders/${actionOrder.id}/cancel`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cancelReason: cancelReason.trim() }),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as { message?: string };
+      if (!response.ok) {
+        throw new Error(payload.message || "Không thể hủy đơn hàng.");
+      }
+
+      showToast(payload.message || "Đã gửi yêu cầu.", "success");
+      closeCancelModal();
+      await loadOrders();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Không thể hủy đơn hàng.";
+      showToast(message, "error");
+    } finally {
+      setCancelSubmitting(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === "orders") {
       loadOrders();
-    }
-    if (activeTab === "wishlist") {
-      loadWishlist();
     }
     if (activeTab === "fish") {
       loadFishRecords();
@@ -299,21 +343,9 @@ export default function ProfilePage() {
     });
   };
 
-  const handleRemoveWishlist = async (productId: number) => {
-    await fetch(`/api/customer/wishlist/${productId}`, { method: "DELETE" });
-    setWishlist((prev) => prev.filter((item) => item.productId !== productId));
-  };
-
-  const handleAddWishlistToCart = (item: WishlistItem) => {
-    addItem(
-      { id: item.productId, name: item.name, sku: item.sku, price: item.price, imageUrl: item.imageUrl || "" },
-      1
-    );
-  };
-
   const handleAddAddress = async () => {
     if (!addressForm.label.trim() || !addressForm.phone.trim() || !addressForm.address.trim()) {
-      setError("Vui lòng nhập đầy đủ thông tin địa chỉ.");
+      showToast("Vui lòng nhập đầy đủ thông tin địa chỉ.", "error");
       return;
     }
 
@@ -323,32 +355,42 @@ export default function ProfilePage() {
       body: JSON.stringify(addressForm),
     });
 
-    if (response.ok) {
-      const data = (await response.json()) as AddressItem;
-      setAddresses((prev) => [data, ...prev.filter((addr) => addr.id !== data.id)]);
-      setAddressForm({ label: "Nhà", phone: "", address: "", isDefault: false });
+    if (!response.ok) {
+      const message = await response.text();
+      showToast(message || "Không thể thêm địa chỉ.", "error");
+      return;
     }
+
+    const data = (await response.json()) as AddressItem;
+    setAddresses((prev) => [data, ...prev.filter((addr) => addr.id !== data.id)]);
+    setAddressForm({ label: "Nhà", phone: "", address: "", isDefault: false });
+    showToast("Đã thêm địa chỉ mới.", "success");
   };
 
   const handleSetDefaultAddress = async (id: number) => {
     const response = await fetch(`/api/customer/addresses/${id}/default`, { method: "PUT" });
-    if (response.ok) {
-      setAddresses((prev) =>
-        prev.map((addr) => ({ ...addr, isDefault: addr.id === id }))
-      );
+    if (!response.ok) {
+      showToast("Không thể đặt địa chỉ mặc định.", "error");
+      return;
     }
+
+    setAddresses((prev) => prev.map((addr) => ({ ...addr, isDefault: addr.id === id })));
+    showToast("Đã cập nhật địa chỉ mặc định.", "success");
   };
 
   const handleDeleteAddress = async (id: number) => {
     const response = await fetch(`/api/customer/addresses/${id}`, { method: "DELETE" });
-    if (response.ok) {
-      setAddresses((prev) => prev.filter((addr) => addr.id !== id));
+    if (!response.ok) {
+      showToast("Không thể xóa địa chỉ.", "error");
+      return;
     }
+
+    setAddresses((prev) => prev.filter((addr) => addr.id !== id));
+    showToast("Đã xóa địa chỉ.", "success");
   };
 
   const headerSubtitle = useMemo(() => {
     if (activeTab === "orders") return "Theo dõi tình trạng các chú cá bạn đã đặt.";
-    if (activeTab === "wishlist") return "Những chú cá bạn đang yêu thích.";
     if (activeTab === "fish") return "Theo dõi hồ sơ sức khỏe cá đã mua.";
     if (activeTab === "addresses") return "Quản lý nhiều địa chỉ giao hàng.";
     return "Cập nhật thông tin tài khoản và bảo mật.";
@@ -517,22 +559,58 @@ export default function ProfilePage() {
             </div>
           ) : (
             orders.map((order) => (
-              <div key={order.id} className="bg-surface-container-low rounded-2xl p-6">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                  <div>
-                    <h3 className="text-lg font-bold text-primary">#{order.orderCode}</h3>
+              <div key={order.id} className="bg-surface-container-low rounded-2xl p-6 shadow-sm">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-lg font-bold text-primary">#{order.orderCode}</h3>
+                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-surface-container-high text-on-surface-variant">
+                        {STATUS_LABELS[order.orderStatus] ?? order.orderStatus}
+                      </span>
+                    </div>
                     <p className="text-sm text-on-surface-variant">
-                      {new Date(order.createdAt).toLocaleDateString("vi-VN")} • {order.orderStatus}
+                      {new Date(order.createdAt).toLocaleDateString("vi-VN")}
                     </p>
+                    <div className="flex flex-wrap gap-3 text-xs text-on-surface-variant">
+                      {order.paymentMethod && (
+                        <span>Thanh toán: {PAYMENT_METHOD_LABELS[order.paymentMethod] ?? order.paymentMethod}</span>
+                      )}
+                      {order.paymentStatus && (
+                        <span>Trạng thái: {PAYMENT_LABELS[order.paymentStatus] ?? order.paymentStatus}</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <span className="text-lg font-black text-primary">{currency.format(order.totalAmount)}</span>
+                    {order.orderStatus === "PENDING" && order.paymentMethod === "COD" && (
+                      <button
+                        className="px-4 py-2 rounded-full bg-error text-white font-bold"
+                        type="button"
+                        onClick={() => setActionOrder(order)}
+                      >
+                        Hủy đơn
+                      </button>
+                    )}
+                    {order.orderStatus === "PENDING" && order.paymentMethod === "VNPAY" && order.paymentStatus === "PAID" && (
+                      <button
+                        className="px-4 py-2 rounded-full bg-amber-500 text-white font-bold"
+                        type="button"
+                        onClick={() => setActionOrder(order)}
+                      >
+                        Yêu cầu hủy & Hoàn tiền
+                      </button>
+                    )}
+                    {order.orderStatus === "PROCESSING" && (
+                      <span className="text-xs font-semibold text-on-surface-variant">
+                        Vui lòng liên hệ hotline để hủy đơn.
+                      </span>
+                    )}
                     <button
                       className="px-4 py-2 rounded-full bg-surface-container-high text-primary font-bold"
                       type="button"
                       onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}
                     >
-                      Xem chi tiết
+                      {expandedOrderId === order.id ? "Thu gọn" : "Xem chi tiết"}
                     </button>
                     <button
                       className="px-4 py-2 rounded-full bg-primary text-white font-bold"
@@ -544,12 +622,26 @@ export default function ProfilePage() {
                   </div>
                 </div>
                 {expandedOrderId === order.id && (
-                  <div className="mt-4 space-y-3">
+                  <div className="mt-5 space-y-3">
                     {order.items.map((item) => (
-                      <div key={item.productId} className="flex items-center justify-between">
-                        <div>
-                          <p className="font-semibold text-primary">{item.name}</p>
-                          <p className="text-xs text-on-surface-variant">SL: {item.quantity}</p>
+                      <div
+                        key={item.productId}
+                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl bg-white/80 p-4"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="h-16 w-16 overflow-hidden rounded-xl bg-surface-container-high">
+                            {item.imageUrl ? (
+                              <img className="h-full w-full object-cover" src={item.imageUrl} alt={item.name} />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-xs text-on-surface-variant">
+                                No image
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-primary">{item.name}</p>
+                            <p className="text-xs text-on-surface-variant">Số lượng: {item.quantity}</p>
+                          </div>
                         </div>
                         <span className="font-bold text-primary">{currency.format(item.lineTotal)}</span>
                       </div>
@@ -562,43 +654,6 @@ export default function ProfilePage() {
         </section>
       )}
 
-      {activeTab === "wishlist" && (
-        <section>
-          {wishlist.length === 0 ? (
-            <div className="rounded-2xl bg-surface-container-low p-8 text-center text-on-surface-variant">
-              Chưa có sản phẩm trong wishlist.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {wishlist.map((item) => (
-                <div key={item.productId} className="rounded-2xl bg-surface-container-low p-5 space-y-4">
-                  <img className="w-full h-40 object-cover rounded-xl" src={item.imageUrl || ""} alt={item.name} />
-                  <div>
-                    <h3 className="font-bold text-primary">{item.name}</h3>
-                    <p className="text-sm text-on-surface-variant">{currency.format(item.price)}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      className="flex-1 px-3 py-2 rounded-full bg-primary text-white font-bold"
-                      type="button"
-                      onClick={() => handleAddWishlistToCart(item)}
-                    >
-                      Thêm vào giỏ
-                    </button>
-                    <button
-                      className="px-3 py-2 rounded-full bg-surface-container-high text-primary font-bold"
-                      type="button"
-                      onClick={() => handleRemoveWishlist(item.productId)}
-                    >
-                      Xóa
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
 
       {activeTab === "fish" && (
         <section>
@@ -631,6 +686,7 @@ export default function ProfilePage() {
                             <span className="font-semibold text-primary">{attr.value}</span>
                           </li>
                         ))}
+
                       </ul>
                     )}
                   </div>
@@ -726,6 +782,44 @@ export default function ProfilePage() {
             </div>
           </div>
         </section>
+      )}
+
+      {actionOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-primary mb-2">
+              {actionOrder.paymentMethod === "VNPAY" ? "Yêu cầu hoàn tiền" : "Hủy đơn hàng"}
+            </h3>
+            <p className="text-sm text-on-surface-variant mb-4">
+              Vui lòng nhập lý do để chúng tôi xử lý nhanh hơn.
+            </p>
+            <textarea
+              className="w-full rounded-xl border border-outline-variant/30 p-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+              rows={3}
+              placeholder="Lý do hủy đơn..."
+              value={cancelReason}
+              onChange={(event) => setCancelReason(event.target.value)}
+            />
+            <div className="mt-4 flex justify-end gap-3">
+              <button
+                className="px-4 py-2 rounded-full bg-surface-container-high text-primary font-bold"
+                type="button"
+                onClick={closeCancelModal}
+                disabled={cancelSubmitting}
+              >
+                Đóng
+              </button>
+              <button
+                className="px-4 py-2 rounded-full bg-primary text-white font-bold"
+                type="button"
+                onClick={handleSubmitCancel}
+                disabled={cancelSubmitting}
+              >
+                {cancelSubmitting ? "Đang gửi..." : "Gửi yêu cầu"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <LogoutConfirmModal

@@ -17,13 +17,23 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class CustomerOrderResponse {
+public class AdminOrderResponse {
     private Long id;
     private String orderCode;
     private OrderStatus orderStatus;
-    private PaymentMethod paymentMethod;
     private PaymentStatus paymentStatus;
+    private PaymentMethod paymentMethod;
     private BigDecimal totalAmount;
+    private BigDecimal shippingFee;
     private LocalDateTime createdAt;
-    private List<CustomerOrderItemResponse> items;
+    private String recipientName;
+    private String recipientPhone;
+    private String shippingAddress;
+    private String orderNote;
+    private String cancelReason;
+    private Long customerId;
+    private String customerName;
+    private String customerEmail;
+    private String customerPhone;
+    private List<AdminOrderItemResponse> items;
 }

@@ -37,9 +37,14 @@ public class Order {
     @Column(name = "total_amount", nullable = false, precision = 15, scale = 2)
     private BigDecimal totalAmount;
 
-    @Column(name = "order_status", length = 20)
+    @Column(name = "shipping_fee", nullable = false, precision = 15, scale = 2)
     @Builder.Default
-    private String orderStatus = "pending";
+    private BigDecimal shippingFee = BigDecimal.ZERO;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "order_status", length = 30)
+    @Builder.Default
+    private OrderStatus orderStatus = OrderStatus.PENDING;
 
     @Column(name = "recipient_name", nullable = false, length = 100)
     private String recipientName;
@@ -53,19 +58,28 @@ public class Order {
     @Column(name = "order_note", columnDefinition = "TEXT")
     private String orderNote;
 
+    @Column(name = "cancel_reason", columnDefinition = "TEXT")
+    private String cancelReason;
+
     @Column(precision = 10, scale = 8)
     private BigDecimal latitude;
 
     @Column(precision = 11, scale = 8)
     private BigDecimal longitude;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "payment_method", length = 20)
     @Builder.Default
-    private String paymentMethod = "VNPAY";
+    private PaymentMethod paymentMethod = PaymentMethod.VNPAY;
 
-    @Column(name = "payment_status")
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_status", length = 20)
     @Builder.Default
-    private Integer paymentStatus = 0;
+    private PaymentStatus paymentStatus = PaymentStatus.UNPAID;
+
+    @Column(name = "stock_deducted")
+    @Builder.Default
+    private Boolean stockDeducted = false;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
