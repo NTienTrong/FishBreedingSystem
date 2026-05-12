@@ -10,9 +10,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.fishbreeding.backend.dto.AdminTransactionResponse;
+import com.fishbreeding.backend.dto.TransactionSummaryResponse;
 import com.fishbreeding.backend.entity.Order;
-import com.fishbreeding.backend.entity.VnpayTransaction;
-import com.fishbreeding.backend.repository.VnpayTransactionRepository;
+import com.fishbreeding.backend.entity.Transaction;
+import com.fishbreeding.backend.repository.TransactionRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -21,34 +22,38 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class AdminTransactionController {
 
-    private final VnpayTransactionRepository vnpayTransactionRepository;
+    private final TransactionRepository transactionRepository;
 
     @GetMapping
     @Transactional(readOnly = true)
     public ResponseEntity<List<AdminTransactionResponse>> listTransactions() {
-        List<VnpayTransaction> transactions = vnpayTransactionRepository
+        List<Transaction> transactions = transactionRepository
             .findAllByOrderByCreatedAtDescIdDesc();
         List<AdminTransactionResponse> responses = new ArrayList<>();
 
-        for (VnpayTransaction transaction : transactions) {
+        for (Transaction transaction : transactions) {
             Order order = transaction.getOrder();
             responses.add(AdminTransactionResponse.builder()
                 .id(transaction.getId())
                 .orderId(order != null ? order.getId() : null)
                 .orderCode(order != null ? order.getOrderCode() : null)
                 .orderStatus(order != null ? order.getOrderStatus() : null)
-                .paymentStatus(order != null ? order.getPaymentStatus() : null)
-                .vnpTxnRef(transaction.getVnpTxnRef())
-                .vnpTransactionNo(transaction.getVnpTransactionNo())
-                .vnpResponseCode(transaction.getVnpResponseCode())
-                .vnpAmount(transaction.getVnpAmount())
-                .vnpBankCode(transaction.getVnpBankCode())
-                .vnpPayDate(transaction.getVnpPayDate())
+                .paymentMethod(transaction.getPaymentMethod())
+                .transactionType(transaction.getTransactionType())
+                .referenceCode(transaction.getReferenceCode())
+                .status(transaction.getStatus())
+                .amount(transaction.getAmount())
                 .createdAt(transaction.getCreatedAt())
-                .rawResponse(transaction.getVnpRawResponse())
                 .build());
         }
 
         return ResponseEntity.ok(responses);
+    }
+
+    @GetMapping("/summary")
+    @Transactional(readOnly = true)
+    public ResponseEntity<TransactionSummaryResponse> getSummary() {
+        TransactionSummaryResponse summary = transactionRepository.summarizeRevenue();
+        return ResponseEntity.ok(summary);
     }
 }

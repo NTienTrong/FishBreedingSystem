@@ -11,4 +11,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class AdminOrderStatusRequest {
     private OrderStatus orderStatus;
+    private String ghnOrderCode;
 }

@@ -7,8 +7,14 @@ import lombok.Data;
 @Data
 @Builder
 public class GhnShippingFeeRequest {
+    @JsonProperty("from_district_id")
+    private int fromDistrictId;
+
     @JsonProperty("to_district_id")
     private int toDistrictId;
+
+    @JsonProperty("to_ward_code")
+    private String toWardCode;
 
     @JsonProperty("weight")
     private int weight;

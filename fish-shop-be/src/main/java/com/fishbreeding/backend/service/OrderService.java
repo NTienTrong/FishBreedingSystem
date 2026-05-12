@@ -25,11 +25,12 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final InventoryService inventoryService;
+    private final TransactionService transactionService;
 
     private static final Map<OrderStatus, Set<OrderStatus>> ALLOWED_TRANSITIONS = buildTransitions();
 
     @Transactional
-    public Order updateOrderStatus(Long orderId, OrderStatus nextStatus) {
+    public Order updateOrderStatus(Long orderId, OrderStatus nextStatus, String ghnOrderCode) {
         Order order = orderRepository.findWithUserById(orderId)
             .orElseThrow(() -> new BadRequestException("Order not found"));
 
@@ -50,6 +51,7 @@ public class OrderService {
 
         if (nextStatus == OrderStatus.COMPLETED && order.getPaymentMethod() == PaymentMethod.COD) {
             order.setPaymentStatus(PaymentStatus.PAID);
+            transactionService.createCodTransaction(order, ghnOrderCode);
         }
 
         if (nextStatus == OrderStatus.CANCELLED) {

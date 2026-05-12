@@ -40,6 +40,7 @@ public class VnpayCheckoutService {
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final VnpayTransactionRepository vnpayTransactionRepository;
+    private final TransactionService transactionService;
     private final InventoryService inventoryService;
     private final GhnLocationService ghnLocationService;
     private final ObjectMapper objectMapper;
@@ -190,7 +191,10 @@ public class VnpayCheckoutService {
                 return BigDecimal.valueOf(45000); // Default fee
             }
 
-            GhnShippingFeeResponse feeResponse = ghnLocationService.calculateShippingFee(request.getDistrictId(), 1000);
+            GhnShippingFeeResponse feeResponse = ghnLocationService.calculateShippingFee(
+                request.getDistrictId(),
+                request.getWardCode(),
+                1000);
             if (feeResponse != null && feeResponse.getTotal() > 0) {
                 return BigDecimal.valueOf(feeResponse.getTotal());
             }
@@ -345,15 +349,24 @@ public class VnpayCheckoutService {
             return;
         }
 
+        String responseCode = params.get("vnp_ResponseCode");
+        boolean success = "00".equals(responseCode);
+        BigDecimal amount = parseVnpAmount(params.get("vnp_Amount"));
+        String referenceCode = StringUtils.hasText(params.get("vnp_TransactionNo"))
+            ? params.get("vnp_TransactionNo")
+            : txnRef;
+
+        transactionService.createVnpayTransaction(order, referenceCode, amount, success);
+
         VnpayTransaction transaction = vnpayTransactionRepository.findByVnpTxnRef(txnRef)
             .orElseGet(VnpayTransaction::new);
 
         transaction.setOrder(order);
         transaction.setVnpTxnRef(txnRef);
         transaction.setVnpTransactionNo(params.get("vnp_TransactionNo"));
-        transaction.setVnpResponseCode(params.get("vnp_ResponseCode"));
+        transaction.setVnpResponseCode(responseCode);
         transaction.setVnpBankCode(params.get("vnp_BankCode"));
-        transaction.setVnpAmount(parseVnpAmount(params.get("vnp_Amount")));
+        transaction.setVnpAmount(amount);
         transaction.setVnpPayDate(parseVnpPayDate(params.get("vnp_PayDate")));
         transaction.setVnpRawResponse(objectMapper.valueToTree(params));
 

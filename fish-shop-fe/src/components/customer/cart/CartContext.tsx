@@ -280,25 +280,32 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const batchesToSync = selectedBatches ?? batches;
     const aggregated = aggregateItems(batchesToSync);
 
-    try {
-      await fetch("/api/customer/cart", { method: "DELETE" });
+    if (aggregated.length === 0 && selectedBatches) {
+      return;
+    }
 
-      if (aggregated.length === 0) {
-        return;
-      }
+    const clearResponse = await fetch("/api/customer/cart", { method: "DELETE" });
+    if (!clearResponse.ok) {
+      throw new Error("Không thể đồng bộ giỏ hàng.");
+    }
 
-      await fetch("/api/customer/cart/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items: aggregated.map((item) => ({
-            productId: item.id,
-            quantity: item.quantity,
-          })),
-        }),
-      });
-    } catch {
-      // Best-effort sync.
+    if (aggregated.length === 0) {
+      return;
+    }
+
+    const syncResponse = await fetch("/api/customer/cart/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        items: aggregated.map((item) => ({
+          productId: item.id,
+          quantity: item.quantity,
+        })),
+      }),
+    });
+
+    if (!syncResponse.ok) {
+      throw new Error("Không thể đồng bộ giỏ hàng.");
     }
   };
 

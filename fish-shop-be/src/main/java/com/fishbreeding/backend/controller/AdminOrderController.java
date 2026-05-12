@@ -66,7 +66,7 @@ public class AdminOrderController {
             throw new BadRequestException("Order status is required");
         }
 
-        Order updated = orderService.updateOrderStatus(orderId, request.getOrderStatus());
+        Order updated = orderService.updateOrderStatus(orderId, request.getOrderStatus(), request.getGhnOrderCode());
         return ResponseEntity.ok(mapOrder(updated));
     }
 

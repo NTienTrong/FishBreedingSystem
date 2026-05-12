@@ -3,13 +3,16 @@ export type AdminTransaction = {
   orderId?: number | null;
   orderCode?: string | null;
   orderStatus?: string | null;
-  paymentStatus?: string | null;
-  vnpTxnRef?: string | null;
-  vnpTransactionNo?: string | null;
-  vnpResponseCode?: string | null;
-  vnpAmount?: number | null;
-  vnpBankCode?: string | null;
-  vnpPayDate?: string | null;
+  paymentMethod?: string | null;
+  transactionType?: string | null;
+  referenceCode?: string | null;
+  status?: string | null;
+  amount?: number | null;
   createdAt?: string | null;
-  rawResponse?: unknown;
+};
+
+export type AdminTransactionSummary = {
+  totalRevenue: number;
+  totalOnline: number;
+  totalCash: number;
 };

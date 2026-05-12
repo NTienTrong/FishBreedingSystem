@@ -41,14 +41,23 @@ public class PublicGhnController {
     }
 
     @GetMapping("/shipping-fee")
-    public ResponseEntity<Map<String, Object>> getShippingFee(@RequestParam int districtId) {
-        GhnShippingFeeResponse feeResponse = ghnLocationService.calculateShippingFee(districtId, 1000);
-        
+    public ResponseEntity<Map<String, Object>> getShippingFee(
+            @RequestParam int districtId,
+            @RequestParam(required = false) String wardCode) {
         Map<String, Object> response = new HashMap<>();
+        if (wardCode == null || wardCode.isBlank()) {
+            response.put("shippingFee", 45000);
+            response.put("message", "Vui lòng chọn Phường/Xã để tính phí giao hàng.");
+            return ResponseEntity.ok(response);
+        }
+
+        GhnShippingFeeResponse feeResponse = ghnLocationService.calculateShippingFee(districtId, wardCode, 1000);
+
         if (feeResponse != null && feeResponse.getTotal() > 0) {
             response.put("shippingFee", feeResponse.getTotal());
         } else {
             response.put("shippingFee", 45000); // Default fee
+            response.put("message", "Không thể lấy phí giao hàng GHN, hệ thống đang dùng phí mặc định.");
         }
         
         return ResponseEntity.ok(response);

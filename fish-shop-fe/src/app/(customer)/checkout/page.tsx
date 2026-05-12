@@ -47,7 +47,7 @@ type WardOption = {
 export default function CheckoutPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { batches, removeBatches, syncServerCart } = useCart();
+  const { batches, removeBatches, syncServerCart, hydrated } = useCart();
   const batchId = searchParams.get("batchId");
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [profile, setProfile] = useState<CustomerProfile>({});
@@ -67,6 +67,7 @@ export default function CheckoutPage() {
   const [wards, setWards] = useState<WardOption[]>([]);
   const [shippingFee, setShippingFee] = useState<number>(45000); // Default fee
   const [loadingShippingFee, setLoadingShippingFee] = useState(false);
+  const [shippingFeeError, setShippingFeeError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadProvinces = async () => {
@@ -224,36 +225,51 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (districtId === null || districtId <= 0) {
       setShippingFee(45000); // Default fee
+      setShippingFeeError(null);
+      return;
+    }
+
+    if (!wardCode && wards.length > 0) {
+      setShippingFee(45000);
+      setShippingFeeError("Vui lòng chọn Phường/Xã để tính phí giao hàng.");
       return;
     }
 
     const fetchShippingFee = async () => {
       try {
         setLoadingShippingFee(true);
-        const response = await fetch(`${API_URL}/api/public/ghn/shipping-fee?districtId=${districtId}`, {
+        setShippingFeeError(null);
+        const wardParam = wardCode ? `&wardCode=${encodeURIComponent(wardCode)}` : "";
+        const response = await fetch(`${API_URL}/api/public/ghn/shipping-fee?districtId=${districtId}${wardParam}`, {
           cache: "no-store",
         });
 
         if (response.ok) {
-          const data = (await response.json()) as { shippingFee?: number };
+          const data = (await response.json()) as { shippingFee?: number; message?: string };
           if (data.shippingFee && data.shippingFee > 0) {
             setShippingFee(data.shippingFee);
           } else {
             setShippingFee(45000);
           }
+          if (data.message) {
+            setShippingFeeError(data.message);
+          }
         } else {
+          const payload = (await response.json().catch(() => ({}))) as { message?: string };
           setShippingFee(45000);
+          setShippingFeeError(payload.message || "Không thể lấy phí vận chuyển từ GHN.");
         }
       } catch (err) {
         console.error("Failed to fetch shipping fee:", err);
         setShippingFee(45000); // Fallback to default
+        setShippingFeeError("Không thể kết nối đến GHN, đang dùng phí mặc định.");
       } finally {
         setLoadingShippingFee(false);
       }
     };
 
     fetchShippingFee();
-  }, [districtId]);
+  }, [districtId, wardCode, wards.length]);
 
   useEffect(() => {
     const ensureSession = async () => {
@@ -330,6 +346,10 @@ export default function CheckoutPage() {
       errors.ward = "Vui lòng chọn Phường/Xã";
     }
 
+    if (!wardCode) {
+      errors.ward = "Vui lòng chọn Phường/Xã";
+    }
+
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -368,6 +388,11 @@ export default function CheckoutPage() {
   const grandTotal = selectedTotalPrice + (selectedTotalItems > 0 ? shippingFee : 0);
 
   const handleConfirmOrder = async () => {
+    if (!hydrated) {
+      setError("Giỏ hàng đang đồng bộ, vui lòng chờ một chút.");
+      return;
+    }
+
     if (selectedBatches.length === 0) {
       const message = batchId
         ? "Không tìm thấy lượt thêm hợp lệ để thanh toán. Vui lòng quay lại giỏ hàng."
@@ -378,6 +403,11 @@ export default function CheckoutPage() {
 
     if (!validateForm()) {
       setError("Vui lòng kiểm tra lại thông tin của bạn.");
+      return;
+    }
+
+    if (!wardCode) {
+      setError("Vui lòng chọn Phường/Xã để tính phí giao hàng.");
       return;
     }
 
@@ -547,6 +577,11 @@ export default function CheckoutPage() {
                   <span className="material-symbols-outlined text-sm">location_on</span>
                   Khu vực giao hàng
                 </p>
+                {shippingFeeError && (
+                  <div className="rounded-lg bg-amber-50 text-amber-700 text-xs px-3 py-2">
+                    {shippingFeeError}
+                  </div>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-on-surface-variant">Tỉnh / Thành phố</label>

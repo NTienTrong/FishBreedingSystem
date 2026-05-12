@@ -1,11 +1,13 @@
 package com.fishbreeding.backend.dto;
 
 import java.math.BigDecimal;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fishbreeding.backend.entity.OrderStatus;
-import com.fishbreeding.backend.entity.PaymentStatus;
+import com.fishbreeding.backend.entity.PaymentMethod;
+import com.fishbreeding.backend.entity.TransactionStatus;
+import com.fishbreeding.backend.entity.TransactionType;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -21,13 +23,10 @@ public class AdminTransactionResponse {
     private Long orderId;
     private String orderCode;
     private OrderStatus orderStatus;
-    private PaymentStatus paymentStatus;
-    private String vnpTxnRef;
-    private String vnpTransactionNo;
-    private String vnpResponseCode;
-    private BigDecimal vnpAmount;
-    private String vnpBankCode;
-    private LocalDateTime vnpPayDate;
+    private PaymentMethod paymentMethod;
+    private TransactionType transactionType;
+    private String referenceCode;
+    private TransactionStatus status;
+    private BigDecimal amount;
     private LocalDateTime createdAt;
-    private JsonNode rawResponse;
 }

@@ -40,6 +40,9 @@ public class GhnLocationService {
     @Value("${ghn.base-url:}")
     private String baseUrl;
 
+    @Value("${ghn.from-district-id:0}")
+    private int fromDistrictId;
+
     public List<GhnProvinceResponse> getProvinces() {
         return fetchList("/master-data/province", new ParameterizedTypeReference<GhnResponse<List<GhnProvinceResponse>>>() {});
     }
@@ -58,17 +61,25 @@ public class GhnLocationService {
      * Calculate shipping fee from GHN based on district and weight
      * Default weight: 1000 (grams), default dimensions: 15x15x15 (cm)
      */
-    public GhnShippingFeeResponse calculateShippingFee(int districtId, int weightGrams) {
+    public GhnShippingFeeResponse calculateShippingFee(int districtId, String wardCode, int weightGrams) {
         if (weightGrams <= 0) {
             weightGrams = 1000; // Default 1kg
         }
 
+        if (fromDistrictId <= 0 || !StringUtils.hasText(wardCode)) {
+            log.warn("GHN fee missing fromDistrictId or wardCode; fromDistrictId={}, wardCodePresent={}",
+                fromDistrictId, StringUtils.hasText(wardCode));
+            return null;
+        }
+
         GhnShippingFeeRequest request = GhnShippingFeeRequest.builder()
+                .fromDistrictId(fromDistrictId)
                 .toDistrictId(districtId)
+                .toWardCode(wardCode)
                 .weight(weightGrams)
                 .build();
 
-        String path = "/shipping-order/calculatefee";
+        String path = "/v2/shipping-order/fee";
         return fetchShippingFee(path, request);
     }
 
