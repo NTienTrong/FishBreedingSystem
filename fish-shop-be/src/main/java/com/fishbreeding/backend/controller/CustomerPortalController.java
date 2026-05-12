@@ -10,11 +10,11 @@ import java.util.stream.Collectors;
 import java.util.HashMap;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -367,9 +367,15 @@ public class CustomerPortalController {
         List<CustomerAddressResponse> responses = addresses.stream()
                 .map(address -> CustomerAddressResponse.builder()
                         .id(address.getId())
-                        .label(address.getLabel())
-                        .phone(address.getPhone())
-                        .address(address.getAddress())
+                .receiverName(address.getReceiverName())
+                .phoneNumber(address.getPhoneNumber())
+                .provinceId(address.getProvinceId())
+                .districtId(address.getDistrictId())
+                .wardCode(address.getWardCode())
+                .provinceName(address.getProvinceName())
+                .districtName(address.getDistrictName())
+                .wardName(address.getWardName())
+                .streetAddress(address.getStreetAddress())
                         .isDefault(address.getIsDefault())
                         .build())
                 .toList();
@@ -382,15 +388,24 @@ public class CustomerPortalController {
             java.security.Principal principal,
             @Valid @RequestBody CustomerAddressRequest request) {
         User user = requireUser(principal);
+        boolean isFirstAddress = userAddressRepository.countByUser_Id(user.getId()) == 0;
+        boolean makeDefault = isFirstAddress || Boolean.TRUE.equals(request.getIsDefault());
+
         UserAddress address = UserAddress.builder()
                 .user(user)
-                .label(request.getLabel())
-                .phone(request.getPhone())
-                .address(request.getAddress())
-                .isDefault(Boolean.TRUE.equals(request.getIsDefault()))
+            .receiverName(request.getReceiverName())
+            .phoneNumber(request.getPhoneNumber())
+            .provinceId(request.getProvinceId())
+            .districtId(request.getDistrictId())
+            .wardCode(request.getWardCode())
+            .provinceName(request.getProvinceName())
+            .districtName(request.getDistrictName())
+            .wardName(request.getWardName())
+            .streetAddress(request.getStreetAddress())
+            .isDefault(makeDefault)
                 .build();
 
-        if (Boolean.TRUE.equals(request.getIsDefault())) {
+        if (makeDefault) {
             unsetDefault(user.getId());
         }
 
@@ -407,9 +422,15 @@ public class CustomerPortalController {
         UserAddress address = userAddressRepository.findByIdAndUser_Id(id, user.getId())
                 .orElseThrow(() -> new BadRequestException("Address not found"));
 
-        address.setLabel(request.getLabel());
-        address.setPhone(request.getPhone());
-        address.setAddress(request.getAddress());
+        address.setReceiverName(request.getReceiverName());
+        address.setPhoneNumber(request.getPhoneNumber());
+        address.setProvinceId(request.getProvinceId());
+        address.setDistrictId(request.getDistrictId());
+        address.setWardCode(request.getWardCode());
+        address.setProvinceName(request.getProvinceName());
+        address.setDistrictName(request.getDistrictName());
+        address.setWardName(request.getWardName());
+        address.setStreetAddress(request.getStreetAddress());
 
         if (Boolean.TRUE.equals(request.getIsDefault())) {
             unsetDefault(user.getId());
@@ -420,7 +441,8 @@ public class CustomerPortalController {
         return ResponseEntity.ok(toAddressResponse(saved));
     }
 
-    @PutMapping("/addresses/{id}/default")
+    @Transactional
+    @PatchMapping("/addresses/{id}/default")
     public ResponseEntity<?> setDefaultAddress(java.security.Principal principal, @PathVariable Long id) {
         User user = requireUser(principal);
         UserAddress address = userAddressRepository.findByIdAndUser_Id(id, user.getId())
@@ -438,6 +460,16 @@ public class CustomerPortalController {
         User user = requireUser(principal);
         UserAddress address = userAddressRepository.findByIdAndUser_Id(id, user.getId())
                 .orElseThrow(() -> new BadRequestException("Address not found"));
+
+        long addressCount = userAddressRepository.countByUser_Id(user.getId());
+        if (addressCount <= 1) {
+            throw new BadRequestException("Không thể xóa địa chỉ duy nhất.");
+        }
+
+        if (Boolean.TRUE.equals(address.getIsDefault())) {
+            throw new BadRequestException("Vui lòng chọn địa chỉ mặc định khác trước khi xóa.");
+        }
+
         userAddressRepository.delete(address);
         return ResponseEntity.ok(java.util.Map.of("message", "Deleted"));
     }
@@ -534,9 +566,15 @@ public class CustomerPortalController {
     private CustomerAddressResponse toAddressResponse(UserAddress address) {
         return CustomerAddressResponse.builder()
                 .id(address.getId())
-                .label(address.getLabel())
-                .phone(address.getPhone())
-                .address(address.getAddress())
+                .receiverName(address.getReceiverName())
+                .phoneNumber(address.getPhoneNumber())
+                .provinceId(address.getProvinceId())
+                .districtId(address.getDistrictId())
+                .wardCode(address.getWardCode())
+                .provinceName(address.getProvinceName())
+                .districtName(address.getDistrictName())
+                .wardName(address.getWardName())
+                .streetAddress(address.getStreetAddress())
                 .isDefault(address.getIsDefault())
                 .build();
     }

@@ -11,8 +11,14 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class CustomerAddressResponse {
     private Long id;
-    private String label;
-    private String phone;
-    private String address;
+    private String receiverName;
+    private String phoneNumber;
+    private Integer provinceId;
+    private Integer districtId;
+    private String wardCode;
+    private String provinceName;
+    private String districtName;
+    private String wardName;
+    private String streetAddress;
     private Boolean isDefault;
 }

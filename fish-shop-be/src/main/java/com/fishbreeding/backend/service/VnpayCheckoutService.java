@@ -121,7 +121,7 @@ public class VnpayCheckoutService {
                 .paymentMethod(paymentMethod)
                 .recipientName(request.getFullName())
                 .recipientPhone(request.getPhone())
-                .shippingAddress(request.getAddress())
+            .shippingAddress(buildShippingAddress(request))
                 .orderNote(StringUtils.hasText(request.getNote()) ? request.getNote().trim() : null)
                 .build());
 
@@ -201,6 +201,23 @@ public class VnpayCheckoutService {
             log.error("Failed to calculate shipping fee from GHN API: {}", ex.getMessage(), ex);
             return BigDecimal.valueOf(45000); // Fallback to default fee
         }
+    }
+
+    private String buildShippingAddress(CustomerCheckoutRequest request) {
+        List<String> parts = new ArrayList<>();
+        if (StringUtils.hasText(request.getAddress())) {
+            parts.add(request.getAddress().trim());
+        }
+        if (StringUtils.hasText(request.getWard())) {
+            parts.add(request.getWard().trim());
+        }
+        if (StringUtils.hasText(request.getDistrict())) {
+            parts.add(request.getDistrict().trim());
+        }
+        if (StringUtils.hasText(request.getProvince())) {
+            parts.add(request.getProvince().trim());
+        }
+        return String.join(", ", parts);
     }
 
     // ================== BUILD URL ==================

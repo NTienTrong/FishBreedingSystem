@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCart } from "@/components/customer/cart/CartContext";
 import LogoutConfirmModal from "@/components/common/LogoutConfirmModal";
 import ToastMessage from "@/components/common/ToastMessage";
+import { API_URL } from "@/app/config/api";
 
 type CustomerProfile = {
   fullName?: string | null;
@@ -47,10 +48,33 @@ type FishRecord = {
 
 type AddressItem = {
   id: number;
-  label: string;
-  phone: string;
-  address: string;
+  receiverName: string;
+  phoneNumber: string;
+  provinceId: number;
+  districtId: number;
+  wardCode: string;
+  provinceName: string;
+  districtName: string;
+  wardName: string;
+  streetAddress: string;
   isDefault: boolean;
+};
+
+type ProvinceOption = {
+  id: number;
+  name: string;
+};
+
+type DistrictOption = {
+  id: number;
+  name: string;
+  provinceId: number;
+};
+
+type WardOption = {
+  code: string;
+  name: string;
+  districtId: number;
 };
 
 const tabs = [
@@ -98,6 +122,9 @@ export default function ProfilePage() {
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
   const [fishRecords, setFishRecords] = useState<FishRecord[]>([]);
   const [addresses, setAddresses] = useState<AddressItem[]>([]);
+  const [provinces, setProvinces] = useState<ProvinceOption[]>([]);
+  const [districts, setDistricts] = useState<DistrictOption[]>([]);
+  const [wards, setWards] = useState<WardOption[]>([]);
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
   const [actionOrder, setActionOrder] = useState<CustomerOrder | null>(null);
   const [cancelReason, setCancelReason] = useState("");
@@ -115,10 +142,17 @@ export default function ProfilePage() {
     message: "",
     variant: "success",
   });
+  const [editingAddressId, setEditingAddressId] = useState<number | null>(null);
   const [addressForm, setAddressForm] = useState({
-    label: "Nhà",
-    phone: "",
-    address: "",
+    receiverName: "",
+    phoneNumber: "",
+    provinceId: null as number | null,
+    districtId: null as number | null,
+    wardCode: "",
+    provinceName: "",
+    districtName: "",
+    wardName: "",
+    streetAddress: "",
     isDefault: false,
   });
 
@@ -180,6 +214,238 @@ export default function ProfilePage() {
       setAddresses(data);
     }
   };
+
+  const formatAddress = (addr: AddressItem) =>
+    [addr.streetAddress, addr.wardName, addr.districtName, addr.provinceName]
+      .filter(Boolean)
+      .join(", ");
+
+  const resetAddressForm = useCallback(() => {
+    setEditingAddressId(null);
+    setAddressForm({
+      receiverName: "",
+      phoneNumber: "",
+      provinceId: null,
+      districtId: null,
+      wardCode: "",
+      provinceName: "",
+      districtName: "",
+      wardName: "",
+      streetAddress: "",
+      isDefault: false,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== "addresses") {
+      return;
+    }
+
+    const loadProvinces = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/public/ghn/provinces`, { cache: "no-store" });
+        if (!response.ok) {
+          return;
+        }
+
+        const data = (await response.json()) as Array<{
+          provinceId?: number;
+          provinceName?: string;
+          ProvinceID?: number;
+          ProvinceName?: string;
+        }>;
+        const mapped = data
+          .map((item) => ({
+            id: item.provinceId ?? item.ProvinceID,
+            name: item.provinceName ?? item.ProvinceName,
+          }))
+          .filter((item): item is ProvinceOption => Number.isFinite(item.id) && Boolean(item.name));
+        setProvinces(mapped);
+      } catch {
+        setProvinces([]);
+      }
+    };
+
+    loadProvinces();
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== "addresses") {
+      return;
+    }
+
+    if (provinces.length > 0 && addressForm.provinceId === null) {
+      setAddressForm((prev) => ({
+        ...prev,
+        provinceId: provinces[0].id,
+        provinceName: provinces[0].name,
+      }));
+    }
+  }, [activeTab, provinces, addressForm.provinceId]);
+
+  useEffect(() => {
+    if (activeTab !== "addresses") {
+      return;
+    }
+
+    const loadDistricts = async () => {
+      if (addressForm.provinceId === null) {
+        setDistricts([]);
+        setAddressForm((prev) => ({
+          ...prev,
+          districtId: null,
+          districtName: "",
+          wardCode: "",
+          wardName: "",
+        }));
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/api/public/ghn/districts?provinceId=${addressForm.provinceId}`, {
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          return;
+        }
+
+        const data = (await response.json()) as Array<{
+          districtId?: number;
+          districtName?: string;
+          provinceId?: number;
+          DistrictID?: number;
+          DistrictName?: string;
+          ProvinceID?: number;
+        }>;
+        const mapped = data
+          .map((item) => ({
+            id: item.districtId ?? item.DistrictID,
+            name: item.districtName ?? item.DistrictName,
+            provinceId: item.provinceId ?? item.ProvinceID,
+          }))
+          .filter(
+            (item): item is DistrictOption =>
+              Number.isFinite(item.id) && Number.isFinite(item.provinceId) && Boolean(item.name)
+          );
+        setDistricts(mapped);
+      } catch {
+        setDistricts([]);
+      }
+    };
+
+    loadDistricts();
+  }, [activeTab, addressForm.provinceId]);
+
+  useEffect(() => {
+    if (activeTab !== "addresses") {
+      return;
+    }
+
+    if (districts.length === 0) {
+      setAddressForm((prev) => ({
+        ...prev,
+        districtId: null,
+        districtName: "",
+        wardCode: "",
+        wardName: "",
+      }));
+      return;
+    }
+
+    const selected = districts.find((item) => item.id === addressForm.districtId);
+    if (!selected) {
+      setAddressForm((prev) => ({
+        ...prev,
+        districtId: districts[0].id,
+        districtName: districts[0].name,
+      }));
+    } else if (selected.name !== addressForm.districtName) {
+      setAddressForm((prev) => ({
+        ...prev,
+        districtName: selected.name,
+      }));
+    }
+  }, [activeTab, districts, addressForm.districtId, addressForm.districtName]);
+
+  useEffect(() => {
+    if (activeTab !== "addresses") {
+      return;
+    }
+
+    const loadWards = async () => {
+      if (addressForm.districtId === null) {
+        setWards([]);
+        setAddressForm((prev) => ({
+          ...prev,
+          wardCode: "",
+          wardName: "",
+        }));
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/api/public/ghn/wards?districtId=${addressForm.districtId}`, {
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          return;
+        }
+
+        const data = (await response.json()) as Array<{
+          wardCode?: string;
+          wardName?: string;
+          districtId?: number;
+          WardCode?: string;
+          WardName?: string;
+          DistrictID?: number;
+        }>;
+        const mapped = data
+          .map((item) => ({
+            code: item.wardCode ?? item.WardCode,
+            name: item.wardName ?? item.WardName,
+            districtId: item.districtId ?? item.DistrictID,
+          }))
+          .filter(
+            (item): item is WardOption =>
+              Boolean(item.code) && Boolean(item.name) && Number.isFinite(item.districtId)
+          );
+        setWards(mapped);
+      } catch {
+        setWards([]);
+      }
+    };
+
+    loadWards();
+  }, [activeTab, addressForm.districtId]);
+
+  useEffect(() => {
+    if (activeTab !== "addresses") {
+      return;
+    }
+
+    if (wards.length === 0) {
+      setAddressForm((prev) => ({
+        ...prev,
+        wardCode: "",
+        wardName: "",
+      }));
+      return;
+    }
+
+    const selected = wards.find((item) => item.code === addressForm.wardCode);
+    if (!selected) {
+      setAddressForm((prev) => ({
+        ...prev,
+        wardCode: wards[0].code,
+        wardName: wards[0].name,
+      }));
+    } else if (selected.name !== addressForm.wardName) {
+      setAddressForm((prev) => ({
+        ...prev,
+        wardName: selected.name,
+      }));
+    }
+  }, [activeTab, wards, addressForm.wardCode, addressForm.wardName]);
 
   const closeCancelModal = () => {
     setActionOrder(null);
@@ -343,34 +609,72 @@ export default function ProfilePage() {
     });
   };
 
-  const handleAddAddress = async () => {
-    if (!addressForm.label.trim() || !addressForm.phone.trim() || !addressForm.address.trim()) {
+  const handleSaveAddress = async () => {
+    if (!addressForm.receiverName.trim() || !addressForm.phoneNumber.trim() || !addressForm.streetAddress.trim()) {
       showToast("Vui lòng nhập đầy đủ thông tin địa chỉ.", "error");
       return;
     }
 
-    const response = await fetch("/api/customer/addresses", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(addressForm),
-    });
+    if (!addressForm.provinceId || !addressForm.districtId || !addressForm.wardCode) {
+      showToast("Vui lòng chọn đầy đủ Tỉnh/Thành, Quận/Huyện, Phường/Xã.", "error");
+      return;
+    }
+
+    const payload = {
+      receiverName: addressForm.receiverName.trim(),
+      phoneNumber: addressForm.phoneNumber.trim(),
+      provinceId: addressForm.provinceId,
+      districtId: addressForm.districtId,
+      wardCode: addressForm.wardCode,
+      provinceName: addressForm.provinceName,
+      districtName: addressForm.districtName,
+      wardName: addressForm.wardName,
+      streetAddress: addressForm.streetAddress.trim(),
+      isDefault: addressForm.isDefault,
+    };
+
+    const response = await fetch(
+      editingAddressId ? `/api/customer/addresses/${editingAddressId}` : "/api/customer/addresses",
+      {
+        method: editingAddressId ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }
+    );
 
     if (!response.ok) {
       const message = await response.text();
-      showToast(message || "Không thể thêm địa chỉ.", "error");
+      showToast(message || "Không thể lưu địa chỉ.", "error");
       return;
     }
 
     const data = (await response.json()) as AddressItem;
     setAddresses((prev) => [data, ...prev.filter((addr) => addr.id !== data.id)]);
-    setAddressForm({ label: "Nhà", phone: "", address: "", isDefault: false });
-    showToast("Đã thêm địa chỉ mới.", "success");
+    resetAddressForm();
+    showToast(editingAddressId ? "Đã cập nhật địa chỉ." : "Đã thêm địa chỉ mới.", "success");
+  };
+
+  const handleEditAddress = (address: AddressItem) => {
+    setEditingAddressId(address.id);
+    setAddressForm({
+      receiverName: address.receiverName,
+      phoneNumber: address.phoneNumber,
+      provinceId: address.provinceId,
+      districtId: address.districtId,
+      wardCode: address.wardCode,
+      provinceName: address.provinceName,
+      districtName: address.districtName,
+      wardName: address.wardName,
+      streetAddress: address.streetAddress,
+      isDefault: Boolean(address.isDefault),
+    });
   };
 
   const handleSetDefaultAddress = async (id: number) => {
-    const response = await fetch(`/api/customer/addresses/${id}/default`, { method: "PUT" });
+    const response = await fetch(`/api/customer/addresses/${id}/default`, { method: "PATCH" });
     if (!response.ok) {
-      showToast("Không thể đặt địa chỉ mặc định.", "error");
+      const message = await response.text();
+      showToast(message || "Không thể đặt địa chỉ mặc định.", "error");
       return;
     }
 
@@ -381,7 +685,8 @@ export default function ProfilePage() {
   const handleDeleteAddress = async (id: number) => {
     const response = await fetch(`/api/customer/addresses/${id}`, { method: "DELETE" });
     if (!response.ok) {
-      showToast("Không thể xóa địa chỉ.", "error");
+      const message = await response.text();
+      showToast(message || "Không thể xóa địa chỉ.", "error");
       return;
     }
 
@@ -713,22 +1018,30 @@ export default function ProfilePage() {
               addresses.map((addr) => (
                 <div key={addr.id} className="rounded-2xl bg-surface-container-low p-5 space-y-2">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-primary">{addr.label}</h3>
+                    <h3 className="font-bold text-primary">{addr.receiverName}</h3>
                     {addr.isDefault && (
                       <span className="text-xs font-bold px-2 py-1 rounded-full bg-secondary-container text-on-secondary-container">
                         Mặc định
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-on-surface-variant">{addr.phone}</p>
-                  <p className="text-sm text-on-surface-variant">{addr.address}</p>
+                  <p className="text-sm text-on-surface-variant">{addr.phoneNumber}</p>
+                  <p className="text-sm text-on-surface-variant">{formatAddress(addr)}</p>
                   <div className="flex gap-2 pt-2">
                     <button
-                      className="px-3 py-1.5 rounded-full bg-primary text-white text-sm font-bold"
+                      className="px-3 py-1.5 rounded-full bg-surface-container-high text-primary text-sm font-bold"
+                      type="button"
+                      onClick={() => handleEditAddress(addr)}
+                    >
+                      Sửa
+                    </button>
+                    <button
+                      className="px-3 py-1.5 rounded-full bg-primary text-white text-sm font-bold disabled:opacity-60"
                       type="button"
                       onClick={() => handleSetDefaultAddress(addr.id)}
+                      disabled={addr.isDefault}
                     >
-                      Đặt mặc định
+                      Thiết lập mặc định
                     </button>
                     <button
                       className="px-3 py-1.5 rounded-full bg-surface-container-high text-primary text-sm font-bold"
@@ -743,26 +1056,97 @@ export default function ProfilePage() {
             )}
           </div>
           <div className="bg-surface-container-lowest rounded-2xl p-6">
-            <h3 className="text-xl font-bold text-primary mb-4">Thêm địa chỉ mới</h3>
+            <h3 className="text-xl font-bold text-primary mb-4">
+              {editingAddressId ? "Cập nhật địa chỉ" : "Thêm địa chỉ mới"}
+            </h3>
             <div className="space-y-3">
               <input
                 className="w-full rounded-lg bg-surface-container-highest border-0 p-3"
-                placeholder="Nhãn (Nhà, Công ty...)"
-                value={addressForm.label}
-                onChange={(event) => setAddressForm((prev) => ({ ...prev, label: event.target.value }))}
+                placeholder="Họ và tên người nhận"
+                value={addressForm.receiverName}
+                onChange={(event) => setAddressForm((prev) => ({ ...prev, receiverName: event.target.value }))}
               />
               <input
                 className="w-full rounded-lg bg-surface-container-highest border-0 p-3"
                 placeholder="Số điện thoại"
-                value={addressForm.phone}
-                onChange={(event) => setAddressForm((prev) => ({ ...prev, phone: event.target.value }))}
+                value={addressForm.phoneNumber}
+                onChange={(event) => {
+                  const value = event.target.value.replace(/[^\d]/g, "");
+                  setAddressForm((prev) => ({ ...prev, phoneNumber: value.slice(0, 10) }));
+                }}
               />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-on-surface-variant">Tỉnh / Thành phố</label>
+                  <select
+                    className="w-full rounded-lg bg-surface-container-highest border-0 p-3"
+                    value={addressForm.provinceId ?? ""}
+                    onChange={(event) => {
+                      const nextId = Number(event.target.value);
+                      const selected = provinces.find((item) => item.id === nextId);
+                      setAddressForm((prev) => ({
+                        ...prev,
+                        provinceId: Number.isFinite(nextId) ? nextId : null,
+                        provinceName: selected?.name ?? "",
+                        districtId: null,
+                        districtName: "",
+                        wardCode: "",
+                        wardName: "",
+                      }));
+                    }}
+                  >
+                    {provinces.map((item) => (
+                      <option key={item.id} value={item.id}>{item.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-on-surface-variant">Quận / Huyện</label>
+                  <select
+                    className="w-full rounded-lg bg-surface-container-highest border-0 p-3"
+                    value={addressForm.districtId ?? ""}
+                    onChange={(event) => {
+                      const nextId = Number(event.target.value);
+                      const selected = districts.find((item) => item.id === nextId);
+                      setAddressForm((prev) => ({
+                        ...prev,
+                        districtId: Number.isFinite(nextId) ? nextId : null,
+                        districtName: selected?.name ?? "",
+                      }));
+                    }}
+                  >
+                    {districts.map((item) => (
+                      <option key={item.id} value={item.id}>{item.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-on-surface-variant">Phường / Xã</label>
+                  <select
+                    className="w-full rounded-lg bg-surface-container-highest border-0 p-3"
+                    value={addressForm.wardCode}
+                    onChange={(event) => {
+                      const nextCode = event.target.value;
+                      const selected = wards.find((item) => item.code === nextCode);
+                      setAddressForm((prev) => ({
+                        ...prev,
+                        wardCode: nextCode,
+                        wardName: selected?.name ?? "",
+                      }));
+                    }}
+                  >
+                    {wards.map((item) => (
+                      <option key={item.code} value={item.code}>{item.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
               <textarea
                 className="w-full rounded-lg bg-surface-container-highest border-0 p-3"
-                placeholder="Địa chỉ chi tiết"
+                placeholder="Số nhà, tên đường"
                 rows={4}
-                value={addressForm.address}
-                onChange={(event) => setAddressForm((prev) => ({ ...prev, address: event.target.value }))}
+                value={addressForm.streetAddress}
+                onChange={(event) => setAddressForm((prev) => ({ ...prev, streetAddress: event.target.value }))}
               />
               <label className="flex items-center gap-2 text-sm text-on-surface-variant">
                 <input
@@ -772,13 +1156,24 @@ export default function ProfilePage() {
                 />
                 Đặt làm địa chỉ mặc định
               </label>
-              <button
-                className="px-6 py-3 rounded-full bg-primary text-white font-bold"
-                type="button"
-                onClick={handleAddAddress}
-              >
-                Lưu địa chỉ
-              </button>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  className="px-6 py-3 rounded-full bg-primary text-white font-bold"
+                  type="button"
+                  onClick={handleSaveAddress}
+                >
+                  {editingAddressId ? "Cập nhật" : "Lưu địa chỉ"}
+                </button>
+                {editingAddressId && (
+                  <button
+                    className="px-6 py-3 rounded-full bg-surface-container-high text-primary font-bold"
+                    type="button"
+                    onClick={resetAddressForm}
+                  >
+                    Hủy
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </section>

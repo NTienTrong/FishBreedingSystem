@@ -11,6 +11,20 @@ type CustomerProfile = {
   address?: string | null;
 };
 
+type AddressItem = {
+  id: number;
+  receiverName: string;
+  phoneNumber: string;
+  provinceId: number;
+  districtId: number;
+  wardCode: string;
+  provinceName: string;
+  districtName: string;
+  wardName: string;
+  streetAddress: string;
+  isDefault: boolean;
+};
+
 type PaymentMethod = "COD" | "VNPAY";
 
 type ProvinceOption = {
@@ -133,14 +147,20 @@ export default function CheckoutPage() {
   }, [provinceId]);
 
   useEffect(() => {
-    if (districts.length > 0) {
-      setDistrictId(districts[0].id);
-      setDistrict(districts[0].name);
-    } else {
+    if (districts.length === 0) {
       setDistrictId(null);
       setDistrict("");
+      return;
     }
-  }, [districts]);
+
+    const selected = districts.find((item) => item.id === districtId);
+    if (!selected) {
+      setDistrictId(districts[0].id);
+      setDistrict(districts[0].name);
+    } else if (selected.name !== district) {
+      setDistrict(selected.name);
+    }
+  }, [districts, districtId, district]);
 
   useEffect(() => {
     const loadWards = async () => {
@@ -185,14 +205,20 @@ export default function CheckoutPage() {
   }, [districtId]);
 
   useEffect(() => {
-    if (wards.length > 0) {
-      setWardCode(wards[0].code);
-      setWard(wards[0].name);
-    } else {
+    if (wards.length === 0) {
       setWardCode("");
       setWard("");
+      return;
     }
-  }, [wards]);
+
+    const selected = wards.find((item) => item.code === wardCode);
+    if (!selected) {
+      setWardCode(wards[0].code);
+      setWard(wards[0].name);
+    } else if (selected.name !== ward) {
+      setWard(selected.name);
+    }
+  }, [wards, wardCode, ward]);
 
   // Fetch shipping fee when district changes
   useEffect(() => {
@@ -247,6 +273,25 @@ export default function CheckoutPage() {
             phone: data.phone ?? "",
             address: data.address ?? "",
           });
+        }
+
+        const addressResponse = await fetch("/api/customer/addresses", { cache: "no-store" });
+        if (addressResponse.ok) {
+          const data = (await addressResponse.json()) as AddressItem[];
+          const defaultAddress = data.find((item) => item.isDefault) ?? data[0];
+          if (defaultAddress) {
+            setProfile({
+              fullName: defaultAddress.receiverName,
+              phone: defaultAddress.phoneNumber,
+              address: defaultAddress.streetAddress,
+            });
+            setProvinceId(defaultAddress.provinceId);
+            setProvince(defaultAddress.provinceName);
+            setDistrictId(defaultAddress.districtId);
+            setDistrict(defaultAddress.districtName);
+            setWardCode(defaultAddress.wardCode);
+            setWard(defaultAddress.wardName);
+          }
         }
       } finally {
         setLoadingProfile(false);

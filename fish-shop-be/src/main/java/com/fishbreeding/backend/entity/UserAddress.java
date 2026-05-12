@@ -33,14 +33,32 @@ public class UserAddress {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(length = 50, nullable = false)
-    private String label;
+    @Column(name = "receiver_name", length = 100, nullable = false)
+    private String receiverName;
 
-    @Column(length = 15, nullable = false)
-    private String phone;
+    @Column(name = "phone_number", length = 15, nullable = false)
+    private String phoneNumber;
 
-    @Column(columnDefinition = "TEXT", nullable = false)
-    private String address;
+    @Column(name = "province_id")
+    private Integer provinceId;
+
+    @Column(name = "district_id")
+    private Integer districtId;
+
+    @Column(name = "ward_code", length = 20)
+    private String wardCode;
+
+    @Column(name = "province_name", length = 100)
+    private String provinceName;
+
+    @Column(name = "district_name", length = 100)
+    private String districtName;
+
+    @Column(name = "ward_name", length = 100)
+    private String wardName;
+
+    @Column(name = "street_address", columnDefinition = "TEXT", nullable = false)
+    private String streetAddress;
 
     @Column(name = "is_default")
     @Builder.Default

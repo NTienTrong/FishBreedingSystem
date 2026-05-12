@@ -13,4 +13,6 @@ public interface UserAddressRepository extends JpaRepository<UserAddress, Long> 
     List<UserAddress> findByUser_IdOrderByIsDefaultDescCreatedAtDesc(Long userId);
 
     Optional<UserAddress> findByIdAndUser_Id(Long id, Long userId);
+
+    long countByUser_Id(Long userId);
 }
