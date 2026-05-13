@@ -13,6 +13,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.fishbreeding.backend.service.SessionStoreService;
+
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -25,9 +27,12 @@ import jakarta.servlet.http.HttpServletResponse;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtProvider jwtProvider;
+    private final SessionStoreService sessionStoreService;
 
-    public JwtAuthenticationFilter(JwtProvider jwtProvider) {
+    public JwtAuthenticationFilter(JwtProvider jwtProvider,
+                                   SessionStoreService sessionStoreService) {
         this.jwtProvider = jwtProvider;
+        this.sessionStoreService = sessionStoreService;
     }
 
     @Override
@@ -44,6 +49,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (jwtProvider.validateToken(token)) {
                 String username = jwtProvider.extractUsername(token);
                 String role = jwtProvider.extractRole(token);
+
+                if (!sessionStoreService.isSessionActive(token, role)) {
+                    SecurityContextHolder.clearContext();
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    response.getWriter().write("{\"message\":\"Session expired\",\"status\":401}");
+                    return;
+                }
+
+                sessionStoreService.refreshSession(token, role);
 
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                         username,

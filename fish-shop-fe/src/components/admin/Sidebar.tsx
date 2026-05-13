@@ -22,7 +22,7 @@ export default function Sidebar() {
       });
     } finally {
       setIsLoggingOut(false);
-      router.push('/');
+      router.push('/admin/login');
       router.refresh();
     }
   };

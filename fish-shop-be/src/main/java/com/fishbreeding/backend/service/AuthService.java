@@ -30,6 +30,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
+    private final SessionStoreService sessionStoreService;
 
     public LoginResponse login(LoginRequest request) {
         String identifier = normalizeRequired(resolveIdentifier(request), "Username or email is required");
@@ -43,6 +44,7 @@ public class AuthService {
             }
             if (passwordEncoder.matches(request.getPassword(), storedPassword)) {
                 String token = jwtProvider.generateToken(user.getUsername(), user.getRole());
+                sessionStoreService.registerSession(token, user.getRole(), user.getUsername());
                 return LoginResponse.builder()
                         .token(token)
                         .id(user.getId())
@@ -55,6 +57,7 @@ public class AuthService {
                 user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
                 userRepository.save(user);
                 String token = jwtProvider.generateToken(user.getUsername(), user.getRole());
+                sessionStoreService.registerSession(token, user.getRole(), user.getUsername());
                 return LoginResponse.builder()
                         .token(token)
                         .id(user.getId())
@@ -96,6 +99,7 @@ public class AuthService {
 
         User saved = userRepository.save(user);
         String token = jwtProvider.generateToken(saved.getUsername(), saved.getRole());
+        sessionStoreService.registerSession(token, saved.getRole(), saved.getUsername());
 
         return LoginResponse.builder()
                 .token(token)
@@ -117,7 +121,8 @@ public class AuthService {
         if (existingByProvider.isPresent()) {
             User user = existingByProvider.get();
             ensureActive(user);
-            String token = jwtProvider.generateToken(user.getUsername(), user.getRole());
+                String token = jwtProvider.generateToken(user.getUsername(), user.getRole());
+                sessionStoreService.registerSession(token, user.getRole(), user.getUsername());
             return LoginResponse.builder()
                     .token(token)
                     .id(user.getId())
@@ -144,7 +149,8 @@ public class AuthService {
                 user.setProviderId(providerId);
                 userRepository.save(user);
             }
-            String token = jwtProvider.generateToken(user.getUsername(), user.getRole());
+                String token = jwtProvider.generateToken(user.getUsername(), user.getRole());
+                sessionStoreService.registerSession(token, user.getRole(), user.getUsername());
             return LoginResponse.builder()
                     .token(token)
                     .id(user.getId())
@@ -172,6 +178,7 @@ public class AuthService {
 
         User saved = userRepository.save(user);
         String token = jwtProvider.generateToken(saved.getUsername(), saved.getRole());
+        sessionStoreService.registerSession(token, saved.getRole(), saved.getUsername());
 
         return LoginResponse.builder()
                 .token(token)
@@ -216,6 +223,8 @@ public class AuthService {
             String username = claims.getSubject();
             Object roleClaim = claims.get("role");
             String role = roleClaim == null ? "UNKNOWN" : roleClaim.toString();
+
+            sessionStoreService.revokeSession(token, role);
 
             log.info("Logout audit: username={}, role={}, ip={}, userAgent={}", username, role, clientIp, userAgent);
         } catch (JwtException | IllegalArgumentException ex) {

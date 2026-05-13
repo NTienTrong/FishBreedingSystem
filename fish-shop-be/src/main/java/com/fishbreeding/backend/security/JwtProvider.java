@@ -15,7 +15,7 @@ import java.util.Date;
 public class JwtProvider {
 
     private static final long ADMIN_EXPIRATION_MILLIS = 4 * 60 * 60 * 1000L;
-    private static final long CUSTOMER_EXPIRATION_MILLIS = 7 * 24 * 60 * 60 * 1000L;
+    private static final long CUSTOMER_EXPIRATION_MILLIS = 3 * 24 * 60 * 60 * 1000L;
 
     private final SecretKey signingKey;
 

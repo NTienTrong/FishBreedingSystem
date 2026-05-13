@@ -3,7 +3,7 @@ package com.fishbreeding.backend.controller;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.springframework.http.ResponseEntity;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,7 +26,7 @@ public class AdminTransactionController {
 
     @GetMapping
     @Transactional(readOnly = true)
-    public ResponseEntity<List<AdminTransactionResponse>> listTransactions() {
+    public List<AdminTransactionResponse> listTransactions() {
         List<Transaction> transactions = transactionRepository
             .findAllByOrderByCreatedAtDescIdDesc();
         List<AdminTransactionResponse> responses = new ArrayList<>();
@@ -47,13 +47,13 @@ public class AdminTransactionController {
                 .build());
         }
 
-        return ResponseEntity.ok(responses);
+        return responses;
     }
 
     @GetMapping("/summary")
     @Transactional(readOnly = true)
-    public ResponseEntity<TransactionSummaryResponse> getSummary() {
-        TransactionSummaryResponse summary = transactionRepository.summarizeRevenue();
-        return ResponseEntity.ok(summary);
+    @Cacheable(cacheNames = "adminTransactionSummary")
+    public TransactionSummaryResponse getSummary() {
+        return transactionRepository.summarizeRevenue();
     }
 }
