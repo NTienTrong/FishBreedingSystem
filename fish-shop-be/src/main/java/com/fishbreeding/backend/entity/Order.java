@@ -81,6 +81,14 @@ public class Order {
     @Builder.Default
     private Boolean stockDeducted = false;
 
+    // Coupon fields
+    @Column(name = "coupon_code", length = 60)
+    private String couponCode;
+
+    @Column(name = "discount_amount", precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

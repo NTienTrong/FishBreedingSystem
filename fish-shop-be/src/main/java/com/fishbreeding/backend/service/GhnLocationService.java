@@ -24,12 +24,16 @@ import com.fishbreeding.backend.dto.ghn.GhnShippingFeeResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class GhnLocationService {
 
     private final RestTemplate restTemplate;
+
+    private static final Logger log = LoggerFactory.getLogger(GhnLocationService.class);
 
     @Value("${ghn.token:}")
     private String token;
@@ -40,8 +44,12 @@ public class GhnLocationService {
     @Value("${ghn.base-url:}")
     private String baseUrl;
 
+    // --- ĐÃ THÊM CẤU HÌNH ĐỊA CHỈ TRẠI CÁ MẶC ĐỊNH ---
     @Value("${ghn.from-district-id:0}")
     private int fromDistrictId;
+
+    @Value("${ghn.from-ward-code:}")
+    private String fromWardCode;
 
     public List<GhnProvinceResponse> getProvinces() {
         return fetchList("/master-data/province", new ParameterizedTypeReference<GhnResponse<List<GhnProvinceResponse>>>() {});
@@ -66,17 +74,22 @@ public class GhnLocationService {
             weightGrams = 1000; // Default 1kg
         }
 
-        if (fromDistrictId <= 0 || !StringUtils.hasText(wardCode)) {
-            log.warn("GHN fee missing fromDistrictId or wardCode; fromDistrictId={}, wardCodePresent={}",
-                fromDistrictId, StringUtils.hasText(wardCode));
+        // Đã cập nhật: Kiểm tra thêm cả fromWardCode của Shop
+        if (fromDistrictId <= 0 || !StringUtils.hasText(fromWardCode) || !StringUtils.hasText(wardCode)) {
+            log.warn("GHN fee missing fromDistrictId, fromWardCode or wardCode; fromDistrictId={}, fromWardCodePresent={}, toWardCodePresent={}",
+                fromDistrictId, StringUtils.hasText(fromWardCode), StringUtils.hasText(wardCode));
             return null;
         }
 
+        // Đã cập nhật: Truyền fromWardCode vào Request
         GhnShippingFeeRequest request = GhnShippingFeeRequest.builder()
                 .fromDistrictId(fromDistrictId)
+                .fromWardCode(fromWardCode) // Thêm dòng này để tính phí chính xác từ Thị trấn Lim
                 .toDistrictId(districtId)
                 .toWardCode(wardCode)
                 .weight(weightGrams)
+                // GHN API V2 thường yêu cầu thêm service_type_id (2: Giao Chuẩn) để tính phí
+                .serviceTypeId(2) 
                 .build();
 
         String path = "/v2/shipping-order/fee";

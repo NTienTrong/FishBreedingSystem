@@ -3,6 +3,8 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCart } from "@/components/customer/cart/CartContext";
+import ApplyCouponInput from "@/components/customer/checkout/ApplyCouponInput";
+import { CouponApplyResponse } from "@/types/coupon";
 import { API_URL } from "@/app/config/api";
 
 type CustomerProfile = {
@@ -68,6 +70,7 @@ export default function CheckoutPage() {
   const [shippingFee, setShippingFee] = useState<number>(45000); // Default fee
   const [loadingShippingFee, setLoadingShippingFee] = useState(false);
   const [shippingFeeError, setShippingFeeError] = useState<string | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<CouponApplyResponse | null>(null);
 
   useEffect(() => {
     const loadProvinces = async () => {
@@ -385,7 +388,7 @@ export default function CheckoutPage() {
     [selectedBatches]
   );
 
-  const grandTotal = selectedTotalPrice + (selectedTotalItems > 0 ? shippingFee : 0);
+  const grandTotal = selectedTotalPrice - (appliedCoupon?.discountAmount || 0) + (selectedTotalItems > 0 ? shippingFee : 0);
 
   const handleConfirmOrder = async () => {
     if (!hydrated) {
@@ -449,6 +452,7 @@ export default function CheckoutPage() {
           wardCode,
           paymentMethod,
           note: orderNote.trim(),
+          couponCode: appliedCoupon?.code || null,
         }),
       });
 
@@ -787,6 +791,17 @@ export default function CheckoutPage() {
               Tóm tắt đơn hàng ({selectedTotalItems} sản phẩm)
             </h2>
 
+            {/* Apply Coupon Input */}
+            <div className="mb-5 pb-5 border-b border-white/10 relative">
+              <ApplyCouponInput
+                subtotal={selectedTotalPrice}
+                onApplySuccess={(coupon) => setAppliedCoupon(coupon)}
+                onCancel={() => setAppliedCoupon(null)}
+                isApplied={!!appliedCoupon}
+                appliedCoupon={appliedCoupon}
+              />
+            </div>
+
             {/* Product List */}
             <div className="space-y-3 border-b border-white/10 pb-5 mb-5 max-h-72 overflow-y-auto relative">
               {selectedItems.length > 0 ? (
@@ -819,6 +834,12 @@ export default function CheckoutPage() {
                 <span>Tiền hàng</span>
                 <span>{formatCurrency(selectedTotalPrice)}</span>
               </div>
+              {appliedCoupon?.discountAmount > 0 && (
+                <div className="flex justify-between items-center text-sm text-green-300">
+                  <span>Giảm giá ({appliedCoupon?.code})</span>
+                  <span>-{formatCurrency(appliedCoupon?.discountAmount || 0)}</span>
+                </div>
+              )}
               <div className="flex justify-between items-center text-sm opacity-85">
                 <span className="flex items-center gap-1">
                   <span className="material-symbols-outlined text-xs">local_shipping</span>

@@ -33,4 +33,6 @@ public class CustomerCheckoutRequest {
     private String paymentMethod; // "VNPAY" or "COD"
 
     private String note;
+
+    private String couponCode; // Mã giảm giá (optional)
 }

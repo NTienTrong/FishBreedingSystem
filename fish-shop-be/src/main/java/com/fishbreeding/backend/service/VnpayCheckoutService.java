@@ -43,6 +43,7 @@ public class VnpayCheckoutService {
     private final TransactionService transactionService;
     private final InventoryService inventoryService;
     private final GhnLocationService ghnLocationService;
+    private final CouponService couponService;
     private final ObjectMapper objectMapper;
 
     @Value("${app.vnpay.tmn-code:}")
@@ -101,11 +102,30 @@ public class VnpayCheckoutService {
             .reduce(BigDecimal.ZERO, BigDecimal::add)
             .setScale(2, RoundingMode.HALF_UP);
 
+        // Apply coupon discount if provided
+        String couponCode = null;
+        BigDecimal discountAmount = BigDecimal.ZERO;
+        if (StringUtils.hasText(request.getCouponCode())) {
+            try {
+                var couponResponse = couponService.applyCoupon(request.getCouponCode().trim(), subtotal);
+                couponCode = couponResponse.getCode();
+                discountAmount = couponResponse.getDiscountAmount();
+                log.info("Coupon applied: {}, discount: {}", couponCode, discountAmount);
+            } catch (Exception ex) {
+                log.warn("Coupon validation failed: {}", ex.getMessage());
+                // Không throw exception, cho phép checkout tiếp tục mà không giảm giá
+                // Frontend có thể hiển thị cảnh báo cho user
+            }
+        }
+
         // Calculate shipping fee from GHN API
         BigDecimal shippingFee = calculateShippingFee(request);
 
-        // Total amount = subtotal + shipping fee
-        BigDecimal totalAmount = subtotal.add(shippingFee).setScale(2, RoundingMode.HALF_UP);
+        // Total amount = subtotal - discount + shipping fee
+        BigDecimal totalAmount = subtotal
+            .subtract(discountAmount)
+            .add(shippingFee)
+            .setScale(2, RoundingMode.HALF_UP);
 
         PaymentMethod paymentMethod = parsePaymentMethod(request.getPaymentMethod());
         OrderStatus orderStatus = paymentMethod == PaymentMethod.VNPAY
@@ -124,6 +144,8 @@ public class VnpayCheckoutService {
                 .recipientPhone(request.getPhone())
             .shippingAddress(buildShippingAddress(request))
                 .orderNote(StringUtils.hasText(request.getNote()) ? request.getNote().trim() : null)
+                .couponCode(couponCode)
+                .discountAmount(discountAmount)
                 .build());
 
         // Save items
@@ -138,6 +160,11 @@ public class VnpayCheckoutService {
                     .build());
         }
         orderItemRepository.saveAll(items);
+
+        // Increment coupon usage count if coupon was applied
+        if (StringUtils.hasText(couponCode)) {
+            couponService.incrementUsedCount(couponCode);
+        }
 
         // For COD: deduct stock immediately
         if (paymentMethod == PaymentMethod.COD) {

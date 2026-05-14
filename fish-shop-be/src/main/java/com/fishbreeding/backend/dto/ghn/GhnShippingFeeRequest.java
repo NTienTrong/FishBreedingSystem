@@ -37,4 +37,7 @@ public class GhnShippingFeeRequest {
 
     @JsonProperty("coupon")
     private String coupon;
+
+    @JsonProperty("from_ward_code")
+    private String fromWardCode;
 }
