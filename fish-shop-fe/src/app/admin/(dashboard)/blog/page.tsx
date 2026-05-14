@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
+import DetailModal from "@/components/common/DetailModal";
 import ToastMessage from "@/components/common/ToastMessage";
 import { BlogService } from "@/services/blog.service";
 import { BlogPostResponse } from "@/types/blog";
@@ -26,6 +27,9 @@ export default function AdminBlogPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<BlogPostResponse | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [detailTarget, setDetailTarget] = useState<BlogPostResponse | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [toast, setToast] = useState<{ show: boolean; message: string; variant: "success" | "error" }>({
     show: false,
     message: "",
@@ -145,6 +149,33 @@ export default function AdminBlogPage() {
     }
   };
 
+  const handleOpenDetail = useCallback(async (postId: number) => {
+    setIsDetailOpen(true);
+    setDetailLoading(true);
+    try {
+      const data = await BlogService.getById(postId);
+      setDetailTarget(data);
+    } catch (error) {
+      console.error(error);
+      showToast("Không thể tải chi tiết bài viết.", "error");
+      setIsDetailOpen(false);
+    } finally {
+      setDetailLoading(false);
+    }
+  }, [showToast]);
+
+  const handleCloseDetail = () => {
+    setIsDetailOpen(false);
+    setDetailTarget(null);
+  };
+
+  const renderDetailItem = (label: string, value: React.ReactNode) => (
+    <div className="grid grid-cols-[160px_1fr] gap-4 border-b border-slate-100 py-3">
+      <p className="text-xs uppercase tracking-wider text-slate-400">{label}</p>
+      <div className="text-sm text-slate-700">{value ?? "-"}</div>
+    </div>
+  );
+
   return (
     <div className="p-8 space-y-8">
       <ToastMessage show={toast.show} message={toast.message} variant={toast.variant} />
@@ -249,6 +280,14 @@ export default function AdminBlogPage() {
                     <td className="px-8 py-4 text-xs font-mono text-slate-500">/{post.slug}</td>
                     <td className="px-8 py-4">
                       <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => handleOpenDetail(post.id)}
+                          className="text-slate-400 hover:text-primary transition-colors"
+                          type="button"
+                          aria-label="Xem chi tiết"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">visibility</span>
+                        </button>
                         <Link href={`/admin/blog/${post.id}/edit`} className="text-slate-400 hover:text-primary transition-colors">
                           <span className="material-symbols-outlined text-[18px]">edit</span>
                         </Link>
@@ -312,6 +351,90 @@ export default function AdminBlogPage() {
         }}
         isDeleting={isDeleting}
       />
+
+      <DetailModal
+        isOpen={isDetailOpen}
+        onClose={handleCloseDetail}
+        title="Chi tiết bài viết"
+        subtitle={detailTarget ? `#${detailTarget.id} - ${detailTarget.title}` : undefined}
+      >
+        {detailLoading ? (
+          <div className="flex items-center justify-center py-10 text-slate-500">
+            Đang tải...
+          </div>
+        ) : detailTarget ? (
+          <div className="space-y-6">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex items-center gap-4">
+              {detailTarget.thumbnailUrl ? (
+                <img
+                  src={detailTarget.thumbnailUrl}
+                  alt={detailTarget.title}
+                  className="h-20 w-20 rounded-2xl object-cover border border-slate-200"
+                />
+              ) : (
+                <div className="h-20 w-20 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-400">
+                  <span className="material-symbols-outlined text-[20px]">article</span>
+                </div>
+              )}
+              <div>
+                <p className="text-lg font-bold text-slate-900">{detailTarget.title}</p>
+                <p className="text-sm text-slate-500">/{detailTarget.slug}</p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white">
+              {renderDetailItem("ID", `#${detailTarget.id}`)}
+              {renderDetailItem("Slug", `/${detailTarget.slug}`)}
+              {renderDetailItem("Tác giả", detailTarget.authorFullName || "Hệ thống")}
+              {renderDetailItem(
+                "Trạng thái",
+                detailTarget.status === "PUBLISHED" ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-50 text-green-600 font-medium text-xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                    Xuất bản
+                  </span>
+                ) : detailTarget.status === "ARCHIVED" ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-50 text-orange-600 font-medium text-xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+                    Lưu trữ
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-600 font-medium text-xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                    Bản nháp
+                  </span>
+                ),
+              )}
+              {renderDetailItem(
+                "Ngày tạo",
+                (() => {
+                  const d = safeParseDate(detailTarget.createdAt);
+                  return d ? dateFormatter.format(d) : "-";
+                })(),
+              )}
+              {renderDetailItem(
+                "Ngày đăng",
+                (() => {
+                  const d = safeParseDate(detailTarget.publishedAt);
+                  return d ? dateFormatter.format(d) : "-";
+                })(),
+              )}
+            </div>
+
+            {detailTarget.content && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Nội dung</p>
+                <div
+                  className="prose prose-sm max-w-none text-slate-700 max-h-60 overflow-y-auto"
+                  dangerouslySetInnerHTML={{ __html: detailTarget.content }}
+                />
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-10 text-slate-500">Không có dữ liệu.</div>
+        )}
+      </DetailModal>
     </div>
   );
 }

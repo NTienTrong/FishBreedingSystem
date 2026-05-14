@@ -45,7 +45,7 @@ export interface CouponApplyResponse {
 
 export interface PageResponse<T> {
   content: T[];
-  page: number;
+  number: number;
   size: number;
   totalElements: number;
   totalPages: number;

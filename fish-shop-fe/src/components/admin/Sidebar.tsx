@@ -47,6 +47,7 @@ export default function Sidebar() {
     { name: 'Attributes', href: "/admin/attributes", icon: "tune" },
     { name: "Orders", href: "/admin/orders", icon: "shopping_cart" },
     { name: "Transactions", href: "/admin/transactions", icon: "payments" },
+    { name: "Discount", href: "/admin/coupons", icon: "sell" },
     { name: "Blog", href: "/admin/blog", icon: "article" },
     { name: "Users", href: "/admin/users", icon: "group" },
   ];
@@ -69,11 +70,10 @@ export default function Sidebar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 px-4 py-3 transition-transform duration-200 group ${
-                  isActive
-                    ? "bg-[#005B71] text-white rounded-r-full shadow-lg shadow-[#005B71]/20 scale-95 active:scale-100"
-                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg"
-                }`}
+                className={`flex items-center gap-3 px-4 py-3 transition-transform duration-200 group ${isActive
+                  ? "bg-[#005B71] text-white rounded-r-full shadow-lg shadow-[#005B71]/20 scale-95 active:scale-100"
+                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg"
+                  }`}
               >
                 <span className="material-symbols-outlined group-hover:scale-110 transition-transform" style={{ fontVariationSettings: isActive ? "'FILL' 1" : undefined }}>
                   {item.icon}

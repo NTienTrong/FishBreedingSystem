@@ -1,15 +1,15 @@
 package com.fishbreeding.backend.controller;
 
-import java.security.Principal;
-
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -82,6 +82,54 @@ public class CouponController {
         log.info("Fetching coupons - page: {}, size: {}", page, size);
         Page<AdminCouponResponse> response = couponService.getCoupons(page, size);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Admin API: Lấy chi tiết mã giảm giá theo ID
+     * GET /api/v1/admin/coupons/{id}
+     * 
+     * @param id ID của coupon
+     * @return AdminCouponResponse
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/admin/coupons/{id}")
+    public ResponseEntity<AdminCouponResponse> getCouponById(@PathVariable Long id) {
+        log.info("Fetching coupon by id: {}", id);
+        AdminCouponResponse response = couponService.getCouponById(id);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Admin API: Cập nhật mã giảm giá
+     * PUT /api/v1/admin/coupons/{id}
+     * 
+     * @param id ID của coupon
+     * @param request AdminCouponRequest chứa thông tin mới
+     * @return AdminCouponResponse
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/admin/coupons/{id}")
+    public ResponseEntity<AdminCouponResponse> updateCoupon(
+            @PathVariable Long id,
+            @Valid @RequestBody AdminCouponRequest request) {
+        log.info("Updating coupon: {}", id);
+        AdminCouponResponse response = couponService.updateCoupon(id, request);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Admin API: Xóa mã giảm giá
+     * DELETE /api/v1/admin/coupons/{id}
+     * 
+     * @param id ID của coupon
+     * @return 204 No Content
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/admin/coupons/{id}")
+    public ResponseEntity<Void> deleteCoupon(@PathVariable Long id) {
+        log.info("Deleting coupon: {}", id);
+        couponService.deleteCoupon(id);
+        return ResponseEntity.noContent().build();
     }
 
     /**

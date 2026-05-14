@@ -175,6 +175,61 @@ public class CouponService {
     }
 
     /**
+     * Lấy chi tiết mã giảm giá theo ID (Admin API)
+     */
+    public AdminCouponResponse getCouponById(Long id) {
+        Coupon coupon = couponRepository.findById(id)
+            .orElseThrow(() -> new BadRequestException("Mã giảm giá không tồn tại"));
+        return mapToResponse(coupon);
+    }
+
+    /**
+     * Cập nhật mã giảm giá (Admin API)
+     */
+    @Transactional
+    public AdminCouponResponse updateCoupon(Long id, AdminCouponRequest request) {
+        Coupon coupon = couponRepository.findById(id)
+            .orElseThrow(() -> new BadRequestException("Mã giảm giá không tồn tại"));
+
+        // Validate startDate < endDate
+        if (request.getStartDate().isAfter(request.getEndDate()) ||
+            request.getStartDate().isEqual(request.getEndDate())) {
+            throw new BadRequestException("Ngày bắt đầu phải trước ngày kết thúc");
+        }
+
+        // Nếu đổi code, kiểm tra code mới đã tồn tại chưa
+        String newCode = request.getCode().toUpperCase().trim();
+        if (!coupon.getCode().equalsIgnoreCase(newCode)) {
+            if (couponRepository.findByCodeIgnoreCase(newCode).isPresent()) {
+                throw new BadRequestException("Mã giảm giá đã tồn tại");
+            }
+        }
+
+        coupon.setCode(newCode);
+        coupon.setDiscountType(request.getDiscountType());
+        coupon.setDiscountValue(request.getDiscountValue());
+        coupon.setMinOrderValue(request.getMinOrderValue());
+        coupon.setMaxDiscountAmount(request.getMaxDiscountAmount());
+        coupon.setUsageLimit(request.getUsageLimit());
+        coupon.setStartDate(request.getStartDate());
+        coupon.setEndDate(request.getEndDate());
+        coupon.setIsActive(request.getIsActive());
+
+        coupon = couponRepository.save(coupon);
+        return mapToResponse(coupon);
+    }
+
+    /**
+     * Xóa mã giảm giá (Admin API)
+     */
+    @Transactional
+    public void deleteCoupon(Long id) {
+        Coupon coupon = couponRepository.findById(id)
+            .orElseThrow(() -> new BadRequestException("Mã giảm giá không tồn tại"));
+        couponRepository.delete(coupon);
+    }
+
+    /**
      * Bật/tắt trạng thái mã giảm giá (Admin API)
      */
     @Transactional
