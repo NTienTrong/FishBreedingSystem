@@ -49,7 +49,7 @@ type WardOption = {
 export default function CheckoutPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { batches, removeBatches, syncServerCart, hydrated } = useCart();
+  const { batches, removeBatches, syncServerCart, clear, hydrated, getBatchById } = useCart();
   const batchId = searchParams.get("batchId");
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [profile, setProfile] = useState<CustomerProfile>({});
@@ -369,9 +369,26 @@ export default function CheckoutPage() {
       return batches;
     }
 
-    const selected = batches.find((batch) => batch.id === batchId);
-    return selected ? [selected] : [];
-  }, [batchId, batches]);
+    // Try context first
+    const fromCtx = getBatchById(batchId);
+    if (fromCtx) return [fromCtx];
+
+    // Fallback: try reading localStorage directly (in case context wasn't populated)
+    try {
+      const raw = typeof window !== 'undefined' ? window.localStorage.getItem('cartBatches') : null;
+      if (raw) {
+        const parsed = JSON.parse(raw) as Array<any>;
+        const found = Array.isArray(parsed) ? parsed.find((b) => b && b.id === batchId) : null;
+        if (found) return [found as typeof batches[number]];
+      }
+    } catch {
+      // ignore parse errors
+    }
+
+    return [];
+  }, [batchId, batches, getBatchById]);
+
+  // NOTE: loading UI moved lower to preserve hooks order
 
   const selectedItems = useMemo(
     () => selectedBatches.flatMap((batch) => batch.items),
@@ -388,7 +405,21 @@ export default function CheckoutPage() {
     [selectedBatches]
   );
 
-  const grandTotal = selectedTotalPrice - (appliedCoupon?.discountAmount || 0) + (selectedTotalItems > 0 ? shippingFee : 0);
+  const discountAmountNum = appliedCoupon ? Number(appliedCoupon.discountAmount) || 0 : 0;
+  const grandTotal = selectedTotalPrice - discountAmountNum + (selectedTotalItems > 0 ? shippingFee : 0);
+
+  // Nếu giỏ hàng chưa được hydrate (đang đọc từ localStorage hoặc server),
+  // hiển thị trạng thái nạp để tránh báo "Giỏ hàng đang trống" nhầm.
+  if (!hydrated) {
+    return (
+      <main className="px-4 md:px-6 max-w-7xl mx-auto pb-20">
+        <div className="mb-8 md:mb-10">
+          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-primary mb-2">Hoàn tất đặt hàng</h1>
+          <p className="text-on-surface-variant font-body text-sm md:text-base">Đang nạp giỏ hàng...</p>
+        </div>
+      </main>
+    );
+  }
 
   const handleConfirmOrder = async () => {
     if (!hydrated) {
@@ -414,9 +445,12 @@ export default function CheckoutPage() {
       return;
     }
 
-    try {
+      try {
       setSubmitting(true);
       setError(null);
+
+        // Snapshot of current context batch ids to detect local-only batches
+        const contextBatchIds = new Set(batches.map((b) => b.id));
 
       // Update profile
       const profileRes = await fetch("/api/customer/profile", {
@@ -465,6 +499,7 @@ export default function CheckoutPage() {
       };
 
       if (!checkoutRes.ok) {
+        console.error("[checkout] Error response:", checkoutRes.status, checkoutData);
         const fallbackMessage = checkoutData.errors
           ? Object.values(checkoutData.errors).join(" ")
           : "Không thể tạo đơn hàng.";
@@ -475,6 +510,23 @@ export default function CheckoutPage() {
       const remainingBatches = batches.filter((batch) => !paidBatchIds.has(batch.id));
 
       removeBatches(Array.from(paidBatchIds));
+
+      // If some paid batches were only in localStorage (not in context), remove them from localStorage
+      try {
+        const raw = typeof window !== 'undefined' ? window.localStorage.getItem('cartBatches') : null;
+        if (raw) {
+          const parsed = JSON.parse(raw) as Array<any>;
+          const updated = Array.isArray(parsed) ? parsed.filter((b) => !paidBatchIds.has(b.id)) : parsed;
+          if (Array.isArray(updated) && updated.length > 0) {
+            window.localStorage.setItem('cartBatches', JSON.stringify(updated));
+          } else {
+            window.localStorage.removeItem('cartBatches');
+          }
+        }
+      } catch {
+        // ignore localStorage errors
+      }
+
       await syncServerCart(remainingBatches);
 
       if (paymentMethod === "VNPAY" && checkoutData.paymentUrl) {
@@ -834,10 +886,13 @@ export default function CheckoutPage() {
                 <span>Tiền hàng</span>
                 <span>{formatCurrency(selectedTotalPrice)}</span>
               </div>
-              {appliedCoupon?.discountAmount > 0 && (
+              {discountAmountNum > 0 && (
                 <div className="flex justify-between items-center text-sm text-green-300">
-                  <span>Giảm giá ({appliedCoupon?.code})</span>
-                  <span>-{formatCurrency(appliedCoupon?.discountAmount || 0)}</span>
+                  <span className="flex items-center gap-1">
+                    <span className="material-symbols-outlined text-xs">confirmation_number</span>
+                    Giảm giá ({appliedCoupon?.code})
+                  </span>
+                  <span className="font-semibold">-{formatCurrency(discountAmountNum)}</span>
                 </div>
               )}
               <div className="flex justify-between items-center text-sm opacity-85">

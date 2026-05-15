@@ -280,7 +280,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const batchesToSync = selectedBatches ?? batches;
     const aggregated = aggregateItems(batchesToSync);
 
-    if (aggregated.length === 0 && selectedBatches) {
+    // If nothing to sync, clear server cart instead of doing nothing.
+    if (aggregated.length === 0) {
+      try {
+        await fetch("/api/customer/cart", { method: "DELETE" });
+      } catch {
+        // ignore
+      }
       return;
     }
 

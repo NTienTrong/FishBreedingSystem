@@ -7,13 +7,13 @@ export async function POST(request: Request) {
   const token = cookieStore.get("customerToken")?.value;
 
   if (!token) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ message: "Vui lòng đăng nhập để sử dụng mã giảm giá" }, { status: 401 });
   }
 
   const body = await request.text();
 
   try {
-    const response = await fetch(`${API_URL}/api/customer/checkout/vnpay`, {
+    const response = await fetch(`${API_URL}/api/v1/coupons/apply`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -23,25 +23,15 @@ export async function POST(request: Request) {
     });
 
     const contentType = response.headers.get("content-type") || "";
-
     if (contentType.includes("application/json")) {
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        console.error("[checkout-proxy] Backend error:", response.status, JSON.stringify(data));
-      }
       return NextResponse.json(data, { status: response.status });
     }
 
     const text = await response.text();
-    if (!response.ok) {
-      console.error("[checkout-proxy] Backend error (text):", response.status, text);
-    }
-    return NextResponse.json({ message: text || "Lỗi không xác định từ máy chủ" }, { status: response.status });
+    return NextResponse.json({ message: text }, { status: response.status });
   } catch (error) {
-    console.error("[checkout-proxy] Fetch error:", error);
-    return NextResponse.json(
-      { message: "Không thể kết nối đến máy chủ thanh toán" },
-      { status: 502 }
-    );
+    console.error("Coupon apply proxy error:", error);
+    return NextResponse.json({ message: "Không thể kết nối đến máy chủ" }, { status: 500 });
   }
 }
