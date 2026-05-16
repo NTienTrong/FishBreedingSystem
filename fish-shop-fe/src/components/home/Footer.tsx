@@ -1,58 +1,110 @@
-import React from "react";
 import Link from "next/link";
+import ShopLocationMap from "../common/ShopLocationMap";
 
-export default function Footer() {
+const Footer = () => {
   return (
-    <footer className="bg-primary text-white py-16 px-4 md:px-10 lg:px-20">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
+    <footer className="w-full border-t border-outline-variant/20 mt-20 bg-surface-container-lowest dark:bg-slate-950 px-6 md:px-12 py-16">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-12 max-w-7xl mx-auto">
+        
+        {/* Cột 1: Thông tin thương hiệu */}
         <div className="space-y-6">
-          <div className="flex items-center gap-3">
-            <div className="size-8 text-on-primary-container">
-              <svg fill="currentColor" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                <path clipRule="evenodd" d="M24 4H6V17.3333V30.6667H24V44H42V30.6667V17.3333H24V4Z" fillRule="evenodd"></path>
-              </svg>
-            </div>
-            <h2 className="font-headline text-xl font-extrabold">Hydro-Precision</h2>
+          <div className="text-xl font-bold text-[#005B71] font-headline">
+            FishSync
           </div>
-          <p className="text-white/70 text-sm leading-relaxed">
-            Trại cá giống kỹ thuật cao hàng đầu Việt Nam. Chúng tôi không chỉ bán cá, chúng tôi bán giải pháp nuôi cá thành công.
+          <p className="font-['Inter'] text-sm leading-relaxed text-slate-500">
+            Hệ thống quản lý và cung cấp cá cảnh, sản phẩm và nội dung kỹ thuật cho khách hàng Việt Nam.
           </p>
-        </div>
-
-        <div>
-          <h4 className="font-bold mb-6">Sản phẩm</h4>
-          <ul className="space-y-3 text-sm text-white/60">
-            <li><Link href="#" className="hover:text-white transition-colors">Cá Koi Nhật F1</Link></li>
-            <li><Link href="#" className="hover:text-white transition-colors">Cá Rồng nhập khẩu</Link></li>
-            <li><Link href="#" className="hover:text-white transition-colors">Hệ thống lọc Bio-Filter</Link></li>
-            <li><Link href="#" className="hover:text-white transition-colors">Thức ăn tăng trưởng cao cấp</Link></li>
-          </ul>
-        </div>
-
-        <div>
-          <h4 className="font-bold mb-6">Liên kết</h4>
-          <ul className="space-y-3 text-sm text-white/60">
-            <li><Link href="#" className="hover:text-white transition-colors">Vận chuyển &amp; Bảo hành</Link></li>
-            <li><Link href="#" className="hover:text-white transition-colors">Chính sách kiểm dịch</Link></li>
-            <li><Link href="#" className="hover:text-white transition-colors">Tra cứu đơn hàng</Link></li>
-            <li><Link href="#" className="hover:text-white transition-colors">Blog kỹ thuật</Link></li>
-          </ul>
-        </div>
-
-        <div>
-          <h4 className="font-bold mb-6">Đăng ký bản tin</h4>
-          <p className="text-sm text-white/60 mb-4">Nhận cập nhật về các dòng giống mới nhất và mẹo chăm sóc.</p>
-          <div className="flex">
-            <input className="bg-white/10 outline-none border-none rounded-l-lg text-sm w-full py-2 px-3 focus:ring-1 focus:ring-white/30" placeholder="Email của bạn" type="email" />
-            <button className="bg-tertiary px-4 rounded-r-lg hover:bg-tertiary/80 transition-colors flex items-center justify-center">
-              <span className="material-symbols-outlined text-[18px]">send</span>
-            </button>
+          <div className="flex gap-4">
+            <a
+              className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all"
+              href="#"
+            >
+              <span className="material-symbols-outlined text-xl">public</span>
+            </a>
+            <a
+              className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all"
+              href="#"
+            >
+              <span className="material-symbols-outlined text-xl">share</span>
+            </a>
           </div>
+        </div>
+
+        {/* Cột 2: Điều hướng */}
+        <div className="space-y-6">
+          <h4 className="font-bold text-primary font-headline">Điều hướng</h4>
+          <ul className="space-y-3 font-['Inter'] text-sm">
+            <li>
+              <Link className="text-slate-500 hover:text-orange-500 hover:translate-x-1 transition-transform duration-200 block" href="/products">
+                Sản phẩm
+              </Link>
+            </li>
+            <li>
+              <Link className="text-slate-500 hover:text-orange-500 hover:translate-x-1 transition-transform duration-200 block" href="/#danh-muc">
+                Danh mục
+              </Link>
+            </li>
+            <li>
+              <Link className="text-slate-500 hover:text-orange-500 hover:translate-x-1 transition-transform duration-200 block" href="/blog">
+                Blog kỹ thuật
+              </Link>
+            </li>
+            <li>
+              <Link className="text-slate-500 hover:text-orange-500 hover:translate-x-1 transition-transform duration-200 block" href="/cart">
+                Giỏ hàng
+              </Link>
+            </li>
+          </ul>
+        </div>
+
+        {/* Cột 3: Tài khoản */}
+        <div className="space-y-6">
+          <h4 className="font-bold text-primary font-headline">Tài khoản</h4>
+          <ul className="space-y-3 font-['Inter'] text-sm">
+            <li>
+              <Link className="text-slate-500 hover:text-orange-500 hover:translate-x-1 transition-transform duration-200 block" href="/profile">
+                Hồ sơ cá nhân
+              </Link>
+            </li>
+            <li>
+              <Link className="text-slate-500 hover:text-orange-500 hover:translate-x-1 transition-transform duration-200 block" href="/profile">
+                Địa chỉ giao hàng
+              </Link>
+            </li>
+            <li>
+              <Link className="text-slate-500 hover:text-orange-500 hover:translate-x-1 transition-transform duration-200 block" href="/profile">
+                Đơn hàng của tôi
+              </Link>
+            </li>
+            <li>
+              <Link className="text-slate-500 hover:text-orange-500 hover:translate-x-1 transition-transform duration-200 block" href="/checkout">
+                Thanh toán
+              </Link>
+            </li>
+          </ul>
+        </div>
+
+        {/* Cột 4: Liên hệ & Bản đồ */}
+        <div className="space-y-6">
+          {/* <h4 className="font-bold text-primary font-headline">Liên hệ</h4>
+          <p className="font-['Inter'] text-sm text-slate-500 leading-relaxed">
+            Thị trấn Lim, Huyện Tiên Du, Tỉnh Bắc Ninh
+            <br />
+            Hotline: 1900 8888
+            <br />
+          </p> */}
+          
+          {/* Nhúng Component Bản đồ vào đây */}
+          <ShopLocationMap />
+
         </div>
       </div>
-      <div className="max-w-7xl mx-auto mt-16 pt-8 border-t border-white/10 text-center text-white/40 text-xs">
-        © 2024 Hydro-Precision Hatchery. Thiết kế theo tiêu chuẩn curator kỹ thuật cao.
+
+      <div className="mt-16 pt-8 border-t border-outline-variant/10 text-center font-['Inter'] text-sm text-slate-400">
+        © 2026 FishSync. Hệ thống cá cảnh và nội dung kỹ thuật.
       </div>
     </footer>
   );
-}
+};
+
+export default Footer;

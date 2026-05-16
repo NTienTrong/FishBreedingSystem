@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ShopLocationMap from "@/components/common/ShopLocationMap";
 
 const Footer = () => {
   return (
@@ -103,12 +104,13 @@ const Footer = () => {
         <div className="space-y-6">
           <h4 className="font-bold text-primary font-headline">Liên hệ</h4>
           <p className="font-['Inter'] text-sm text-slate-500 leading-relaxed">
-            123 Đường Thủy Sinh, Quận 7, TP. Hồ Chí Minh
+            Thị trấn Lim, Huyện Tiên Du, Tỉnh Bắc Ninh
             <br />
             Hotline: 1900 8888
             <br />
             Email: contact@fishsync.vn
           </p>
+          <ShopLocationMap />
         </div>
       </div>
       <div className="mt-16 pt-8 border-t border-outline-variant/10 text-center font-['Inter'] text-sm text-slate-400">
