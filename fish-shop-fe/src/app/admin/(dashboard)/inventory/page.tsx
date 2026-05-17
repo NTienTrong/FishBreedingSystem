@@ -39,6 +39,8 @@ export default function AdminInventoryPage() {
   const [products, setProducts] = useState<ProductResponse[]>([]);
   const [logs, setLogs] = useState<StockLogResponse[]>([]);
   const [activeTab, setActiveTab] = useState<ActiveTab>("inventory");
+  const [inventoryPage, setInventoryPage] = useState(1);
+  const [historyPage, setHistoryPage] = useState(1);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [loadingLogs, setLoadingLogs] = useState(true);
   const [isRestockOpen, setIsRestockOpen] = useState(false);
@@ -73,6 +75,7 @@ export default function AdminInventoryPage() {
     try {
       const data = await ProductService.getAll();
       setProducts(data);
+      setInventoryPage(1);
     } catch (error) {
       console.error(error);
       showToast("Không thể tải danh sách sản phẩm.", "error");
@@ -83,8 +86,9 @@ export default function AdminInventoryPage() {
 
   const fetchLogs = useCallback(async () => {
     try {
-      const data = await InventoryService.getLogs(80);
+      const data = await InventoryService.getLogs(100);
       setLogs(data);
+      setHistoryPage(1);
     } catch (error) {
       console.error(error);
       showToast("Không thể tải lịch sử kho.", "error");
@@ -97,6 +101,47 @@ export default function AdminInventoryPage() {
     fetchProducts();
     fetchLogs();
   }, [fetchLogs, fetchProducts]);
+
+  const PAGE_SIZE = 5;
+
+  const sortedProducts = useMemo(
+    () =>
+      [...products].sort((a, b) => {
+        const dateDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        return dateDiff !== 0 ? dateDiff : b.id - a.id;
+      }),
+    [products],
+  );
+
+  const sortedLogs = useMemo(
+    () =>
+      [...logs].sort((a, b) => {
+        const dateDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        return dateDiff !== 0 ? dateDiff : b.id - a.id;
+      }),
+    [logs],
+  );
+
+  const inventoryTotalPages = Math.max(1, Math.ceil(sortedProducts.length / PAGE_SIZE));
+  const historyTotalPages = Math.max(1, Math.ceil(sortedLogs.length / PAGE_SIZE));
+
+  const pagedProducts = useMemo(() => {
+    const start = (inventoryPage - 1) * PAGE_SIZE;
+    return sortedProducts.slice(start, start + PAGE_SIZE);
+  }, [inventoryPage, sortedProducts]);
+
+  const pagedLogs = useMemo(() => {
+    const start = (historyPage - 1) * PAGE_SIZE;
+    return sortedLogs.slice(start, start + PAGE_SIZE);
+  }, [historyPage, sortedLogs]);
+
+  useEffect(() => {
+    setInventoryPage((prev) => Math.min(prev, inventoryTotalPages));
+  }, [inventoryTotalPages]);
+
+  useEffect(() => {
+    setHistoryPage((prev) => Math.min(prev, historyTotalPages));
+  }, [historyTotalPages]);
 
   const totalOutOfStock = useMemo(() => products.filter((p) => p.stockQuantity <= 0).length, [products]);
   const totalLowStock = useMemo(() => products.filter((p) => p.stockQuantity > 0 && p.stockQuantity < 10).length, [products]);
@@ -278,7 +323,8 @@ export default function AdminInventoryPage() {
       </div>
 
       {activeTab === "inventory" ? (
-        <div className="bg-surface-container-lowest rounded-3xl border border-outline-variant/10 overflow-hidden">
+        <>
+          <div className="bg-surface-container-lowest rounded-3xl border border-outline-variant/10 overflow-hidden">
           <table className="w-full text-left">
             <thead className="bg-surface-container-low">
               <tr className="text-xs uppercase tracking-wider text-primary">
@@ -303,7 +349,7 @@ export default function AdminInventoryPage() {
                   </td>
                 </tr>
               ) : (
-                products.map((product) => {
+                pagedProducts.map((product) => {
                   const stock = product.stockQuantity ?? 0;
                   const rowClass = stock <= 0 ? "bg-rose-50/70" : stock < 10 ? "bg-amber-50/70" : "";
                   const badgeClass = stock <= 0
@@ -362,9 +408,39 @@ export default function AdminInventoryPage() {
               )}
             </tbody>
           </table>
-        </div>
+          </div>
+          {!loadingProducts && sortedProducts.length > 0 && (
+          <div className="flex items-center justify-between px-6 py-4 text-xs text-slate-500 border-t border-outline-variant/10">
+            <span>
+              Hiển thị <strong className="text-on-surface">{pagedProducts.length}</strong> / {sortedProducts.length} sản phẩm
+            </span>
+            {sortedProducts.length > PAGE_SIZE && (
+              <div className="flex items-center gap-2">
+                <button
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
+                  onClick={() => setInventoryPage((prev) => Math.max(1, prev - 1))}
+                  disabled={inventoryPage === 1}
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-sm">chevron_left</span>
+                </button>
+                <span className="text-xs font-semibold">Trang {inventoryPage} / {inventoryTotalPages}</span>
+                <button
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
+                  onClick={() => setInventoryPage((prev) => Math.min(inventoryTotalPages, prev + 1))}
+                  disabled={inventoryPage === inventoryTotalPages}
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-sm">chevron_right</span>
+                </button>
+              </div>
+            )}
+          </div>
+          )}
+        </>
       ) : (
-        <div className="bg-surface-container-lowest rounded-3xl border border-outline-variant/10 overflow-hidden">
+        <>
+          <div className="bg-surface-container-lowest rounded-3xl border border-outline-variant/10 overflow-hidden">
           <table className="w-full text-left">
             <thead className="bg-surface-container-low">
               <tr className="text-xs uppercase tracking-wider text-primary">
@@ -390,7 +466,7 @@ export default function AdminInventoryPage() {
                   </td>
                 </tr>
               ) : (
-                logs.map((log) => {
+                pagedLogs.map((log) => {
                   const typeInfo = renderChangeType(log.changeType);
                   const quantityClass = log.quantityChanged >= 0 ? "text-emerald-700" : "text-rose-700";
                   return (
@@ -417,7 +493,36 @@ export default function AdminInventoryPage() {
               )}
             </tbody>
           </table>
-        </div>
+          </div>
+          {!loadingLogs && sortedLogs.length > 0 && (
+          <div className="flex items-center justify-between px-6 py-4 text-xs text-slate-500 border-t border-outline-variant/10">
+            <span>
+              Hiển thị <strong className="text-on-surface">{pagedLogs.length}</strong> / {sortedLogs.length} bản ghi
+            </span>
+            {sortedLogs.length > PAGE_SIZE && (
+              <div className="flex items-center gap-2">
+                <button
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
+                  onClick={() => setHistoryPage((prev) => Math.max(1, prev - 1))}
+                  disabled={historyPage === 1}
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-sm">chevron_left</span>
+                </button>
+                <span className="text-xs font-semibold">Trang {historyPage} / {historyTotalPages}</span>
+                <button
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
+                  onClick={() => setHistoryPage((prev) => Math.min(historyTotalPages, prev + 1))}
+                  disabled={historyPage === historyTotalPages}
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-sm">chevron_right</span>
+                </button>
+              </div>
+            )}
+          </div>
+          )}
+        </>
       )}
 
       <DetailModal

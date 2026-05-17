@@ -7,7 +7,7 @@ class AdminCouponService {
     return response.data;
   }
 
-  async getCoupons(page: number = 0, size: number = 10): Promise<PageResponse<AdminCouponResponse>> {
+  async getCoupons(page: number = 0, size: number = 5): Promise<PageResponse<AdminCouponResponse>> {
     const response = await apiClient.get('/api/admin/coupons', {
       params: { page, size },
     });

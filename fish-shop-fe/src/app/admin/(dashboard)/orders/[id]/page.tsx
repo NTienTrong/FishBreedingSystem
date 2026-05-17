@@ -1,227 +1,368 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { approveAdminRefund, fetchAdminOrderById, updateAdminOrderStatus } from "@/services/adminOrder.service";
+import type { AdminOrder } from "@/types/adminOrder";
+
+const STATUS_LABELS: Record<string, string> = {
+  PENDING_PAYMENT: "Chờ thanh toán",
+  PENDING: "Chờ xác nhận",
+  PENDING_REFUND: "Yêu cầu hoàn tiền",
+  PROCESSING: "Đang xử lý",
+  DELIVERING: "Đang giao",
+  COMPLETED: "Hoàn thành",
+  CANCELLED: "Đã hủy",
+};
+
+const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  UNPAID: "Chưa thanh toán",
+  PAID: "Đã thanh toán",
+  FAILED: "Thất bại",
+  REFUNDED: "Đã hoàn tiền",
+};
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  VNPAY: "VNPay",
+  COD: "COD",
+};
+
+const currency = new Intl.NumberFormat("vi-VN", {
+  style: "currency",
+  currency: "VND",
+  maximumFractionDigits: 0,
+});
+
+const dateTimeFormatter = new Intl.DateTimeFormat("vi-VN", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
+const formatDateTime = (value?: string | null) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "-" : dateTimeFormatter.format(date);
+};
+
+const statusOptions = Object.keys(STATUS_LABELS);
+
 export default function AdminOrderDetailsPage() {
-  return (
-    <div className="p-8 min-h-screen pb-32">
-      {/* Action Bar: Sticky Bottom (Usually placed at the bottom, but in NextJs we can just place it fixed) */}
-      <div className="fixed bottom-8 left-[calc(16rem+2rem)] right-8 z-50 bg-white/70 backdrop-blur-md border border-white/20 rounded-2xl p-4 shadow-2xl flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <span className="px-3 py-1 bg-secondary-container text-on-secondary-container rounded-full text-xs font-bold tracking-tight">ĐANG XỬ LÝ</span>
-          <p className="text-sm font-medium text-on-surface-variant">Thao tác cuối cùng: <span className="text-on-surface">Cập nhật lúc 09:45 AM</span></p>
+  const router = useRouter();
+  const params = useParams<{ id: string }>();
+  const orderId = Number(params.id);
+
+  const [order, setOrder] = useState<AdminOrder | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [orderStatus, setOrderStatus] = useState<string>("");
+
+  useEffect(() => {
+    const loadOrder = async () => {
+      if (!Number.isFinite(orderId)) {
+        setError("Mã đơn hàng không hợp lệ.");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const data = await fetchAdminOrderById(orderId);
+        setOrder(data);
+        setOrderStatus(data.orderStatus);
+      } catch (err) {
+        const nextMessage = err instanceof Error ? err.message : "Không thể tải chi tiết đơn hàng.";
+        setError(nextMessage);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadOrder();
+  }, [orderId]);
+
+  const summaryItems = useMemo(() => {
+    if (!order) {
+      return [];
+    }
+
+    const subtotal = order.items.reduce((sum, item) => sum + Number(item.lineTotal || 0), 0);
+    return [
+      { label: "Tạm tính", value: currency.format(subtotal) },
+      { label: "Phí vận chuyển", value: currency.format(Number(order.shippingFee || 0)) },
+      { label: "Tổng cộng", value: currency.format(Number(order.totalAmount || 0)), highlight: true },
+    ];
+  }, [order]);
+
+  const handleSaveStatus = async () => {
+    if (!order) return;
+
+    try {
+      setSaving(true);
+      const updated = await updateAdminOrderStatus(order.id, { orderStatus });
+      setOrder(updated);
+      setMessage("Cập nhật trạng thái đơn hàng thành công.");
+    } catch (err) {
+      const nextMessage = err instanceof Error ? err.message : "Không thể cập nhật trạng thái.";
+      setError(nextMessage);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleApproveRefund = async () => {
+    if (!order) return;
+
+    try {
+      setSaving(true);
+      const response = await approveAdminRefund(order.id);
+      setMessage(response.message);
+      const refreshed = await fetchAdminOrderById(order.id);
+      setOrder(refreshed);
+      setOrderStatus(refreshed.orderStatus);
+    } catch (err) {
+      const nextMessage = err instanceof Error ? err.message : "Không thể xác nhận hoàn tiền.";
+      setError(nextMessage);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const renderField = (label: string, value: React.ReactNode) => (
+    <div>
+      <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1">{label}</p>
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">{value ?? "-"}</div>
+    </div>
+  );
+
+  if (loading) {
+    return <div className="p-8 text-slate-500">Đang tải chi tiết đơn hàng...</div>;
+  }
+
+  if (error && !order) {
+    return (
+      <div className="p-8 space-y-4">
+        <div className="rounded-xl bg-error/10 text-error text-sm px-4 py-3 flex items-center gap-2">
+          <span className="material-symbols-outlined text-base">error</span>
+          {error}
         </div>
-        <div className="flex items-center gap-3">
-          <button className="px-6 py-2.5 rounded-full text-error border border-error/30 font-bold text-sm hover:bg-error/5 transition-colors">Hủy đơn</button>
-          <button className="px-6 py-2.5 rounded-full bg-surface-container-highest text-on-surface font-bold text-sm hover:bg-surface-dim transition-colors">Hoàn thành</button>
-          <button className="px-6 py-2.5 rounded-full bg-secondary text-white font-bold text-sm hover:opacity-90 transition-opacity">Chuyển sang giao hàng</button>
-          <button className="px-8 py-2.5 rounded-full bg-gradient-to-br from-primary to-primary-container text-white font-bold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform">Phê duyệt đơn</button>
+        <Link href="/admin/orders" className="inline-flex rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white">
+          Quay lại danh sách
+        </Link>
+      </div>
+    );
+  }
+
+  if (!order) {
+    return null;
+  }
+
+  const isRefundable = order.orderStatus === "PENDING_REFUND";
+  const canEditStatus = !(order.orderStatus === "COMPLETED" || order.orderStatus === "CANCELLED");
+
+  return (
+    <div className="p-8 min-h-screen pb-24">
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8">
+        <div>
+          <div className="flex items-center gap-3 text-sm text-slate-500 mb-2">
+            <Link href="/admin/orders" className="hover:text-primary transition-colors">Đơn hàng</Link>
+            <span>/</span>
+            <span>#{order.orderCode}</span>
+          </div>
+          <h1 className="text-3xl font-extrabold text-primary tracking-tight">Chi tiết đơn hàng #{order.orderCode}</h1>
+          <p className="text-on-surface-variant font-medium">Biểu mẫu chi tiết cho phép xem và cập nhật nhanh trạng thái đơn hàng.</p>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          <Link href="/admin/orders" className="px-6 py-2.5 rounded-full border border-outline-variant text-primary font-bold text-sm hover:bg-surface-container-low transition-colors">
+            Hủy
+          </Link>
+          {/* <button
+            type="button"
+            onClick={handleSaveStatus}
+            disabled={saving}
+            className="px-8 py-2.5 rounded-full bg-linear-to-br from-primary to-primary-container text-white font-bold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform disabled:opacity-70 disabled:hover:scale-100"
+          >
+            {saving ? "Đang lưu..." : "Lưu trạng thái"}
+          </button> */}
         </div>
       </div>
 
-      <div className="grid grid-cols-12 gap-8 mb-32">
-        {/* Order Summary Bento */}
-        <div className="col-span-8 grid grid-cols-2 gap-6">
-          {/* Primary Details */}
-          <div className="bg-surface-container-low rounded-3xl p-8 col-span-2 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-8">
-              <span className="material-symbols-outlined text-6xl text-primary/5 group-hover:scale-110 transition-transform duration-500">receipt_long</span>
-            </div>
-            <div className="relative z-10">
-              <h2 className="font-headline text-3xl font-extrabold tracking-tight text-primary mb-2">Đơn hàng #ORD-8892</h2>
-              <div className="flex items-center gap-4 text-sm text-on-surface-variant">
-                <span className="flex items-center gap-1"><span className="material-symbols-outlined text-sm">calendar_today</span> 14 Tháng 10, 2023</span>
-                <span className="flex items-center gap-1"><span className="material-symbols-outlined text-sm">schedule</span> 08:22 AM</span>
-              </div>
-              <div className="mt-8 grid grid-cols-3 gap-8">
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Khách hàng</p>
-                  <p className="font-bold text-on-surface">Nguyễn Văn A</p>
-                  <p className="text-sm text-on-surface-variant">+84 901 234 567</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Địa chỉ giao hàng</p>
-                  <p className="text-sm text-on-surface leading-relaxed">123 Đường Ven Biển, Phường Thắng Tam, TP. Vũng Tàu</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Phương thức</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-bold">VNPAY</span>
-                    <span className="text-sm text-on-surface">Thanh toán Online</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+      {error && (
+        <div className="mb-6 rounded-xl bg-error/10 text-error text-sm px-4 py-3 flex items-center gap-2">
+          <span className="material-symbols-outlined text-base">error</span>
+          {error}
+        </div>
+      )}
 
-          {/* Transaction Info Card */}
-          <div className="bg-surface-container-highest rounded-3xl p-6 border border-outline-variant/10">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-bold text-primary flex items-center gap-2">
-                <span className="material-symbols-outlined">account_balance</span>
-                Giao dịch VNPay
-              </h3>
-              <span className="material-symbols-outlined text-green-600">verified_user</span>
+      {message && (
+        <div className="mb-6 rounded-xl bg-emerald-50 text-emerald-700 text-sm px-4 py-3 flex items-center gap-2">
+          <span className="material-symbols-outlined text-base">check_circle</span>
+          {message}
+        </div>
+      )}
+
+      <div className="grid grid-cols-12 gap-6">
+        <div className="col-span-12 lg:col-span-8 space-y-6">
+          <section className="bg-surface-container-lowest rounded-3xl border border-outline-variant/10 p-8 shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-slate-400 font-bold mb-2">Tổng quan</p>
+                <h2 className="text-2xl font-extrabold text-on-surface">#{order.orderCode}</h2>
+                <p className="mt-2 text-sm text-on-surface-variant">Tạo lúc {formatDateTime(order.createdAt)}</p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">{STATUS_LABELS[order.orderStatus] || order.orderStatus}</span>
+                <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">{PAYMENT_METHOD_LABELS[order.paymentMethod || ""] || order.paymentMethod || "-"}</span>
+                <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">{PAYMENT_STATUS_LABELS[order.paymentStatus || ""] || order.paymentStatus || "-"}</span>
+              </div>
             </div>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-on-surface-variant">Mã tham chiếu</span>
-                <span className="text-sm font-mono font-medium">VNP-99882211</span>
+
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+              {renderField("Khách hàng", order.customerName || order.recipientName || "-")}
+              {renderField("Số điện thoại", order.customerPhone || order.recipientPhone || "-")}
+              {renderField("Email", order.customerEmail || "-")}
+              <div className="md:col-span-2">{renderField("Địa chỉ giao hàng", order.shippingAddress || "-")}</div>
+              {renderField("Ghi chú", order.orderNote || "-")}
+            </div>
+          </section>
+
+          <section className="bg-surface-container-lowest rounded-3xl border border-outline-variant/10 p-8 shadow-sm">
+            <div className="flex items-center justify-between gap-4 mb-6">
+              <div>
+                <h3 className="text-xl font-bold text-on-surface">Cập nhật đơn hàng</h3>
+                <p className="text-sm text-on-surface-variant">Chọn trạng thái rồi lưu để áp dụng thay đổi.</p>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-on-surface-variant">Ngân hàng</span>
-                <span className="text-sm font-medium">Vietcombank</span>
+              <span className="material-symbols-outlined text-primary text-3xl">edit_note</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-primary uppercase tracking-widest mb-2">Trạng thái</label>
+                <select
+                  className="w-full bg-surface-container-highest border-none rounded-2xl px-4 py-3 text-on-surface focus:ring-2 focus:ring-primary/20 outline-none disabled:opacity-60"
+                  value={orderStatus}
+                  onChange={(event) => setOrderStatus(event.target.value)}
+                  disabled={!canEditStatus}
+                >
+                  {statusOptions.map((status) => (
+                    <option key={status} value={status}>
+                      {STATUS_LABELS[status]}
+                    </option>
+                  ))}
+                </select>
+                {!canEditStatus && (
+                  <p className="mt-2 text-[12px] text-on-surface-variant">Trạng thái đơn này không được phép chỉnh sửa.</p>
+                )}
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-on-surface-variant">Số tiền</span>
-                <span className="text-lg font-extrabold text-primary">12.500.000 ₫</span>
-              </div>
-              <div className="pt-4 border-t border-outline-variant/20">
-                <div className="flex items-center justify-center gap-2 py-2 bg-green-50 text-green-700 rounded-xl text-xs font-bold">
-                  <span className="w-1.5 h-1.5 bg-green-600 rounded-full animate-pulse"></span>
-                  Thanh toán thành công
+
+              <div>
+                <label className="block text-xs font-bold text-primary uppercase tracking-widest mb-2">Phương thức thanh toán</label>
+                <div className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                  {PAYMENT_METHOD_LABELS[order.paymentMethod || ""] || order.paymentMethod || "-"}
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Logistics Preview Card */}
-          <div className="bg-primary rounded-3xl p-6 text-white relative overflow-hidden">
-            <div className="absolute bottom-0 right-0 opacity-10">
-              <span className="material-symbols-outlined text-[120px]">local_shipping</span>
-            </div>
-            <h3 className="font-bold mb-6 flex items-center gap-2 text-primary-fixed">
-              <span className="material-symbols-outlined">route</span>
-              Trạng thái Vận chuyển
-            </h3>
-            <div className="relative pl-6 space-y-6 before:content-[''] before:absolute before:left-1.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-white/20">
-              <div className="relative">
-                <span className="absolute -left-6 top-1 w-3 h-3 bg-white rounded-full border-2 border-primary"></span>
-                <p className="text-xs font-bold opacity-70">08:00 AM - 14/10</p>
-                <p className="text-sm">Đã tiếp nhận tại Trạm giống DeepStream</p>
+            {isRefundable && (
+              <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                <p className="text-sm font-semibold text-amber-800 mb-3">Đơn này đang chờ xác nhận hoàn tiền.</p>
+                <button
+                  type="button"
+                  onClick={handleApproveRefund}
+                  disabled={saving}
+                  className="rounded-full bg-amber-500 px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-70"
+                >
+                  Xác nhận đã hoàn tiền
+                </button>
               </div>
-              <div className="relative">
-                <span className="absolute -left-6 top-1 w-3 h-3 bg-primary-fixed rounded-full border-2 border-primary"></span>
-                <p className="text-xs font-bold text-primary-fixed">Dự kiến: 02:00 PM</p>
-                <p className="text-sm">Giao hàng cho Nguyễn Văn A</p>
-              </div>
+            )}
+
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={handleSaveStatus}
+                disabled={saving || !canEditStatus}
+                className="px-8 py-2.5 rounded-full bg-linear-to-br from-primary to-primary-container text-white font-bold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform disabled:opacity-70 disabled:hover:scale-100"
+              >
+                {saving ? "Đang lưu..." : "Lưu trạng thái"}
+              </button>
             </div>
-          </div>
+
+          </section>
+
+          <section className="bg-surface-container-lowest rounded-3xl border border-outline-variant/10 p-8 shadow-sm">
+            <div className="flex items-center justify-between gap-4 mb-6">
+              <div>
+                <h3 className="text-xl font-bold text-on-surface">Sản phẩm trong đơn</h3>
+                <p className="text-sm text-on-surface-variant">Danh sách mặt hàng và giá trị từng dòng.</p>
+              </div>
+              <span className="material-symbols-outlined text-primary text-3xl">inventory_2</span>
+            </div>
+
+            <div className="overflow-x-auto rounded-2xl border border-slate-200">
+              <table className="w-full text-left">
+                <thead className="bg-surface-container-low">
+                  <tr className="text-[10px] uppercase tracking-widest text-primary">
+                    <th className="px-5 py-4">Sản phẩm</th>
+                    <th className="px-5 py-4">SKU</th>
+                    <th className="px-5 py-4">Số lượng</th>
+                    <th className="px-5 py-4">Đơn giá</th>
+                    <th className="px-5 py-4">Thành tiền</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {order.items.map((item) => (
+                    <tr key={`${item.productId}-${item.name}`}>
+                      <td className="px-5 py-4">
+                        <div className="font-semibold text-on-surface">{item.name}</div>
+                        <div className="text-xs text-slate-400">ID sản phẩm #{item.productId}</div>
+                      </td>
+                      <td className="px-5 py-4 text-sm text-slate-600">{item.sku || "-"}</td>
+                      <td className="px-5 py-4 text-sm font-semibold text-on-surface">{item.quantity}</td>
+                      <td className="px-5 py-4 text-sm font-semibold text-on-surface">{currency.format(Number(item.price || 0))}</td>
+                      <td className="px-5 py-4 text-sm font-bold text-primary">{currency.format(Number(item.lineTotal || 0))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
 
-        {/* Product Table Section */}
-        <div className="col-span-4 bg-surface-container-lowest rounded-3xl p-6 shadow-sm flex flex-col">
-          <h3 className="font-headline text-xl font-bold text-on-surface mb-6">Chi tiết sản phẩm</h3>
-          <div className="flex-1 space-y-6">
-            {/* Item */}
-            <div className="flex gap-4">
-              <div className="w-20 h-20 bg-surface-container-high rounded-2xl overflow-hidden flex-shrink-0">
-                <img alt="Cá giống" className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAuxtM0SFi5gUzs4RoUmoTC3onug3r0Gd8cBCuOlaF43Eox1A-m8x5cNFZb7vJNcKkVOtw5wi7lXzr7brJ5lHXlZa7FdjGa793_rP2lxCTG0jxWoUUK59i3OVHb5ce4IRnBdtt2vfWYTvtEwErlG4FO1tm20sDfd2uONmGQNeEoviS4feOJ-J3sfYviAWMgypogMobPIZq5kc3_2o1J1tst9zRkgUzhPHNBMf1JL2GSHFljXehIMoOW1ZDDKftUPBF-xwgxo3eMuZXD" />
-              </div>
-              <div className="flex-1">
-                <h4 className="font-bold text-on-surface text-sm">Cá Chẽm Giống Công Nghệ Cao</h4>
-                <p className="text-xs text-on-surface-variant mt-1">Size: 2-3cm | Loại: A1</p>
-                <div className="flex justify-between items-end mt-2">
-                  <p className="text-xs text-on-surface-variant">2,000 con x 4.500 ₫</p>
-                  <p className="font-bold text-primary text-sm">9.000.000 ₫</p>
-                </div>
-              </div>
-            </div>
-            {/* Item */}
-            <div className="flex gap-4">
-              <div className="w-20 h-20 bg-surface-container-high rounded-2xl overflow-hidden flex-shrink-0">
-                <img alt="Thức ăn" className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC1O2g0FR_uBQ7JPBv5jcbio7U2hg0Bpdb21TmLBCwHCgNoz5J37nqyS9lmEIo9iyZsit_fub5CNpk9i1ODIZabLdQLfxrZGg3UJIpfLhPl5_KgkKOG6Mt42__uVDdkgpC571ag0_7c3g0jJEtgrq9h6Wp7tbW19rDYlV6PYij_xdck0Q_S3t1H4yZLHfcAJgXgGT0miUZPzF0UsDcnaZhmtpXESaNIRKyKmxw_RdLFHUm5-Vd8UmxsvKjA8EwTpU5rCZbBEodYxtlX" />
-              </div>
-              <div className="flex-1">
-                <h4 className="font-bold text-on-surface text-sm">Thức Ăn Tăng Trưởng DeepGrowth</h4>
-                <p className="text-xs text-on-surface-variant mt-1">Bao: 25kg | Đạm: 45%</p>
-                <div className="flex justify-between items-end mt-2">
-                  <p className="text-xs text-on-surface-variant">5 bao x 700.000 ₫</p>
-                  <p className="font-bold text-primary text-sm">3.500.000 ₫</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="mt-8 pt-6 border-t border-outline-variant/30 space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-on-surface-variant">Tạm tính</span>
-              <span className="font-medium">12.500.000 ₫</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-on-surface-variant">Phí vận chuyển</span>
-              <span className="text-green-600 font-medium">Miễn phí</span>
-            </div>
-            <div className="flex justify-between pt-3 border-t border-primary/10">
-              <span className="font-bold text-on-surface">Tổng cộng</span>
-              <span className="font-headline text-2xl font-extrabold text-primary tracking-tight">12.500.000 ₫</span>
-            </div>
-          </div>
-        </div>
+        <div className="col-span-12 lg:col-span-4 space-y-6">
+          <section className="bg-primary rounded-3xl p-6 text-white shadow-2xl shadow-primary/20">
+            <p className="text-xs uppercase tracking-[0.35em] text-primary-fixed/80 font-bold mb-2">Tổng đơn</p>
+            <div className="text-4xl font-extrabold tracking-tight">{currency.format(Number(order.totalAmount || 0))}</div>
+            <p className="mt-2 text-sm text-primary-fixed/80">Bao gồm phí vận chuyển và các dòng sản phẩm.</p>
+          </section>
 
-        {/* Logistics Map Section: Full Width */}
-        <div className="col-span-12">
-          <div className="bg-surface-container-low rounded-[2rem] overflow-hidden">
-            <div className="px-8 py-6 flex items-center justify-between bg-white/50 backdrop-blur-md">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center">
-                  <span className="material-symbols-outlined text-primary">map</span>
-                </div>
-                <div>
-                  <h3 className="font-headline text-lg font-bold text-primary">Bản đồ điều hướng Logistics</h3>
-                  <p className="text-xs text-on-surface-variant">Cập nhật vị trí thực tế của lô hàng giống</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-sm border border-outline-variant/10">
-                <span className="material-symbols-outlined text-tertiary">location_on</span>
-                <span className="text-xs font-bold">Lộ trình: Vũng Tàu - DeepStream Hatchery</span>
-              </div>
+          <section className="bg-surface-container-lowest rounded-3xl border border-outline-variant/10 p-6 shadow-sm space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-primary">receipt_long</span>
+              <h3 className="text-lg font-bold text-on-surface">Tóm tắt thanh toán</h3>
             </div>
-            <div className="relative h-[450px] w-full">
-              {/* Mock Map Background */}
-              <div className="absolute inset-0 bg-slate-200">
-                <img alt="Bản đồ" className="w-full h-full object-cover grayscale opacity-40" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA7XU2iOpfmtgqQnJUR4tWyEDI9gGgQb2HoPCJMg7RP3MflpZfZj1y-6q-nZ-EnDHzy9zCCvJ7T2Y4NyMAW9y9DkLlQAa24tqDA6-Oac0Gw9X2hlHd_QYxvxygJAkJeWnz8ikjoMz9tF9bFDlk7AA9fZ4ta5kM07xm5bDHpfMRz0EwTfFqmR7te62fBg7u3kUQUL-T183ZRWD41BRs-JWxbLydV8lqkHPi_q_pi1Q7WIqvEhir-7GibTikKkefKfYhpzYsrH0qwcpd1" />
-                {/* Custom Map Layer Overlays */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <svg className="w-full h-full" fill="none" viewBox="0 0 1000 400" xmlns="http://www.w3.org/2000/svg">
-                    <path className="drop-shadow-lg" d="M200 200C300 150 450 250 600 200C750 150 850 200 900 250" stroke="#004253" strokeDasharray="10 10" strokeWidth="4"></path>
-                    {/* Hatchery Pin */}
-                    <circle cx="200" cy="200" fill="#004253" r="12"></circle>
-                    <circle cx="200" cy="200" r="25" stroke="#004253" strokeOpacity="0.2" strokeWidth="2"></circle>
-                    {/* Delivery Pin */}
-                    <circle cx="900" cy="250" fill="#5c3200" r="12"></circle>
-                    <circle cx="900" cy="250" r="25" stroke="#5c3200" strokeOpacity="0.2" strokeWidth="2"></circle>
-                  </svg>
-                </div>
-                {/* Floating Map Controls */}
-                <div className="absolute top-6 left-6 flex flex-col gap-2">
-                  <button className="w-10 h-10 bg-white rounded-xl shadow-lg flex items-center justify-center hover:bg-surface-container-high transition-colors">
-                    <span className="material-symbols-outlined text-on-surface">add</span>
-                  </button>
-                  <button className="w-10 h-10 bg-white rounded-xl shadow-lg flex items-center justify-center hover:bg-surface-container-high transition-colors">
-                    <span className="material-symbols-outlined text-on-surface">remove</span>
-                  </button>
-                </div>
-                <div className="absolute bottom-6 left-6 p-4 bg-white/80 backdrop-blur-md rounded-2xl border border-white/30 shadow-xl max-w-xs">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
-                      <span className="material-symbols-outlined text-white text-sm">water_drop</span>
-                    </div>
-                    <p className="text-xs font-bold text-primary">Điều kiện vận chuyển</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-[10px] text-on-surface-variant font-bold uppercase">Nhiệt độ</p>
-                      <p className="text-sm font-bold text-on-surface">24.5 °C</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-on-surface-variant font-bold uppercase">Độ pH</p>
-                      <p className="text-sm font-bold text-on-surface">7.8</p>
-                    </div>
-                  </div>
-                </div>
+            {summaryItems.map((item) => (
+              <div key={item.label} className={`flex items-center justify-between rounded-2xl px-4 py-3 ${item.highlight ? "bg-surface-container-low" : "bg-slate-50"}`}>
+                <span className="text-sm text-on-surface-variant">{item.label}</span>
+                <span className={`font-semibold ${item.highlight ? "text-primary text-lg" : "text-on-surface"}`}>{item.value}</span>
+              </div>
+            ))}
+          </section>
 
-                {/* Marker Labels */}
-                <div className="absolute top-[160px] left-[170px] bg-primary text-white text-[10px] px-2 py-1 rounded-md font-bold shadow-md">HATCHERY BASE</div>
-                <div className="absolute top-[280px] left-[870px] bg-tertiary text-white text-[10px] px-2 py-1 rounded-md font-bold shadow-md">KHÁCH HÀNG</div>
-              </div>
+          <section className="bg-surface-container-lowest rounded-3xl border border-outline-variant/10 p-6 shadow-sm space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-primary">info</span>
+              <h3 className="text-lg font-bold text-on-surface">Thông tin khác</h3>
             </div>
-          </div>
+            {renderField("Mã đơn", `#${order.orderCode}`)}
+            {renderField("Trạng thái hiện tại", STATUS_LABELS[order.orderStatus] || order.orderStatus)}
+            {renderField("Ngày tạo", formatDateTime(order.createdAt))}
+            {renderField("Lý do hủy", order.cancelReason || "-")}
+          </section>
         </div>
       </div>
     </div>

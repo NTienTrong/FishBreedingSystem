@@ -16,12 +16,14 @@ export default function AdminTransactionsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterMethod, setFilterMethod] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const didLoadRef = useRef(false);
+  const intervalRef = useRef<number | null>(null);
+  const PAGE_SIZE = 5;
 
+  // Load and poll transactions so admin view stays up-to-date when payments arrive
   useEffect(() => {
-    if (didLoadRef.current) {
-      return;
-    }
+    if (didLoadRef.current) return;
     didLoadRef.current = true;
 
     const loadTransactions = async () => {
@@ -33,6 +35,8 @@ export default function AdminTransactionsPage() {
         ]);
         setTransactions(data);
         setSummary(summaryData);
+        setError(null);
+        setCurrentPage(1);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Không thể tải danh sách giao dịch.";
         setError(message);
@@ -42,14 +46,79 @@ export default function AdminTransactionsPage() {
     };
 
     loadTransactions();
+
+    // Poll every 10 seconds as a fallback
+    intervalRef.current = window.setInterval(loadTransactions, 10000) as unknown as number;
+
+    // Subscribe to SSE for real-time updates
+    let unsubscribe: (() => void) | null = null;
+
+    import("@/lib/sse").then(({ subscribeToSse }) => {
+      try {
+        unsubscribe = subscribeToSse("/api/stream/admin", (ev: MessageEvent & { type?: string }) => {
+          try {
+            const data = JSON.parse(ev.data);
+            const evType = ev.type || (data && data.eventName) || "message";
+            if (evType === "orderCreated" || evType === "orderUpdate" || evType === "transaction") {
+              loadTransactions();
+            }
+          } catch (e) {
+            // ignore malformed events
+          }
+        });
+      } catch (e) {
+        // ignore
+      }
+    }).catch(() => {
+      // ignore
+    });
+
+    return () => {
+      if (intervalRef.current) window.clearInterval(intervalRef.current);
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
-  const filteredTransactions = useMemo(() => {
-    if (filterMethod === "all") {
-      return transactions;
+  const refreshNow = async () => {
+    try {
+      setLoading(true);
+      const [data, summaryData] = await Promise.all([
+        fetchAdminTransactions(),
+        fetchAdminTransactionSummary(),
+      ]);
+      setTransactions(data);
+      setSummary(summaryData);
+      setError(null);
+      setCurrentPage(1);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Không thể tải danh sách giao dịch.";
+      setError(message);
+    } finally {
+      setLoading(false);
     }
-    return transactions.filter((item) => item.paymentMethod === filterMethod);
+  };
+
+  const filteredTransactions = useMemo(() => {
+    const sortedTransactions = [...transactions].sort((a, b) => {
+      const dateDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      return dateDiff !== 0 ? dateDiff : b.id - a.id;
+    });
+
+    if (filterMethod === "all") {
+      return sortedTransactions;
+    }
+    return sortedTransactions.filter((item) => item.paymentMethod === filterMethod);
   }, [transactions, filterMethod]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / PAGE_SIZE));
+  const pagedTransactions = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredTransactions.slice(start, start + PAGE_SIZE);
+  }, [currentPage, filteredTransactions]);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
 
   const formatDateTime = (value?: string | null) => {
     if (!value) return "-";
@@ -60,7 +129,7 @@ export default function AdminTransactionsPage() {
   return (
     <div className="p-8 space-y-8 min-h-screen">
       <section className="grid grid-cols-12 gap-6">
-        <div className="col-span-12 lg:col-span-4 bg-gradient-to-br from-primary to-primary-container rounded-[2rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-primary/20">
+        <div className="col-span-12 lg:col-span-4 bg-linear-to-br from-primary to-primary-container rounded-4xl p-8 text-white relative overflow-hidden shadow-2xl shadow-primary/20">
           <div className="relative z-10">
             <p className="text-primary-fixed opacity-80 text-sm font-semibold tracking-widest uppercase mb-2">Tổng doanh thu</p>
             <h2 className="text-3xl font-extrabold tracking-tighter">
@@ -69,7 +138,7 @@ export default function AdminTransactionsPage() {
           </div>
         </div>
 
-        <div className="col-span-12 lg:col-span-4 bg-surface-container-low rounded-[2rem] p-8">
+        <div className="col-span-12 lg:col-span-4 bg-surface-container-low rounded-4xl p-8">
           <div className="flex items-center gap-3 mb-4">
             <span className="material-symbols-outlined p-3 bg-primary/10 text-primary rounded-2xl">account_balance</span>
             <div>
@@ -79,7 +148,7 @@ export default function AdminTransactionsPage() {
           </div>
         </div>
 
-        <div className="col-span-12 lg:col-span-4 bg-surface-container-low rounded-[2rem] p-8">
+        <div className="col-span-12 lg:col-span-4 bg-surface-container-low rounded-4xl p-8">
           <div className="flex items-center gap-3 mb-4">
             <span className="material-symbols-outlined p-3 bg-amber-100 text-amber-700 rounded-2xl">payments</span>
             <div>
@@ -97,7 +166,7 @@ export default function AdminTransactionsPage() {
         </div>
       )}
 
-      <section className="bg-surface-container-lowest rounded-[2rem] overflow-hidden">
+      <section className="bg-surface-container-lowest rounded-4xl overflow-hidden">
         <div className="px-8 py-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-surface-container">
           <h3 className="text-lg font-bold text-on-surface">Nhật ký giao dịch chi tiết</h3>
           <div className="flex items-center gap-3">
@@ -111,6 +180,12 @@ export default function AdminTransactionsPage() {
               <option value="VNPAY">Chỉ xem VNPay</option>
               <option value="COD">Chỉ xem COD</option>
             </select>
+            <button
+              className="ml-3 bg-primary text-white text-xs px-4 py-2 rounded-full font-semibold"
+              onClick={refreshNow}
+            >
+              Làm mới
+            </button>
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -139,7 +214,7 @@ export default function AdminTransactionsPage() {
                   </td>
                 </tr>
               ) : (
-                filteredTransactions.map((item) => {
+                pagedTransactions.map((item) => {
                   const isSuccess = item.status === "SUCCESS";
                   const isVnpay = item.paymentMethod === "VNPAY";
                   return (
@@ -172,6 +247,34 @@ export default function AdminTransactionsPage() {
             </tbody>
           </table>
         </div>
+        {!loading && filteredTransactions.length > 0 && (
+          <div className="flex items-center justify-between px-8 py-4 text-xs text-slate-500 border-t border-surface-container">
+            <span>
+              Hiển thị <strong className="text-on-surface">{pagedTransactions.length}</strong> / {filteredTransactions.length} giao dịch
+            </span>
+            {filteredTransactions.length > PAGE_SIZE && (
+              <div className="flex items-center gap-2">
+                <button
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-sm">chevron_left</span>
+                </button>
+                <span className="text-xs font-semibold">Trang {currentPage} / {totalPages}</span>
+                <button
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-sm">chevron_right</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </section>
     </div>
   );

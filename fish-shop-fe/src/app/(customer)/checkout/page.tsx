@@ -452,25 +452,11 @@ export default function CheckoutPage() {
         // Snapshot of current context batch ids to detect local-only batches
         const contextBatchIds = new Set(batches.map((b) => b.id));
 
-      // Update profile
-      const profileRes = await fetch("/api/customer/profile", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fullName: profile.fullName?.trim(),
-          phone: profile.phone?.trim(),
-          address: profile.address?.trim(),
-        }),
-      });
-
-      if (!profileRes.ok) {
-        const msg = await profileRes.text();
-        throw new Error(msg || "Không thể cập nhật thông tin khách hàng.");
-      }
-
       await syncServerCart(selectedBatches);
 
       // Create checkout
+      // Note: Recipient info (fullName, phone, address) is stored only in Order entity,
+      // NOT in User profile. User profile remains unchanged.
       const checkoutRes = await fetch("/api/customer/checkout/vnpay", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

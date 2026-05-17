@@ -93,6 +93,49 @@ export default function OrdersPage() {
     ensureSession();
   }, [router]);
 
+  // Subscribe to SSE per-order to receive real-time updates
+  useEffect(() => {
+    if (orders.length === 0) return;
+    const unsubscribes: Array<() => void> = [];
+
+    try {
+      import("@/lib/sse").then(({ subscribeToSse }) => {
+        orders.forEach((order) => {
+          const path = `/api/stream/orders/${encodeURIComponent(order.orderCode)}`;
+          const unsub = subscribeToSse(path, (ev: MessageEvent & { type?: string }) => {
+            try {
+              const data = JSON.parse(ev.data);
+              const payload = data;
+              if (!payload || !payload.orderCode) return;
+
+              setOrders((prev) => prev.map((o) => {
+                if (o.orderCode === payload.orderCode) {
+                  return {
+                    ...o,
+                    orderStatus: payload.orderStatus ?? o.orderStatus,
+                    paymentStatus: payload.paymentStatus ?? o.paymentStatus,
+                    totalAmount: payload.totalAmount ?? o.totalAmount,
+                  };
+                }
+                return o;
+              }));
+            } catch (e) {
+              // ignore
+            }
+          });
+
+          if (typeof unsub === "function") unsubscribes.push(unsub);
+        });
+      }).catch(() => {});
+    } catch (e) {
+      // ignore
+    }
+
+    return () => {
+      unsubscribes.forEach((u) => u());
+    };
+  }, [orders]);
+
   useEffect(() => {
     const code = searchParams.get("orderCode");
     if (!code || orders.length === 0) {

@@ -8,6 +8,14 @@ export async function fetchAdminOrders(): Promise<AdminOrder[]> {
   return response.json() as Promise<AdminOrder[]>;
 }
 
+export async function fetchAdminOrderById(orderId: number): Promise<AdminOrder> {
+  const response = await fetch(`/api/admin/orders/${orderId}`, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error("Không thể tải chi tiết đơn hàng.");
+  }
+  return response.json() as Promise<AdminOrder>;
+}
+
 export async function updateAdminOrderStatus(orderId: number, payload: { orderStatus?: string }) {
   const response = await fetch(`/api/admin/orders/${orderId}/status`, {
     method: "PUT",

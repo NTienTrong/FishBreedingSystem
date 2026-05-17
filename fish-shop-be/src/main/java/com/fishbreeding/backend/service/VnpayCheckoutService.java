@@ -41,6 +41,7 @@ public class VnpayCheckoutService {
     private final OrderItemRepository orderItemRepository;
     private final VnpayTransactionRepository vnpayTransactionRepository;
     private final TransactionService transactionService;
+    private final SseService sseService;
     private final InventoryService inventoryService;
     private final GhnLocationService ghnLocationService;
     private final CouponService couponService;
@@ -147,6 +148,22 @@ public class VnpayCheckoutService {
                 .couponCode(couponCode)
                 .discountAmount(discountAmount)
                 .build());
+
+        // Emit lightweight order event for user/admin
+        try {
+            var orderPayload = Map.of(
+                "orderId", order.getId(),
+                "orderCode", order.getOrderCode(),
+                "orderStatus", order.getOrderStatus(),
+                "paymentStatus", order.getPaymentStatus(),
+                "paymentMethod", order.getPaymentMethod(),
+                "totalAmount", order.getTotalAmount()
+            );
+            sseService.emit("order:" + order.getOrderCode(), "orderCreated", orderPayload);
+            sseService.emit("admin", "orderCreated", orderPayload);
+        } catch (Exception ex) {
+            // ignore SSE errors
+        }
 
         // Save items
         List<OrderItem> items = new ArrayList<>();
@@ -365,6 +382,22 @@ public class VnpayCheckoutService {
         }
 
         orderRepository.save(order);
+
+        // Emit order update
+        try {
+            var orderPayload = Map.of(
+                "orderId", order.getId(),
+                "orderCode", order.getOrderCode(),
+                "orderStatus", order.getOrderStatus(),
+                "paymentStatus", order.getPaymentStatus(),
+                "paymentMethod", order.getPaymentMethod(),
+                "totalAmount", order.getTotalAmount()
+            );
+            sseService.emit("order:" + order.getOrderCode(), "orderUpdate", orderPayload);
+            sseService.emit("admin", "orderUpdate", orderPayload);
+        } catch (Exception ex) {
+            // ignore
+        }
 
         return new CallbackResult(success, orderCode,
             success ? "Thanh toán thành công" : "Thanh toán thất bại", null);

@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
@@ -29,6 +30,7 @@ import lombok.extern.slf4j.Slf4j;
 public class CouponService {
 
     private final CouponRepository couponRepository;
+    private final com.fishbreeding.backend.service.SseService sseService;
 
     /**
      * Áp dụng mã giảm giá cho đơn hàng
@@ -127,6 +129,18 @@ public class CouponService {
 
         coupon.setUsedCount(coupon.getUsedCount() + 1);
         couponRepository.save(coupon);
+
+        // emit coupon used event for admin dashboard
+        try {
+            var payload = Map.of(
+                "code", coupon.getCode(),
+                "usedCount", coupon.getUsedCount(),
+                "usageLimit", coupon.getUsageLimit()
+            );
+            sseService.emit("coupon", "update", payload);
+        } catch (Exception ex) {
+            // ignore
+        }
     }
 
     /**

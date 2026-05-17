@@ -1,6 +1,7 @@
 package com.fishbreeding.backend.service;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 public class TransactionService {
 
     private final TransactionRepository transactionRepository;
+    private final com.fishbreeding.backend.service.SseService sseService;
 
     @Transactional
     public Transaction createCodTransaction(Order order, String ghnOrderCode) {
@@ -54,6 +56,28 @@ public class TransactionService {
         target.setReferenceCode(referenceCode);
         target.setStatus(success ? TransactionStatus.SUCCESS : TransactionStatus.FAILED);
 
-        return transactionRepository.save(target);
+        Transaction saved = transactionRepository.save(target);
+
+        // Emit admin-level realtime event
+        try {
+            var payload = Map.of(
+                "id", saved.getId(),
+                "orderCode", saved.getOrder() != null ? saved.getOrder().getOrderCode() : null,
+                "amount", saved.getAmount(),
+                "paymentMethod", saved.getPaymentMethod(),
+                "status", saved.getStatus(),
+                "createdAt", saved.getCreatedAt()
+            );
+            sseService.emit("admin", "transaction", payload);
+
+            // also emit per-order topic
+            if (saved.getOrder() != null && saved.getOrder().getOrderCode() != null) {
+                sseService.emit("order:" + saved.getOrder().getOrderCode(), "transaction", payload);
+            }
+        } catch (Exception ex) {
+            // don't fail transaction because SSE failed
+        }
+
+        return saved;
     }
 }
