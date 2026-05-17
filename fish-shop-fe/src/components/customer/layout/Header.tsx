@@ -1,14 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 import { useCart } from "@/components/customer/cart/CartContext";
 import { useCustomerSession } from "@/components/customer/auth/useCustomerSession";
 
 const Header = () => {
   const pathname = usePathname();
+  const router = useRouter();
   const { totalBatches, hydrated } = useCart();
   const { session } = useCustomerSession();
+
+  const [query, setQuery] = useState("");
 
   const returnUrl = pathname || "/";
   return (
@@ -86,8 +90,25 @@ const Header = () => {
         </div>
         <div className="flex items-center gap-6">
           <div className="hidden lg:flex items-center bg-surface-container-high px-4 py-2 rounded-full w-80">
-            <span className="material-symbols-outlined text-outline">search</span>
+            <button
+              type="button"
+              onClick={() => {
+                if (query.trim()) router.push(`/products?search=${encodeURIComponent(query.trim())}`);
+              }}
+              aria-label="search"
+              className="material-symbols-outlined text-outline mr-2"
+            >
+              search
+            </button>
             <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  const q = query.trim();
+                  if (q) router.push(`/products?search=${encodeURIComponent(q)}`);
+                }
+              }}
               className="bg-transparent border-none focus:ring-0 text-sm w-full font-medium"
               placeholder="Tìm kiếm cá cảnh..."
               type="text"

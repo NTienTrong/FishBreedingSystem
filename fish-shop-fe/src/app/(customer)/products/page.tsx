@@ -5,7 +5,7 @@ import { CategoryResponse } from "@/types/category";
 import { ProductResponse } from "@/types/product";
 
 type ProductsPageProps = {
-  searchParams?: Promise<{ category?: string }>;
+  searchParams?: Promise<{ category?: string; search?: string }>;
 };
 
 async function getProducts(): Promise<ProductResponse[]> {
@@ -30,18 +30,29 @@ async function getCategories(): Promise<CategoryResponse[]> {
 export default async function ProductsPage({ searchParams }: ProductsPageProps) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const selectedCategorySlug = resolvedSearchParams?.category;
+  const searchQuery = resolvedSearchParams?.search?.trim().toLowerCase() || "";
 
   const [products, categories] = await Promise.all([getProducts(), getCategories()]);
   const selectedCategoryId = categories.find((category) => category.slug === selectedCategorySlug)?.id;
 
   const topLevelCategories = categories.filter((category) => category.parentId === null);
-  const filteredProducts = selectedCategorySlug
+  let filteredProducts = selectedCategorySlug
     ? products.filter((product) =>
-        selectedCategoryId
-          ? product.categories.some((cat) => cat.id === selectedCategoryId)
-          : false
+        selectedCategoryId ? product.categories.some((cat) => cat.id === selectedCategoryId) : false
       )
     : products;
+
+  if (searchQuery) {
+    filteredProducts = filteredProducts.filter((product) => {
+      const name = (product.name || "").toLowerCase();
+      const sku = (product.sku || "").toLowerCase();
+      const slug = (product.slug || "").toLowerCase();
+      const desc = (product.description || "").toLowerCase();
+      return (
+        name.includes(searchQuery) || sku.includes(searchQuery) || slug.includes(searchQuery) || desc.includes(searchQuery)
+      );
+    });
+  }
 
   const sortedProducts = filteredProducts.sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()

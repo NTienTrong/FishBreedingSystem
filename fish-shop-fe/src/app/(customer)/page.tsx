@@ -78,108 +78,34 @@ export default async function Home() {
   return (
     <main className="relative px-6 pb-24">
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-28 left-1/2 h-72 w-[760px] -translate-x-1/2 rounded-full bg-secondary/20 blur-3xl" />
+        <div className="absolute -top-28 left-1/2 h-72 w-190 -translate-x-1/2 rounded-full bg-secondary/20 blur-3xl" />
         <div className="absolute top-40 -right-24 h-64 w-64 rounded-full bg-primary/15 blur-3xl" />
         <div className="absolute bottom-0 -left-20 h-64 w-64 rounded-full bg-secondary/20 blur-3xl" />
       </div>
 
       <section className="max-w-7xl mx-auto pt-10 pb-12">
-        <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-10 items-stretch">
-          <div className="rounded-[2.5rem] bg-surface-container-lowest border border-surface-container-high p-8 lg:p-12 shadow-[0_30px_80px_rgba(0,0,0,0.06)]">
-            <div className="inline-flex items-center gap-2 rounded-full bg-secondary/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.3em] text-secondary">
-              Dashboard khách hàng
-            </div>
-            <h1 className="mt-6 text-4xl lg:text-6xl font-black tracking-tight text-primary font-headline leading-tight">
-              Trung tâm mua sắm và quản lý cá cảnh
-            </h1>
-            <p className="mt-5 max-w-2xl text-base lg:text-lg text-on-surface-variant leading-relaxed">
-              Tổng hợp danh mục, sản phẩm và bài viết mới nhất từ hệ thống. Thông tin sẽ tự động ẩn khi chưa có dữ liệu.
-            </p>
-
-            <div className="mt-8 grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {[
-                { label: "Danh mục", value: categories.length },
-                { label: "Danh mục gốc", value: topCategories.length },
-                { label: "Sản phẩm", value: products.length },
-                { label: "Bài viết", value: latestBlogPosts.length > 0 ? latestBlogPosts.length : blogPosts.length },
-              ].map((item) => (
-                <div key={item.label} className="rounded-2xl bg-white/80 px-4 py-5 border border-surface-container-high">
-                  <div className="text-3xl font-black text-primary">{item.value}</div>
-                  <div className="mt-1 text-sm font-semibold text-on-surface-variant">{item.label}</div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-8 flex flex-wrap gap-3">
-              {[
-                { label: "Khám phá sản phẩm", href: "/products" },
-                { label: "Mở giỏ hàng", href: "/cart" },
-                { label: "Hồ sơ cá nhân", href: "/profile" },
-              ].map((item) => (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className="inline-flex items-center gap-2 rounded-full border border-primary/15 bg-white px-5 py-2 text-sm font-bold text-primary hover:border-primary/40 hover:bg-primary/5 transition-all"
-                >
-                  {item.label}
-                  <span className="material-symbols-outlined text-base">arrow_forward</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid gap-5">
-            <div className="rounded-[2rem] bg-gradient-to-br from-primary via-primary to-secondary text-white p-6 lg:p-8 shadow-[0_24px_60px_rgba(0,66,83,0.25)]">
-              <div className="text-xs font-bold uppercase tracking-[0.35em] text-white/80">
-                Tổng quan nhanh
+        <div className="relative overflow-hidden rounded-[2.5rem] shadow-[0_30px_80px_rgba(0,0,0,0.08)]">
+          <img
+            src="https://images.unsplash.com/photo-1524704796725-9fc3044fbb92?auto=format&fit=crop&w=1600&q=80"
+            alt="Banner cá cảnh"
+            className="w-full h-96 object-cover"
+          />
+          <div className="absolute inset-0 bg-linear-to-b from-black/35 via-transparent to-black/20" />
+          <div className="absolute inset-0 flex items-center justify-center px-6">
+            <div className="text-center max-w-3xl text-white">
+              <div className="mx-auto mb-4 inline-flex items-center gap-3 rounded-full bg-white/10 px-4 py-2 text-sm font-bold uppercase tracking-[0.28em]">
+                <span className="text-white/90">FishSync</span>
               </div>
-              <h2 className="mt-4 text-2xl lg:text-3xl font-black font-headline">
-                Sản phẩm mới và bài viết đang được cập nhật liên tục
-              </h2>
-              <p className="mt-3 text-sm lg:text-base text-white/80 leading-relaxed">
-                Theo dõi xu hướng, đơn hàng gần đây và các gợi ý từ hệ thống của bạn.
-              </p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link
-                  href="/products"
-                  className="inline-flex items-center gap-2 rounded-full bg-white text-primary px-4 py-2 text-sm font-bold"
-                >
-                  Xem sản phẩm hot
-                  <span className="material-symbols-outlined text-base">local_fire_department</span>
+              <h1 className="text-3xl md:text-5xl font-black leading-tight">Nuôi cá không khó — Chỉ cần giống tốt và kỹ thuật đúng</h1>
+              <p className="mt-4 text-sm md:text-lg text-white/80">Nhà cung cấp hơn 60 giống cá nước ngọt, cam kết giống chuẩn và hỗ trợ kỹ thuật trước — trong — sau nuôi.</p>
+              <div className="mt-6 flex items-center justify-center gap-3">
+                <Link href="/products" className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-bold text-white">
+                  Xem sản phẩm
                 </Link>
-                <Link
-                  href="/blog"
-                  className="inline-flex items-center gap-2 rounded-full border border-white/30 px-4 py-2 text-sm font-bold text-white hover:bg-white/10 transition-all"
-                >
-                  Đọc bài viết mới
-                  <span className="material-symbols-outlined text-base">auto_stories</span>
-                </Link>
+                <a href="tel:0769999295" className="inline-flex items-center gap-2 rounded-full border border-white/30 px-4 py-3 text-sm font-semibold text-white/90">
+                  076 999 9295
+                </a>
               </div>
-            </div>
-
-            <div className="grid gap-4">
-              {[
-                { title: "Xem sản phẩm", desc: "Khám phá toàn bộ sản phẩm đang bán", href: "/products", icon: "storefront" },
-                { title: "Giỏ hàng", desc: "Kiểm tra các món đang chờ thanh toán", href: "/cart", icon: "shopping_cart" },
-                { title: "Đơn hàng", desc: "Theo dõi lịch sử mua hàng", href: "/profile", icon: "receipt_long" },
-                { title: "Bài viết mới", desc: "Xem blog và hướng dẫn kỹ thuật", href: "/blog", icon: "article" },
-              ].map((action) => (
-                <Link
-                  key={action.title}
-                  href={action.href}
-                  className="rounded-3xl bg-surface-container-low p-5 border border-surface-container-high hover:border-primary/30 hover:shadow-lg transition-all"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="shrink-0 w-12 h-12 rounded-2xl bg-primary text-white flex items-center justify-center">
-                      <span className="material-symbols-outlined">{action.icon}</span>
-                    </div>
-                    <div>
-                      <div className="font-bold text-primary">{action.title}</div>
-                      <div className="mt-1 text-sm text-on-surface-variant leading-relaxed">{action.desc}</div>
-                    </div>
-                  </div>
-                </Link>
-              ))}
             </div>
           </div>
         </div>
