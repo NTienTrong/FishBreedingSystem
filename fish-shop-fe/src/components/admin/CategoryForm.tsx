@@ -5,7 +5,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CategoryService } from "@/services/category.service";
-import { CategoryResponse } from "@/types/category";
 import { validateCategory } from "@/validations/category";
 
 interface CategoryFormProps {
@@ -13,35 +12,17 @@ interface CategoryFormProps {
   categoryId?: number;
 }
 
-/** BFS thu thập bản thân + toàn bộ descendants để loại khỏi dropdown cha */
-function collectDescendantIds(rootId: number, all: CategoryResponse[]): Set<number> {
-  const result = new Set<number>([rootId]);
-  const queue = [rootId];
-  while (queue.length > 0) {
-    const cur = queue.shift()!;
-    for (const cat of all) {
-      if (cat.parentId === cur && !result.has(cat.id)) {
-        result.add(cat.id);
-        queue.push(cat.id);
-      }
-    }
-  }
-  return result;
-}
-
 export default function CategoryForm({ mode, categoryId }: CategoryFormProps) {
   const router = useRouter();
   const isEdit = mode === "edit";
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [allCategories, setAllCategories] = useState<CategoryResponse[]>([]);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    parentId: "",
     imageUrl: "",
+    isActive: true,
   });
-  const [slugPreview, setSlugPreview] = useState("");
 
   // Upload state
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -51,12 +32,6 @@ export default function CategoryForm({ mode, categoryId }: CategoryFormProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
-
-  /** Ids không được chọn làm cha */
-  const invalidParentIds = useMemo<Set<number>>(() => {
-    if (!isEdit || !categoryId) return new Set();
-    return collectDescendantIds(categoryId, allCategories);
-  }, [isEdit, categoryId, allCategories]);
 
   const pageTitle = useMemo(
     () =>
@@ -71,19 +46,15 @@ export default function CategoryForm({ mode, categoryId }: CategoryFormProps) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const all = await CategoryService.getAll();
-        setAllCategories(all);
-
         if (isEdit) {
           if (!categoryId) { setErrors({ fetch: "Thiếu mã danh mục cần chỉnh sửa." }); return; }
           const detail = await CategoryService.getById(categoryId);
           setFormData({
             name: detail.name ?? "",
             description: detail.description ?? "",
-            parentId: detail.parentId ? String(detail.parentId) : "",
             imageUrl: detail.imageUrl ?? "",
+            isActive: detail.isActive ?? true,
           });
-          setSlugPreview(detail.slug ?? "");
           if (detail.imageUrl) setImagePreview(detail.imageUrl);
         }
       } catch (error: unknown) {
@@ -169,7 +140,7 @@ export default function CategoryForm({ mode, categoryId }: CategoryFormProps) {
         name: formData.name.trim(),
         description: formData.description.trim(),
         imageUrl: formData.imageUrl || null,
-        parentId: formData.parentId ? Number(formData.parentId) : null,
+        isActive: formData.isActive,
       };
 
       if (isEdit) {
@@ -188,29 +159,6 @@ export default function CategoryForm({ mode, categoryId }: CategoryFormProps) {
       setLoading(false);
     }
   };
-
-  // ── Parent select helpers ─────────────────────────────────────────────────
-
-  const rootCategories = useMemo(
-    () => allCategories.filter((c) => c.parentId === null).sort((a, b) => a.name.localeCompare(b.name, "vi")),
-    [allCategories],
-  );
-
-  const childrenOf = useMemo(() => {
-    const map: Record<number, CategoryResponse[]> = {};
-    for (const cat of allCategories) {
-      if (cat.parentId !== null) {
-        if (!map[cat.parentId]) map[cat.parentId] = [];
-        map[cat.parentId].push(cat);
-      }
-    }
-    for (const k of Object.keys(map)) {
-      map[Number(k)].sort((a, b) => a.name.localeCompare(b.name, "vi"));
-    }
-    return map;
-  }, [allCategories]);
-
-  const selectedParent = allCategories.find((c) => c.id === Number(formData.parentId));
 
   // ── Loading ───────────────────────────────────────────────────────────────
 
@@ -236,7 +184,7 @@ export default function CategoryForm({ mode, categoryId }: CategoryFormProps) {
               {pageTitle}
             </h2>
             <p className="text-on-surface-variant text-sm mt-1">
-              Quản lý phân cấp sản phẩm và thuộc tính của trại giống.
+              Quản lý danh mục sản phẩm và thông tin hiển thị.
             </p>
           </div>
           <div className="flex gap-3">
@@ -293,29 +241,6 @@ export default function CategoryForm({ mode, categoryId }: CategoryFormProps) {
                 <span className="text-xs text-slate-400">{formData.name.length}/100</span>
               </div>
             </div>
-
-            {/* Slug (chỉ khi edit) */}
-            {isEdit && (
-              <div>
-                <label className="block text-xs font-bold text-primary uppercase tracking-widest mb-2">
-                  Đường dẫn (Slug)
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    disabled
-                    value={slugPreview}
-                    className="w-full bg-slate-100 border-none rounded-lg px-4 py-3 text-slate-500 italic outline-none pr-10"
-                  />
-                  <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-[16px]" title="Slug tự động">
-                    lock
-                  </span>
-                </div>
-                <p className="text-xs text-slate-400 mt-1">
-                  Slug được tạo tự động từ tên danh mục.
-                </p>
-              </div>
-            )}
 
             {/* Mô tả */}
             <div>
@@ -447,95 +372,23 @@ export default function CategoryForm({ mode, categoryId }: CategoryFormProps) {
             )}
           </section>
 
-          {/* ── Phân cấp ── */}
+          {/* ── Trạng thái ── */}
           <section className="bg-surface-container-lowest p-6 rounded-xl shadow-sm space-y-4">
             <h3 className="text-xs font-bold text-primary uppercase tracking-widest flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[16px]">account_tree</span>
-              Phân cấp danh mục
+              <span className="material-symbols-outlined text-[16px]">toggle_on</span>
+              Trạng thái
             </h3>
-
-            <div>
-              <label className="block text-xs font-medium text-on-surface-variant mb-1.5">
-                Danh mục cha
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-on-surface-variant">Hiển thị danh mục</span>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={formData.isActive}
+                  onChange={(event) => setFormData((prev) => ({ ...prev, isActive: event.target.checked }))}
+                />
+                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:inset-s-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-secondary"></div>
               </label>
-              <select
-                name="parentId"
-                value={formData.parentId}
-                onChange={handleChange}
-                className="w-full bg-surface-container-highest border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary/20 outline-none text-on-surface"
-              >
-                <option value="">— Không có (Danh mục gốc) —</option>
-                {rootCategories.map((root) => {
-                  const rootDisabled = invalidParentIds.has(root.id);
-                  return (
-                    <React.Fragment key={root.id}>
-                      <option value={root.id} disabled={rootDisabled}
-                        style={rootDisabled ? { color: "#94a3b8", fontStyle: "italic" } : {}}>
-                        📁 {root.name}{rootDisabled ? " (không thể chọn)" : ""}
-                      </option>
-                      {(childrenOf[root.id] ?? []).map((child) => {
-                        const childDisabled = invalidParentIds.has(child.id);
-                        return (
-                          <option key={child.id} value={child.id} disabled={childDisabled}
-                            style={childDisabled ? { color: "#94a3b8", fontStyle: "italic" } : {}}>
-                            {"    ↳ "}{child.name}{childDisabled ? " (không thể chọn)" : ""}
-                          </option>
-                        );
-                      })}
-                    </React.Fragment>
-                  );
-                })}
-              </select>
-            </div>
-
-            {/* Preview phân cấp */}
-            <div className="bg-surface-container-high rounded-lg p-4">
-              <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-3">
-                Xem trước phân cấp
-              </p>
-              {formData.parentId ? (
-                <div className="flex items-center gap-1.5 flex-wrap text-xs">
-                  <span className="material-symbols-outlined text-[14px] text-slate-400">folder</span>
-                  <span className="text-slate-500">{selectedParent?.name ?? "..."}</span>
-                  <span className="material-symbols-outlined text-[13px] text-slate-300">chevron_right</span>
-                  <span className="font-semibold text-primary">{formData.name || "(tên danh mục)"}</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5 text-xs">
-                  <span className="material-symbols-outlined text-[14px] text-primary">folder_open</span>
-                  <span className="font-semibold text-primary">{formData.name || "(tên danh mục)"}</span>
-                  <span className="text-slate-400 italic">(gốc)</span>
-                </div>
-              )}
-            </div>
-
-            {isEdit && (
-              <div className="text-xs text-slate-400 flex items-start gap-1.5 leading-relaxed bg-amber-50 border border-amber-100 rounded-lg p-3">
-                <span className="material-symbols-outlined text-[14px] mt-0.5 text-amber-500 flex-shrink-0">info</span>
-                <span>
-                  Mục <span className="italic text-slate-500">(không thể chọn)</span> bị vô hiệu
-                  hoá để tránh vòng lặp circular hierarchy.
-                </span>
-              </div>
-            )}
-          </section>
-
-          {/* Thống kê */}
-          <section className="bg-surface-container-lowest p-6 rounded-xl shadow-sm space-y-3">
-            <h3 className="text-xs font-bold text-primary uppercase tracking-widest">Thống kê</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-surface-container-high rounded-lg p-3 text-center">
-                <p className="text-2xl font-extrabold text-primary">
-                  {allCategories.filter((c) => c.parentId === null).length}
-                </p>
-                <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">Danh mục gốc</p>
-              </div>
-              <div className="bg-surface-container-high rounded-lg p-3 text-center">
-                <p className="text-2xl font-extrabold text-secondary">
-                  {allCategories.filter((c) => c.parentId !== null).length}
-                </p>
-                <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">Danh mục con</p>
-              </div>
             </div>
           </section>
         </div>

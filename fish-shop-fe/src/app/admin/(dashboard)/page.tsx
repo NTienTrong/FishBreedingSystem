@@ -294,10 +294,61 @@ export default function AdminDashboardPage() {
 
   const maxRevenue = Math.max(...revenueSeries.map((point) => point.value), 0);
 
+  const [showLowStockModal, setShowLowStockModal] = useState(false);
+
+  const lowStockList = useMemo(() => {
+    const products = data?.products ?? [];
+    return products.filter((p) => (p.stockQuantity ?? 0) <= lowStockThreshold).map((p) => ({
+      id: p.id,
+      name: p.name,
+      sku: p.sku || "",
+      stockQuantity: p.stockQuantity ?? 0,
+      category: p.categories?.[0]?.name ?? "Khác",
+    }));
+  }, [data]);
+
+  function downloadCSV(rows: Record<string, any>[], filename = "report.csv") {
+    if (!rows || rows.length === 0) return;
+    const headers = Object.keys(rows[0]);
+    const escape = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const csv = [headers.join(","), ...rows.map((r) => headers.map((h) => escape(r[h])).join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportTopProducts() {
+    const rows = topProducts.map((p) => ({
+      "Tên sản phẩm": p.name,
+      SKU: p.sku || "",
+      Danh_mục: p.categoryLabel,
+      Số_lượng: p.quantity,
+      Doanh_thu: p.revenue,
+      Xu_hướng: `${p.trendPercent > 0 ? "+" : ""}${p.trendPercent}%`,
+    }));
+    downloadCSV(rows, `top-products-${new Date().toISOString().slice(0,10)}.csv`);
+  }
+
+  function exportLowStock() {
+    const rows = lowStockList.map((p) => ({
+      "Tên sản phẩm": p.name,
+      SKU: p.sku,
+      Danh_mục: p.category,
+      Tồn_kho: p.stockQuantity,
+    }));
+    downloadCSV(rows, `low-stock-${new Date().toISOString().slice(0,10)}.csv`);
+  }
+
   if (loading) {
     return (
       <div className="p-8">
-        <div className="bg-surface-container-low rounded-[2rem] p-8 text-center text-slate-500">
+        <div className="bg-surface-container-low rounded-4xl p-8 text-center text-slate-500">
           Đang tải dữ liệu dashboard...
         </div>
       </div>
@@ -307,7 +358,7 @@ export default function AdminDashboardPage() {
   if (error) {
     return (
       <div className="p-8">
-        <div className="bg-surface-container-low rounded-[2rem] p-8 text-center text-error">
+        <div className="bg-surface-container-low rounded-4xl p-8 text-center text-error">
           {error}
         </div>
       </div>
@@ -318,7 +369,7 @@ export default function AdminDashboardPage() {
     <>
       <div className="p-8 space-y-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-surface-container-low p-6 rounded-[1.5rem] relative overflow-hidden flex flex-col justify-between h-40">
+          <div className="bg-surface-container-low p-6 rounded-3xl relative overflow-hidden flex flex-col justify-between h-40">
             <div className="relative z-10">
               <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Tổng doanh thu</p>
               <h2 className="text-2xl font-headline font-extrabold text-primary mt-1">
@@ -333,7 +384,7 @@ export default function AdminDashboardPage() {
             <span className="material-symbols-outlined absolute -right-4 -bottom-4 text-8xl text-primary/5 rotate-12">monetization_on</span>
           </div>
 
-          <div className="bg-surface-container-low p-6 rounded-[1.5rem] relative overflow-hidden flex flex-col justify-between h-40">
+          <div className="bg-surface-container-low p-6 rounded-3xl relative overflow-hidden flex flex-col justify-between h-40">
             <div className="relative z-10">
               <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Tổng đơn hàng</p>
               <h2 className="text-2xl font-headline font-extrabold text-primary mt-1">{formatNumber(metrics.totalOrders)}</h2>
@@ -346,7 +397,7 @@ export default function AdminDashboardPage() {
             <span className="material-symbols-outlined absolute -right-4 -bottom-4 text-8xl text-primary/5 rotate-12">shopping_bag</span>
           </div>
 
-          <div className="bg-surface-container-low p-6 rounded-[1.5rem] relative overflow-hidden flex flex-col justify-between h-40">
+          <div className="bg-surface-container-low p-6 rounded-3xl relative overflow-hidden flex flex-col justify-between h-40">
             <div className="relative z-10">
               <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Tổng khách hàng</p>
               <h2 className="text-2xl font-headline font-extrabold text-primary mt-1">{formatNumber(metrics.totalCustomers)}</h2>
@@ -355,12 +406,12 @@ export default function AdminDashboardPage() {
             <span className="material-symbols-outlined absolute -right-4 -bottom-4 text-8xl text-primary/5 rotate-12">group</span>
           </div>
 
-          <div className="bg-surface-container-highest p-6 rounded-[1.5rem] relative overflow-hidden flex flex-col justify-between h-40">
+          <div className="bg-surface-container-highest p-6 rounded-3xl relative overflow-hidden flex flex-col justify-between h-40">
             <div className="relative z-10">
               <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Tồn kho thấp</p>
               <h2 className="text-2xl font-headline font-extrabold text-error mt-1">{formatNumber(metrics.lowStockCount)}</h2>
             </div>
-            <button className="text-primary text-sm font-bold flex items-center gap-1 hover:underline relative z-10">
+            <button onClick={() => setShowLowStockModal(true)} className="text-primary text-sm font-bold flex items-center gap-1 hover:underline relative z-10">
               Xem chi tiết <span className="material-symbols-outlined text-sm">arrow_forward</span>
             </button>
             <span className="material-symbols-outlined absolute -right-4 -bottom-4 text-8xl text-error/5 rotate-12">warning</span>
@@ -368,7 +419,7 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 bg-surface-container-low rounded-[2rem] p-8">
+          <div className="lg:col-span-2 bg-surface-container-low rounded-4xl p-8">
             <div className="flex justify-between items-end mb-8">
               <div>
                 <h3 className="text-lg font-headline font-bold text-primary">Tăng trưởng doanh thu</h3>
@@ -405,7 +456,7 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          <div className="bg-primary text-white rounded-[2rem] p-8 flex flex-col">
+          <div className="bg-primary text-white rounded-4xl p-8 flex flex-col">
             <h3 className="text-lg font-headline font-bold mb-2">Cơ cấu sản phẩm</h3>
             <p className="text-sm text-primary-container mb-8">Phân loại theo danh mục</p>
             <div className="relative flex-1 flex items-center justify-center">
@@ -435,10 +486,13 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        <div className="bg-surface-container-low rounded-[2rem] overflow-hidden">
+        <div className="bg-surface-container-low rounded-4xl overflow-hidden">
           <div className="px-8 py-6 flex justify-between items-center border-b border-outline-variant/10">
             <h3 className="text-lg font-headline font-bold text-primary">Top 5 sản phẩm bán chạy nhất tháng</h3>
-            <button className="text-xs font-bold text-primary px-4 py-2 bg-white rounded-full shadow-sm hover:shadow-md transition-all">Xuất báo cáo</button>
+            <div className="flex items-center gap-3">
+              <button onClick={exportTopProducts} className="text-xs font-bold text-primary px-4 py-2 bg-white rounded-full shadow-sm hover:shadow-md transition-all">Xuất báo cáo</button>
+              <button onClick={() => exportTopProducts()} className="text-xs font-medium text-slate-500 px-3 py-1 rounded-full border border-outline-variant/10">Xuất CSV</button>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left">
@@ -504,14 +558,59 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      <div className="fixed bottom-8 right-8 z-50">
+      {showLowStockModal ? (
+        <div className="fixed inset-0 z-60 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowLowStockModal(false)} />
+          <div className="relative bg-white rounded-2xl w-[min(1200px,95%)] max-h-[80vh] overflow-auto p-6 z-70">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">Sản phẩm tồn kho thấp</h3>
+              <div className="flex items-center gap-2">
+                <button onClick={exportLowStock} className="text-sm px-3 py-1 bg-primary text-white rounded-full">Xuất CSV</button>
+                <button onClick={() => setShowLowStockModal(false)} className="text-sm px-3 py-1 border rounded-full">Đóng</button>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="text-sm font-bold text-slate-500 border-b">
+                    <th className="px-4 py-3">Tên</th>
+                    <th className="px-4 py-3">SKU</th>
+                    <th className="px-4 py-3">Danh mục</th>
+                    <th className="px-4 py-3">Tồn kho</th>
+                    <th className="px-4 py-3">Hành động</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {lowStockList.length === 0 ? (
+                    <tr><td colSpan={5} className="px-4 py-6 text-center text-slate-500">Không có sản phẩm dưới ngưỡng.</td></tr>
+                  ) : (
+                    lowStockList.map((p) => (
+                      <tr key={p.id}>
+                        <td className="px-4 py-3">{p.name}</td>
+                        <td className="px-4 py-3">{p.sku}</td>
+                        <td className="px-4 py-3">{p.category}</td>
+                        <td className="px-4 py-3 font-bold text-error">{p.stockQuantity}</td>
+                        <td className="px-4 py-3">
+                          <a href={`/admin/products/${p.id}`} className="text-primary font-medium">Chi tiết</a>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* <div className="fixed bottom-8 right-8 z-50">
         <button className="bg-primary text-white w-14 h-14 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform group">
           <span className="material-symbols-outlined text-3xl">add</span>
           <span className="absolute right-full mr-4 bg-white text-primary px-4 py-2 rounded-lg font-bold text-xs shadow-xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
             Tạo đơn hàng mới
           </span>
         </button>
-      </div>
+      </div> */}
     </>
   );
 }

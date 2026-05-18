@@ -1,7 +1,7 @@
 package com.fishbreeding.backend.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -24,7 +24,8 @@ public class CategoryRequest {
     // URL ảnh đại diện (upload lên Cloudinary ở FE trước, rồi gửi URL về đây)
     private String imageUrl;
 
-    // Parent category id if it's a subcategory
-    @Positive(message = "Parent ID must be a positive number")
-    private Long parentId;
+    @NotNull(message = "Category status is required")
+    private Boolean isActive;
+
+    private Integer sortOrder;
 }

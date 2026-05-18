@@ -39,11 +39,9 @@ export default function ProductForm({ mode, productId }: ProductFormProps) {
 
   const [formData, setFormData] = useState({
     name: "",
-    sku: "",
     summary: "",
     description: "",
     price: "0",
-    stockQuantity: "0",
     isActive: true,
     categoryIds: [] as number[],
     images: [] as FormImage[],
@@ -77,11 +75,9 @@ export default function ProductForm({ mode, productId }: ProductFormProps) {
           setSlugPreview(detail.slug || "");
           setFormData({
             name: detail.name || "",
-            sku: detail.sku || "",
             summary: detail.summary || "",
             description: detail.description || "",
             price: String(detail.price ?? 0),
-            stockQuantity: String(detail.stockQuantity ?? 0),
             isActive: Boolean(detail.isActive),
             categoryIds: detail.categories.map((item) => item.id),
             images: detail.images.map((item) => ({
@@ -278,11 +274,6 @@ export default function ProductForm({ mode, productId }: ProductFormProps) {
       nextErrors.price = "Giá sản phẩm phải lớn hơn hoặc bằng 0.";
     }
 
-    const parsedStock = Number(formData.stockQuantity);
-    if (!Number.isFinite(parsedStock) || parsedStock < 0) {
-      nextErrors.stockQuantity = "Tồn kho phải lớn hơn hoặc bằng 0.";
-    }
-
     if (formData.categoryIds.length === 0) {
       nextErrors.categoryIds = "Vui lòng chọn ít nhất 1 danh mục.";
     }
@@ -315,11 +306,9 @@ export default function ProductForm({ mode, productId }: ProductFormProps) {
 
     return {
       name: formData.name.trim(),
-      sku: formData.sku.trim() || null,
       summary: formData.summary.trim() || null,
       description: formData.description.trim() || null,
       price: Number(formData.price),
-      stockQuantity: Number(formData.stockQuantity),
       isActive: formData.isActive,
       categoryIds: formData.categoryIds,
       images,
@@ -413,21 +402,7 @@ export default function ProductForm({ mode, productId }: ProductFormProps) {
                 />
                 {errors.name && <p className="text-xs text-error mt-1">{errors.name}</p>}
               </div>
-              <div className="col-span-1">
-                <label className="block text-xs font-bold text-primary uppercase tracking-widest mb-2">Mã SKU</label>
-                <div className="relative">
-                  <input
-                    className="w-full bg-surface-container-highest border-none rounded-lg px-4 py-3 pl-10 text-on-surface focus:ring-2 focus:ring-primary/20 outline-none"
-                    placeholder="SKU-2024-001"
-                    value={formData.sku}
-                    name="sku"
-                    onChange={handleInputChange}
-                    type="text"
-                  />
-                  <span className="material-symbols-outlined absolute left-3 top-3 text-slate-400 text-sm">barcode</span>
-                </div>
-              </div>
-              <div className="col-span-1">
+              <div className="col-span-2">
                 <label className="block text-xs font-bold text-primary uppercase tracking-widest mb-2">Đường dẫn (Slug)</label>
                 <input
                   className="w-full bg-slate-100 border-none rounded-lg px-4 py-3 text-slate-500 italic cursor-not-allowed outline-none"
@@ -547,17 +522,16 @@ export default function ProductForm({ mode, productId }: ProductFormProps) {
 
         <div className="col-span-12 lg:col-span-4 space-y-6">
           <section className="bg-surface-container-lowest p-6 rounded-xl shadow-sm space-y-6">
-            <div className="flex items-center justify-between">
-              <label className="block text-xs font-bold text-primary uppercase tracking-widest">Trạng thái</label>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  checked={formData.isActive}
-                  className="sr-only peer"
-                  type="checkbox"
-                  onChange={(event) => setFormData((prev) => ({ ...prev, isActive: event.target.checked }))}
-                />
-                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:inset-s-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-secondary"></div>
-              </label>
+            <div>
+              <label className="block text-xs font-bold text-primary uppercase tracking-widest mb-2">Trạng thái</label>
+              <select
+                value={formData.isActive ? "active" : "inactive"}
+                onChange={(e) => setFormData((prev) => ({ ...prev, isActive: e.target.value === "active" }))}
+                className="w-full bg-surface-container-highest border-none rounded-lg px-4 py-3 text-sm outline-none"
+              >
+                <option value="active">Đang kinh doanh</option>
+                <option value="inactive">Ngừng kinh doanh</option>
+              </select>
             </div>
             <div className="space-y-4">
               <div>
@@ -572,19 +546,6 @@ export default function ProductForm({ mode, productId }: ProductFormProps) {
                   min={0}
                 />
                 {errors.price && <p className="text-xs text-error mt-1">{errors.price}</p>}
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-on-surface-variant mb-1.5">Số lượng tồn kho</label>
-                <input
-                  className={`w-full bg-surface-container-highest border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary/20 outline-none ${errors.stockQuantity ? "ring-2 ring-error" : ""}`}
-                  placeholder="0"
-                  value={formData.stockQuantity}
-                  name="stockQuantity"
-                  onChange={handleInputChange}
-                  type="number"
-                  min={0}
-                />
-                {errors.stockQuantity && <p className="text-xs text-error mt-1">{errors.stockQuantity}</p>}
               </div>
               <div>
                 <label className="block text-xs font-medium text-on-surface-variant mb-2">Danh mục</label>

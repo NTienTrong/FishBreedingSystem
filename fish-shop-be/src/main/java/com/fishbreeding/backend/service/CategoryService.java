@@ -58,13 +58,9 @@ public class CategoryService {
                 .name(name)
                 .slug(slug)
                 .description(request.getDescription())
-                .imageUrl(request.getImageUrl());
-
-        if (request.getParentId() != null) {
-            Category parent = categoryRepository.findById(request.getParentId())
-                    .orElseThrow(() -> new NotFoundException("Parent category not found"));
-            categoryBuilder.parent(parent);
-        }
+            .imageUrl(request.getImageUrl())
+            .isActive(Boolean.TRUE.equals(request.getIsActive()))
+            .sortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0);
 
         Category saved = categoryRepository.save(categoryBuilder.build());
         return CategoryResponse.fromEntity(saved);
@@ -73,7 +69,6 @@ public class CategoryService {
     @CacheEvict(cacheNames = {"categories", "categoryById"}, allEntries = true)
     public CategoryResponse updateCategory(Long id, CategoryRequest request) {
         categoryValidator.validateId(id);
-        categoryValidator.validateParent(id, request.getParentId());
 
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Category not found with id: " + id));
@@ -83,6 +78,8 @@ public class CategoryService {
         category.setName(name);
         category.setDescription(request.getDescription());
         category.setImageUrl(request.getImageUrl());
+        category.setActive(Boolean.TRUE.equals(request.getIsActive()));
+        category.setSortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0);
 
         String newSlug = SlugUtil.toSlug(name);
         if (!newSlug.equals(category.getSlug())) {
@@ -90,14 +87,6 @@ public class CategoryService {
                 newSlug = newSlug + "-" + System.currentTimeMillis();
             }
             category.setSlug(newSlug);
-        }
-
-        if (request.getParentId() != null) {
-            Category parent = categoryRepository.findById(request.getParentId())
-                    .orElseThrow(() -> new NotFoundException("Parent category not found"));
-            category.setParent(parent);
-        } else {
-            category.setParent(null);
         }
 
         Category updated = categoryRepository.save(category);

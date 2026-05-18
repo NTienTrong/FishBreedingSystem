@@ -65,7 +65,7 @@ export default async function Home() {
     fetchBlogPosts(),
   ]);
 
-  const topCategories = categories.filter((category) => category.parentId === null);
+  const topCategories = categories.filter((category) => category.isActive);
   const featuredProducts = products
     .filter((product) => product.isActive)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())

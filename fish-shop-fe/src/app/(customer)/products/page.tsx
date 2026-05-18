@@ -35,7 +35,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   const [products, categories] = await Promise.all([getProducts(), getCategories()]);
   const selectedCategoryId = categories.find((category) => category.slug === selectedCategorySlug)?.id;
 
-  const topLevelCategories = categories.filter((category) => category.parentId === null);
+  const topLevelCategories = categories.filter((category) => category.isActive);
   let filteredProducts = selectedCategorySlug
     ? products.filter((product) =>
         selectedCategoryId ? product.categories.some((cat) => cat.id === selectedCategoryId) : false

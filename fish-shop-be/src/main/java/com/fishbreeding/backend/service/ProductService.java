@@ -89,16 +89,13 @@ public class ProductService {
     public ProductResponse createProduct(ProductRequest request) {
         String name = request.getName().trim();
         String slug = buildUniqueSlug(name, null);
-        String sku = normalizeSku(request.getSku());
-
-        validateSkuForCreate(sku);
 
         Set<Category> categories = resolveCategories(request.getCategoryIds());
 
         Product product = Product.builder()
                 .name(name)
                 .slug(slug)
-                .sku(sku)
+            .sku(null)
                 .summary(trimToNull(request.getSummary()))
                 .description(trimToNull(request.getDescription()))
                 .price(request.getPrice())
@@ -108,6 +105,9 @@ public class ProductService {
                 .build();
 
         Product saved = productRepository.save(product);
+
+        saved.setSku(buildAutoSku(saved.getId()));
+        saved = productRepository.save(saved);
 
         syncProductImages(saved, request.getImages());
         syncProductAttributeValues(saved, request.getAttributeValues());
@@ -131,9 +131,10 @@ public class ProductService {
             product.setSlug(buildUniqueSlug(name, id));
         }
 
-        validateSkuForUpdate(sku, id);
-
-        product.setSku(sku);
+        if (sku != null) {
+            validateSkuForUpdate(sku, id);
+            product.setSku(sku);
+        }
         product.setSummary(trimToNull(request.getSummary()));
         product.setDescription(trimToNull(request.getDescription()));
         product.setPrice(request.getPrice());
@@ -315,12 +316,6 @@ public class ProductService {
         productAttributeValueRepository.saveAll(attributeValues);
     }
 
-    private void validateSkuForCreate(String sku) {
-        if (sku != null && productRepository.existsBySku(sku)) {
-            throw new BadRequestException("SKU already exists");
-        }
-    }
-
     private void validateSkuForUpdate(String sku, Long productId) {
         if (sku != null && productRepository.existsBySkuAndIdNot(sku, productId)) {
             throw new BadRequestException("SKU already exists");
@@ -352,6 +347,10 @@ public class ProductService {
 
         String normalized = sku.trim();
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private String buildAutoSku(Long id) {
+        return "FS-" + id;
     }
 
     private String trimToNull(String value) {

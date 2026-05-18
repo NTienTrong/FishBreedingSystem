@@ -27,7 +27,11 @@ public class Category {
     @Column(name = "image_url", columnDefinition = "TEXT")
     private String imageUrl;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "parent_id")
-    private Category parent;
+    @Column(name = "is_active", nullable = false)
+    @Builder.Default
+    private boolean isActive = true;
+
+    @Column(name = "sort_order")
+    @Builder.Default
+    private Integer sortOrder = 0;
 }

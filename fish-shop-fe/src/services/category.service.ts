@@ -4,7 +4,7 @@ import apiClient from '@/services/apiClient';
 const API_URL = '/api/admin/categories';
 
 export const CategoryService = {
-  /** Lấy toàn bộ danh mục (cả cha lẫn con) */
+  /** Lấy toàn bộ danh mục */
   async getAll(): Promise<CategoryResponse[]> {
     const res = await apiClient.get<CategoryResponse[]>(API_URL);
     return res.data;

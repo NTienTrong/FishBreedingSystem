@@ -162,6 +162,14 @@ export default function AdminProductsPage() {
     </div>
   );
 
+  const getSizeLabel = (product: ProductResponse) => {
+    const sizeAttr = product.attributeValues?.find((attr) => {
+      const name = (attr.attributeName || "").toLowerCase();
+      return name.includes("size") || name.includes("kích thước") || name.includes("kich thuoc");
+    });
+    return sizeAttr?.attrValue || "-";
+  };
+
   return (
     <div className="p-8 space-y-8">
       <ToastMessage show={toast.show} message={toast.message} variant={toast.variant} />
@@ -204,11 +212,11 @@ export default function AdminProductsPage() {
           <table className="w-full text-left">
             <thead>
               <tr className="bg-surface-container-low text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-outline-variant/20">
-                <th className="px-8 py-5">Sản phẩm</th>
+                <th className="px-8 py-5">Tên cá</th>
+                <th className="px-8 py-5">Hình ảnh</th>
                 <th className="px-8 py-5">Danh mục</th>
-                <th className="px-8 py-5">SKU</th>
-                <th className="px-8 py-5">Giá</th>
-                <th className="px-8 py-5">Kho</th>
+                <th className="px-8 py-5">Giá bán</th>
+                <th className="px-8 py-5">Số lượng</th>
                 <th className="px-8 py-5">Trạng thái</th>
                 <th className="px-8 py-5">Thao tác</th>
               </tr>
@@ -229,30 +237,29 @@ export default function AdminProductsPage() {
                   return (
                     <tr key={product.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-8 py-4">
-                        <div className="flex items-center gap-3">
-                          {mainImage ? (
-                            <img
-                              src={mainImage.imageUrl}
-                              alt={product.name}
-                              className="h-12 w-12 rounded-xl object-cover border border-slate-200"
-                            />
-                          ) : (
-                            <div className="h-12 w-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400">
-                              <span className="material-symbols-outlined text-[18px]">image</span>
-                            </div>
-                          )}
-                          <div>
-                            <p className="font-semibold text-on-surface">{product.name}</p>
-                            <p className="text-xs text-slate-400">/{product.slug}</p>
-                          </div>
+                        <div>
+                          <p className="font-semibold text-on-surface">{product.name}</p>
+                          <p className="text-xs text-slate-400">/{product.slug}</p>
                         </div>
+                      </td>
+                      <td className="px-8 py-4">
+                        {mainImage ? (
+                          <img
+                            src={mainImage.imageUrl}
+                            alt={product.name}
+                            className="h-12 w-12 rounded-xl object-cover border border-slate-200"
+                          />
+                        ) : (
+                          <div className="h-12 w-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400">
+                            <span className="material-symbols-outlined text-[18px]">image</span>
+                          </div>
+                        )}
                       </td>
                       <td className="px-8 py-4 text-sm text-slate-500">
                         {product.categories.length ? product.categories.map((cat) => cat.name).join(", ") : "-"}
                       </td>
-                      <td className="px-8 py-4 font-mono text-xs text-slate-500">{product.sku || "-"}</td>
                       <td className="px-8 py-4 font-semibold text-secondary">{currency.format(product.price)}</td>
-                      <td className="px-8 py-4 text-sm text-slate-600">{product.stockQuantity}</td>
+                      <td className="px-8 py-4 text-sm text-slate-600">{product.stockQuantity ?? 0}</td>
                       <td className="px-8 py-4">
                         <span
                           className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold ${product.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"

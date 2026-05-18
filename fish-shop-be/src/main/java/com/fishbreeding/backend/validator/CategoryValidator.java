@@ -12,10 +12,4 @@ public class CategoryValidator {
             throw new BadRequestException("Invalid category ID");
         }
     }
-
-    public void validateParent(Long id, Long parentId) {
-        if (parentId != null && parentId.equals(id)) {
-            throw new BadRequestException("Category cannot be its own parent");
-        }
-    }
 }

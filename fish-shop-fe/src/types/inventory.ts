@@ -18,6 +18,12 @@ export interface InventoryRestockRequest {
   reason?: string | null;
 }
 
+export interface InventoryExportRequest {
+  productId: number;
+  quantity: number;
+  reason?: string | null;
+}
+
 export interface InventoryAdjustRequest {
   productId: number;
   newQuantity: number;

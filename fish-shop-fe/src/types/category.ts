@@ -4,13 +4,14 @@ export interface CategoryResponse {
   slug: string;
   description: string | null;
   imageUrl: string | null;
-  parentId: number | null;
-  parentName: string | null;
+  isActive: boolean;
+  sortOrder?: number | null;
 }
 
 export interface CategoryRequest {
   name: string;
   description: string;
   imageUrl: string | null;
-  parentId: number | null;
+  isActive: boolean;
+  sortOrder?: number | null;
 }

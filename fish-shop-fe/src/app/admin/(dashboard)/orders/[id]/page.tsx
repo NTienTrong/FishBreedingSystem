@@ -281,7 +281,7 @@ export default function AdminOrderDetailsPage() {
               </div>
             )}
 
-            <div className="mt-6 flex justify-end">
+            {/* <div className="mt-6 flex justify-end">
               <button
                 type="button"
                 onClick={handleSaveStatus}
@@ -290,7 +290,7 @@ export default function AdminOrderDetailsPage() {
               >
                 {saving ? "Đang lưu..." : "Lưu trạng thái"}
               </button>
-            </div>
+            </div> */}
 
           </section>
 

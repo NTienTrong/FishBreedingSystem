@@ -7,12 +7,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.fishbreeding.backend.dto.InventoryAdjustRequest;
+import com.fishbreeding.backend.dto.InventoryExportRequest;
 import com.fishbreeding.backend.dto.InventoryRestockRequest;
 import com.fishbreeding.backend.dto.StockLogResponse;
 import com.fishbreeding.backend.service.InventoryService;
@@ -31,6 +33,18 @@ public class InventoryController {
     @PostMapping("/restock")
     public ResponseEntity<StockLogResponse> restock(@Valid @RequestBody InventoryRestockRequest request) {
         StockLogResponse response = inventoryService.addStock(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/export")
+    public ResponseEntity<StockLogResponse> exportStock(@Valid @RequestBody InventoryExportRequest request) {
+        StockLogResponse response = inventoryService.deductStock(request.getProductId(), request.getQuantity(), request.getReason());
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PutMapping("/export")
+    public ResponseEntity<StockLogResponse> exportStockPut(@Valid @RequestBody InventoryExportRequest request) {
+        StockLogResponse response = inventoryService.deductStock(request.getProductId(), request.getQuantity(), request.getReason());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

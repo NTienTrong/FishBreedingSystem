@@ -23,14 +23,14 @@ export default function Header() {
           <span className="text-primary font-bold border-b-2 border-primary pb-1">{getBreadcrumb()}</span>
         </div>
 
-        <div className="ml-10 relative focus-within:ring-2 focus-within:ring-[#005B71]/20 rounded-full transition-all group">
+        {/* <div className="ml-10 relative focus-within:ring-2 focus-within:ring-[#005B71]/20 rounded-full transition-all group">
           <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">search</span>
           <input
             type="text"
             placeholder="Tìm kiếm dữ liệu..."
             className="pl-12 pr-6 py-2 bg-slate-100 dark:bg-slate-900 border-none rounded-full w-80 text-sm focus:ring-0 outline-none"
           />
-        </div>
+        </div> */}
       </div>
 
       <div className="flex items-center gap-4">

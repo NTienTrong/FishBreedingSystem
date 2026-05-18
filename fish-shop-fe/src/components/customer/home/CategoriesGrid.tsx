@@ -32,7 +32,7 @@ const CategoriesGrid = async () => {
       {categories.length > 0 ? (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
           {categories
-            .filter((cat) => cat.parentId === null)
+            .filter((cat) => cat.isActive)
             .slice(0, 10)
             .map((cat) => (
             <Link href={`/products?category=${cat.slug}`} key={cat.id} className="group cursor-pointer">

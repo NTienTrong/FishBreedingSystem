@@ -5,7 +5,7 @@ import DetailModal from "@/components/common/DetailModal";
 import ToastMessage from "@/components/common/ToastMessage";
 import { InventoryService } from "@/services/inventory.service";
 import { ProductService } from "@/services/product.service";
-import { InventoryAdjustRequest, InventoryRestockRequest, StockChangeType, StockLogResponse } from "@/types/inventory";
+import { InventoryExportRequest, InventoryRestockRequest, StockChangeType, StockLogResponse } from "@/types/inventory";
 import { ProductResponse } from "@/types/product";
 
 const currency = new Intl.NumberFormat("vi-VN", {
@@ -19,21 +19,19 @@ const dateTimeFormatter = new Intl.DateTimeFormat("vi-VN", {
   timeStyle: "short",
 });
 
-type ActiveTab = "inventory" | "history";
-
 type RestockFormState = {
   productId: string;
   quantity: string;
-  costPrice: string;
   reason: string;
 };
 
-type AdjustFormState = {
+type ExportFormState = {
   productId: string;
-  newQuantity: string;
-  changeType: StockChangeType;
+  quantity: string;
   reason: string;
 };
+
+type ActiveTab = "inventory" | "history";
 
 export default function AdminInventoryPage() {
   const [products, setProducts] = useState<ProductResponse[]>([]);
@@ -44,17 +42,17 @@ export default function AdminInventoryPage() {
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [loadingLogs, setLoadingLogs] = useState(true);
   const [isRestockOpen, setIsRestockOpen] = useState(false);
-  const [isAdjustOpen, setIsAdjustOpen] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [restockLockedId, setRestockLockedId] = useState<number | null>(null);
+  const [exportLockedId, setExportLockedId] = useState<number | null>(null);
   const [restockForm, setRestockForm] = useState<RestockFormState>({
     productId: "",
     quantity: "",
-    costPrice: "",
     reason: "",
   });
-  const [adjustForm, setAdjustForm] = useState<AdjustFormState>({
+  const [exportForm, setExportForm] = useState<ExportFormState>({
     productId: "",
-    newQuantity: "",
-    changeType: "ADJUST",
+    quantity: "",
     reason: "",
   });
   const [submitting, setSubmitting] = useState(false);
@@ -88,7 +86,6 @@ export default function AdminInventoryPage() {
     try {
       const data = await InventoryService.getLogs(100);
       setLogs(data);
-      setHistoryPage(1);
     } catch (error) {
       console.error(error);
       showToast("Không thể tải lịch sử kho.", "error");
@@ -143,27 +140,40 @@ export default function AdminInventoryPage() {
     setHistoryPage((prev) => Math.min(prev, historyTotalPages));
   }, [historyTotalPages]);
 
-  const totalOutOfStock = useMemo(() => products.filter((p) => p.stockQuantity <= 0).length, [products]);
-  const totalLowStock = useMemo(() => products.filter((p) => p.stockQuantity > 0 && p.stockQuantity < 10).length, [products]);
+  const totalOutOfStock = useMemo(() => products.filter((p) => (p.stockQuantity ?? 0) <= 0).length, [products]);
+  const totalLowStock = useMemo(() => products.filter((p) => (p.stockQuantity ?? 0) > 0 && (p.stockQuantity ?? 0) < 5).length, [products]);
+
+  const lastRestockedByProduct = useMemo(() => {
+    const map = new Map<number, string>();
+    sortedLogs.forEach((log) => {
+      if (log.changeType !== "IMPORT") {
+        return;
+      }
+      if (!map.has(log.productId)) {
+        map.set(log.productId, log.createdAt);
+      }
+    });
+    return map;
+  }, [sortedLogs]);
 
   const openRestock = (product?: ProductResponse) => {
     setRestockForm({
       productId: product ? String(product.id) : products[0] ? String(products[0].id) : "",
       quantity: "",
-      costPrice: "",
       reason: "",
     });
+    setRestockLockedId(product ? product.id : null);
     setIsRestockOpen(true);
   };
 
-  const openAdjust = (product?: ProductResponse) => {
-    setAdjustForm({
+  const openExport = (product?: ProductResponse) => {
+    setExportForm({
       productId: product ? String(product.id) : products[0] ? String(products[0].id) : "",
-      newQuantity: product ? String(product.stockQuantity) : "",
-      changeType: "ADJUST",
+      quantity: "",
       reason: "",
     });
-    setIsAdjustOpen(true);
+    setExportLockedId(product ? product.id : null);
+    setIsExportOpen(true);
   };
 
   const handleRestockSubmit = async (event: React.FormEvent) => {
@@ -176,16 +186,9 @@ export default function AdminInventoryPage() {
       return;
     }
 
-    const costPrice = restockForm.costPrice ? Number(restockForm.costPrice) : null;
-    if (restockForm.costPrice && Number.isNaN(costPrice)) {
-      showToast("Giá vốn không hợp lệ.", "error");
-      return;
-    }
-
     const payload: InventoryRestockRequest = {
       productId,
       quantity,
-      costPrice,
       reason: restockForm.reason.trim() ? restockForm.reason.trim() : null,
     };
 
@@ -204,33 +207,32 @@ export default function AdminInventoryPage() {
     }
   };
 
-  const handleAdjustSubmit = async (event: React.FormEvent) => {
+  const handleExportSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const newQuantity = Number(adjustForm.newQuantity);
-    const productId = Number(adjustForm.productId);
+    const quantity = Number(exportForm.quantity);
+    const productId = Number(exportForm.productId);
 
-    if (!productId || Number.isNaN(newQuantity) || newQuantity < 0) {
-      showToast("Vui lòng nhập số lượng mới hợp lệ.", "error");
+    if (!productId || Number.isNaN(quantity) || quantity <= 0) {
+      showToast("Vui lòng nhập sản phẩm và số lượng hợp lệ.", "error");
       return;
     }
 
-    const payload: InventoryAdjustRequest = {
+    const payload: InventoryExportRequest = {
       productId,
-      newQuantity,
-      changeType: adjustForm.changeType,
-      reason: adjustForm.reason.trim() ? adjustForm.reason.trim() : null,
+      quantity,
+      reason: exportForm.reason.trim() ? exportForm.reason.trim() : null,
     };
 
     try {
       setSubmitting(true);
-      await InventoryService.adjust(payload);
-      showToast("Điều chỉnh kho thành công.", "success");
-      setIsAdjustOpen(false);
+      await InventoryService.exportStock(payload);
+      showToast("Xuất kho thành công.", "success");
+      setIsExportOpen(false);
       fetchProducts();
       fetchLogs();
     } catch (error) {
       console.error(error);
-      showToast("Điều chỉnh kho thất bại.", "error");
+      showToast("Xuất kho thất bại.", "error");
     } finally {
       setSubmitting(false);
     }
@@ -270,18 +272,16 @@ export default function AdminInventoryPage() {
           <button
             type="button"
             onClick={() => openRestock()}
-            className="px-5 py-2.5 rounded-full bg-primary text-white text-sm font-semibold shadow-lg shadow-primary/20 hover:opacity-90"
+            className="bg-primary hover:bg-black text-white px-6 py-3 rounded-full text-sm font-bold flex items-center gap-2 transition-colors"
           >
-            <span className="material-symbols-outlined text-sm mr-2">add</span>
-            Nhập hàng
+            <span className="material-symbols-outlined text-sm">inventory_2</span> Nhập hàng
           </button>
           <button
             type="button"
-            onClick={() => openAdjust()}
-            className="px-5 py-2.5 rounded-full bg-surface-container-high text-primary text-sm font-semibold hover:bg-primary hover:text-white transition-colors"
+            onClick={() => openExport()}
+            className="border border-rose-200 text-rose-700 px-6 py-3 rounded-full text-sm font-bold flex items-center gap-2 hover:bg-rose-50 transition-colors"
           >
-            <span className="material-symbols-outlined text-sm mr-2">tune</span>
-            Điều chỉnh
+            <span className="material-symbols-outlined text-sm">local_shipping</span> Xuất hàng
           </button>
         </div>
       </div>
@@ -325,67 +325,58 @@ export default function AdminInventoryPage() {
       {activeTab === "inventory" ? (
         <>
           <div className="bg-surface-container-lowest rounded-3xl border border-outline-variant/10 overflow-hidden">
-          <table className="w-full text-left">
-            <thead className="bg-surface-container-low">
-              <tr className="text-xs uppercase tracking-wider text-primary">
-                <th className="px-6 py-4">Sản phẩm</th>
-                <th className="px-6 py-4">SKU</th>
-                <th className="px-6 py-4">Giá bán</th>
-                <th className="px-6 py-4">Tồn kho</th>
-                <th className="px-6 py-4"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-outline-variant/10">
-              {loadingProducts ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-10 text-center text-slate-500">
-                    Đang tải dữ liệu...
-                  </td>
+            <table className="w-full text-left">
+              <thead className="bg-surface-container-low">
+                <tr className="text-xs uppercase tracking-wider text-primary">
+                  <th className="px-6 py-4">Tên cá</th>
+                  <th className="px-6 py-4">Mã SKU</th>
+                  <th className="px-6 py-4">Số lượng tồn kho</th>
+                  <th className="px-6 py-4">Lần nhập gần nhất</th>
+                  <th className="px-6 py-4">Hành động</th>
                 </tr>
-              ) : products.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-10 text-center text-slate-500">
-                    Chưa có sản phẩm nào.
-                  </td>
-                </tr>
-              ) : (
-                pagedProducts.map((product) => {
-                  const stock = product.stockQuantity ?? 0;
-                  const rowClass = stock <= 0 ? "bg-rose-50/70" : stock < 10 ? "bg-amber-50/70" : "";
-                  const badgeClass = stock <= 0
-                    ? "bg-rose-100 text-rose-700"
-                    : stock < 10
-                      ? "bg-amber-100 text-amber-700"
-                      : "bg-emerald-100 text-emerald-700";
-                  const badgeLabel = stock <= 0 ? "Hết hàng" : stock < 10 ? "Sắp hết" : "Ổn định";
+              </thead>
+              <tbody className="divide-y divide-outline-variant/10">
+                {loadingProducts ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-10 text-center text-slate-500">
+                      Đang tải dữ liệu...
+                    </td>
+                  </tr>
+                ) : products.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-10 text-center text-slate-500">
+                      Chưa có sản phẩm nào.
+                    </td>
+                  </tr>
+                ) : (
+                  pagedProducts.map((product) => {
+                    const stock = product.stockQuantity ?? 0;
+                    const rowClass = stock < 5 ? "bg-amber-50/70" : "";
+                    const lastRestockedAt = lastRestockedByProduct.get(product.id);
 
-                  return (
-                    <tr key={product.id} className={`transition-colors ${rowClass}`}>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-4">
-                          <img
-                            src={getMainImage(product)}
-                            alt={product.name}
-                            className="h-12 w-12 rounded-xl object-cover bg-surface-container-high"
-                          />
-                          <div>
-                            <p className="text-sm font-semibold text-primary">{product.name}</p>
-                            <span className={`mt-1 inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold ${badgeClass}`}>
-                              {badgeLabel}
-                            </span>
+                    return (
+                      <tr key={product.id} className={`transition-colors ${rowClass}`}>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={getMainImage(product)}
+                              alt={product.name}
+                              className="h-10 w-10 rounded-xl object-cover bg-surface-container-high"
+                            />
+                            <div>
+                              <p className="text-sm font-semibold text-primary">{product.name}</p>
+                              <p className="text-xs text-slate-500">/{product.slug}</p>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-500">{product.sku || "-"}</td>
-                      <td className="px-6 py-4 text-sm font-semibold text-primary">{currency.format(product.price)}</td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <span className="text-lg font-bold text-primary">{stock}</span>
-                          <span className="text-xs text-slate-500">con</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="inline-flex items-center gap-2">
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-500">{product.sku || "-"}</td>
+                        <td className="px-6 py-4">
+                          <span className={`text-sm font-bold ${stock < 5 ? "text-amber-700" : "text-primary"}`}>{stock}</span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-500">
+                          {lastRestockedAt ? dateTimeFormatter.format(new Date(lastRestockedAt)) : "-"}
+                        </td>
+                        <td className="px-6 py-4">
                           <button
                             type="button"
                             onClick={() => openRestock(product)}
@@ -395,132 +386,131 @@ export default function AdminInventoryPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => openAdjust(product)}
-                            className="rounded-full border border-slate-200 px-4 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100"
+                            onClick={() => openExport(product)}
+                            className="ml-2 rounded-full border border-rose-200 px-4 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition-colors"
                           >
-                            Điều chỉnh
+                            Xuất kho
                           </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
           {!loadingProducts && sortedProducts.length > 0 && (
-          <div className="flex items-center justify-between px-6 py-4 text-xs text-slate-500 border-t border-outline-variant/10">
-            <span>
-              Hiển thị <strong className="text-on-surface">{pagedProducts.length}</strong> / {sortedProducts.length} sản phẩm
-            </span>
-            {sortedProducts.length > PAGE_SIZE && (
-              <div className="flex items-center gap-2">
-                <button
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
-                  onClick={() => setInventoryPage((prev) => Math.max(1, prev - 1))}
-                  disabled={inventoryPage === 1}
-                  type="button"
-                >
-                  <span className="material-symbols-outlined text-sm">chevron_left</span>
-                </button>
-                <span className="text-xs font-semibold">Trang {inventoryPage} / {inventoryTotalPages}</span>
-                <button
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
-                  onClick={() => setInventoryPage((prev) => Math.min(inventoryTotalPages, prev + 1))}
-                  disabled={inventoryPage === inventoryTotalPages}
-                  type="button"
-                >
-                  <span className="material-symbols-outlined text-sm">chevron_right</span>
-                </button>
-              </div>
-            )}
-          </div>
+            <div className="flex items-center justify-between px-6 py-4 text-xs text-slate-500 border-t border-outline-variant/10">
+              <span>
+                Hiển thị <strong className="text-on-surface">{pagedProducts.length}</strong> / {sortedProducts.length} sản phẩm
+              </span>
+              {sortedProducts.length > PAGE_SIZE && (
+                <div className="flex items-center gap-2">
+                  <button
+                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
+                    onClick={() => setInventoryPage((prev) => Math.max(1, prev - 1))}
+                    disabled={inventoryPage === 1}
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-sm">chevron_left</span>
+                  </button>
+                  <span className="text-xs font-semibold">Trang {inventoryPage} / {inventoryTotalPages}</span>
+                  <button
+                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
+                    onClick={() => setInventoryPage((prev) => Math.min(inventoryTotalPages, prev + 1))}
+                    disabled={inventoryPage === inventoryTotalPages}
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-sm">chevron_right</span>
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </>
       ) : (
         <>
           <div className="bg-surface-container-lowest rounded-3xl border border-outline-variant/10 overflow-hidden">
-          <table className="w-full text-left">
-            <thead className="bg-surface-container-low">
-              <tr className="text-xs uppercase tracking-wider text-primary">
-                <th className="px-6 py-4">Thời gian</th>
-                <th className="px-6 py-4">Sản phẩm</th>
-                <th className="px-6 py-4">Loại</th>
-                <th className="px-6 py-4">Số lượng</th>
-                <th className="px-6 py-4">Ghi chú</th>
-                <th className="px-6 py-4">Giá vốn</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-outline-variant/10">
-              {loadingLogs ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-slate-500">
-                    Đang tải dữ liệu...
-                  </td>
+            <table className="w-full text-left">
+              <thead className="bg-surface-container-low">
+                <tr className="text-xs uppercase tracking-wider text-primary">
+                  <th className="px-6 py-4">Thời gian</th>
+                  <th className="px-6 py-4">Sản phẩm</th>
+                  <th className="px-6 py-4">Loại</th>
+                  <th className="px-6 py-4">Số lượng</th>
+                  <th className="px-6 py-4">Ghi chú</th>
+                  <th className="px-6 py-4">Giá vốn</th>
                 </tr>
-              ) : logs.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-slate-500">
-                    Chưa có lịch sử biến động.
-                  </td>
-                </tr>
-              ) : (
-                pagedLogs.map((log) => {
-                  const typeInfo = renderChangeType(log.changeType);
-                  const quantityClass = log.quantityChanged >= 0 ? "text-emerald-700" : "text-rose-700";
-                  return (
-                    <tr key={log.id}>
-                      <td className="px-6 py-4 text-sm text-slate-500">
-                        {dateTimeFormatter.format(new Date(log.createdAt))}
-                      </td>
-                      <td className="px-6 py-4 text-sm font-semibold text-primary">{log.productName}</td>
-                      <td className="px-6 py-4">
-                        <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${typeInfo.className}`}>
-                          {typeInfo.label}
-                        </span>
-                      </td>
-                      <td className={`px-6 py-4 text-sm font-bold ${quantityClass}`}>
-                        {log.quantityChanged > 0 ? "+" : ""}{log.quantityChanged}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-500">{log.reason || "-"}</td>
-                      <td className="px-6 py-4 text-sm text-slate-500">
-                        {log.costPrice ? currency.format(log.costPrice) : "-"}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-outline-variant/10">
+                {loadingLogs ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-10 text-center text-slate-500">
+                      Đang tải dữ liệu...
+                    </td>
+                  </tr>
+                ) : logs.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-10 text-center text-slate-500">
+                      Chưa có lịch sử biến động.
+                    </td>
+                  </tr>
+                ) : (
+                  pagedLogs.map((log) => {
+                    const typeInfo = renderChangeType(log.changeType);
+                    const quantityClass = log.quantityChanged >= 0 ? "text-emerald-700" : "text-rose-700";
+                    return (
+                      <tr key={log.id}>
+                        <td className="px-6 py-4 text-sm text-slate-500">
+                          {dateTimeFormatter.format(new Date(log.createdAt))}
+                        </td>
+                        <td className="px-6 py-4 text-sm font-semibold text-primary">{log.productName}</td>
+                        <td className="px-6 py-4">
+                          <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${typeInfo.className}`}>
+                            {typeInfo.label}
+                          </span>
+                        </td>
+                        <td className={`px-6 py-4 text-sm font-bold ${quantityClass}`}>
+                          {log.quantityChanged > 0 ? "+" : ""}{log.quantityChanged}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-500">{log.reason || "-"}</td>
+                        <td className="px-6 py-4 text-sm text-slate-500">
+                          {log.costPrice ? currency.format(log.costPrice) : "-"}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
           {!loadingLogs && sortedLogs.length > 0 && (
-          <div className="flex items-center justify-between px-6 py-4 text-xs text-slate-500 border-t border-outline-variant/10">
-            <span>
-              Hiển thị <strong className="text-on-surface">{pagedLogs.length}</strong> / {sortedLogs.length} bản ghi
-            </span>
-            {sortedLogs.length > PAGE_SIZE && (
-              <div className="flex items-center gap-2">
-                <button
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
-                  onClick={() => setHistoryPage((prev) => Math.max(1, prev - 1))}
-                  disabled={historyPage === 1}
-                  type="button"
-                >
-                  <span className="material-symbols-outlined text-sm">chevron_left</span>
-                </button>
-                <span className="text-xs font-semibold">Trang {historyPage} / {historyTotalPages}</span>
-                <button
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
-                  onClick={() => setHistoryPage((prev) => Math.min(historyTotalPages, prev + 1))}
-                  disabled={historyPage === historyTotalPages}
-                  type="button"
-                >
-                  <span className="material-symbols-outlined text-sm">chevron_right</span>
-                </button>
-              </div>
-            )}
-          </div>
+            <div className="flex items-center justify-between px-6 py-4 text-xs text-slate-500 border-t border-outline-variant/10">
+              <span>
+                Hiển thị <strong className="text-on-surface">{pagedLogs.length}</strong> / {sortedLogs.length} bản ghi
+              </span>
+              {sortedLogs.length > PAGE_SIZE && (
+                <div className="flex items-center gap-2">
+                  <button
+                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
+                    onClick={() => setHistoryPage((prev) => Math.max(1, prev - 1))}
+                    disabled={historyPage === 1}
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-sm">chevron_left</span>
+                  </button>
+                  <span className="text-xs font-semibold">Trang {historyPage} / {historyTotalPages}</span>
+                  <button
+                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
+                    onClick={() => setHistoryPage((prev) => Math.min(historyTotalPages, prev + 1))}
+                    disabled={historyPage === historyTotalPages}
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-sm">chevron_right</span>
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </>
       )}
@@ -529,7 +519,7 @@ export default function AdminInventoryPage() {
         isOpen={isRestockOpen}
         title="Nhập hàng"
         subtitle="Cộng thêm số lượng vào kho và lưu lịch sử."
-        onClose={() => (!submitting ? setIsRestockOpen(false) : null)}
+        onClose={() => (!submitting ? (setIsRestockOpen(false), setRestockLockedId(null)) : null)}
       >
         <form className="space-y-5" onSubmit={handleRestockSubmit}>
           <div>
@@ -539,11 +529,15 @@ export default function AdminInventoryPage() {
               value={restockForm.productId}
               onChange={(event) => setRestockForm((prev) => ({ ...prev, productId: event.target.value }))}
               required
+              disabled={restockLockedId !== null}
             >
               <option value="" disabled>
                 Chọn sản phẩm
               </option>
-              {products.map((product) => (
+              {(restockLockedId !== null
+                ? products.filter((p) => p.id === restockLockedId)
+                : products
+              ).map((product) => (
                 <option key={product.id} value={product.id}>
                   {product.name}
                 </option>
@@ -551,45 +545,36 @@ export default function AdminInventoryPage() {
             </select>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Số lượng nhập</label>
-              <input
-                type="number"
-                min={1}
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/15"
-                value={restockForm.quantity}
-                onChange={(event) => setRestockForm((prev) => ({ ...prev, quantity: event.target.value }))}
-                required
-              />
-            </div>
-            <div>
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Giá vốn (tuỳ chọn)</label>
-              <input
-                type="number"
-                min={0}
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/15"
-                value={restockForm.costPrice}
-                onChange={(event) => setRestockForm((prev) => ({ ...prev, costPrice: event.target.value }))}
-              />
-            </div>
+          <div>
+            <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Số lượng muốn cộng thêm</label>
+            <input
+              type="number"
+              min={1}
+              className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/15"
+              value={restockForm.quantity}
+              onChange={(event) => setRestockForm((prev) => ({ ...prev, quantity: event.target.value }))}
+              required
+            />
           </div>
 
           <div>
-            <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Ghi chú</label>
+            <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Lý do nhập kho</label>
             <textarea
               className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/15"
               rows={3}
               value={restockForm.reason}
               onChange={(event) => setRestockForm((prev) => ({ ...prev, reason: event.target.value }))}
-              placeholder="Ví dụ: Nhập lứa cá Koi mới"
+              placeholder="Ví dụ: Nhập lứa cá mới"
             />
           </div>
 
           <div className="flex justify-end gap-3">
             <button
               type="button"
-              onClick={() => setIsRestockOpen(false)}
+              onClick={() => {
+                setIsRestockOpen(false);
+                setRestockLockedId(null);
+              }}
               className="rounded-full border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-600"
               disabled={submitting}
             >
@@ -607,24 +592,28 @@ export default function AdminInventoryPage() {
       </DetailModal>
 
       <DetailModal
-        isOpen={isAdjustOpen}
-        title="Điều chỉnh kho"
-        subtitle="Cập nhật số lượng thực tế sau kiểm kê hoặc sự cố."
-        onClose={() => (!submitting ? setIsAdjustOpen(false) : null)}
+        isOpen={isExportOpen}
+        title="Xuất kho"
+        subtitle="Trừ số lượng tồn kho khi xuất bán hoặc hao hụt."
+        onClose={() => (!submitting ? (setIsExportOpen(false), setExportLockedId(null)) : null)}
       >
-        <form className="space-y-5" onSubmit={handleAdjustSubmit}>
+        <form className="space-y-5" onSubmit={handleExportSubmit}>
           <div>
             <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Sản phẩm</label>
             <select
               className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/15"
-              value={adjustForm.productId}
-              onChange={(event) => setAdjustForm((prev) => ({ ...prev, productId: event.target.value }))}
+              value={exportForm.productId}
+              onChange={(event) => setExportForm((prev) => ({ ...prev, productId: event.target.value }))}
               required
+              disabled={exportLockedId !== null}
             >
               <option value="" disabled>
                 Chọn sản phẩm
               </option>
-              {products.map((product) => (
+              {(exportLockedId !== null
+                ? products.filter((p) => p.id === exportLockedId)
+                : products
+              ).map((product) => (
                 <option key={product.id} value={product.id}>
                   {product.name}
                 </option>
@@ -632,48 +621,36 @@ export default function AdminInventoryPage() {
             </select>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Số lượng mới</label>
-              <input
-                type="number"
-                min={0}
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/15"
-                value={adjustForm.newQuantity}
-                onChange={(event) => setAdjustForm((prev) => ({ ...prev, newQuantity: event.target.value }))}
-                required
-              />
-            </div>
-            <div>
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Loại biến động</label>
-              <select
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/15"
-                value={adjustForm.changeType}
-                onChange={(event) => setAdjustForm((prev) => ({ ...prev, changeType: event.target.value as StockChangeType }))}
-              >
-                <option value="ADJUST">Điều chỉnh</option>
-                <option value="IMPORT">Nhập kho</option>
-                <option value="EXPORT">Xuất kho / cá chết</option>
-                <option value="RETURN">Hoàn hàng</option>
-              </select>
-            </div>
+          <div>
+            <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Số lượng muốn trừ</label>
+            <input
+              type="number"
+              min={1}
+              className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/15"
+              value={exportForm.quantity}
+              onChange={(event) => setExportForm((prev) => ({ ...prev, quantity: event.target.value }))}
+              required
+            />
           </div>
 
           <div>
-            <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Ghi chú</label>
+            <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Lý do xuất kho</label>
             <textarea
               className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/15"
               rows={3}
-              value={adjustForm.reason}
-              onChange={(event) => setAdjustForm((prev) => ({ ...prev, reason: event.target.value }))}
-              placeholder="Ví dụ: Cá hao hụt do vận chuyển"
+              value={exportForm.reason}
+              onChange={(event) => setExportForm((prev) => ({ ...prev, reason: event.target.value }))}
+              placeholder="Ví dụ: Xuất bán hoặc hao hụt"
             />
           </div>
 
           <div className="flex justify-end gap-3">
             <button
               type="button"
-              onClick={() => setIsAdjustOpen(false)}
+              onClick={() => {
+                setIsExportOpen(false);
+                setExportLockedId(null);
+              }}
               className="rounded-full border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-600"
               disabled={submitting}
             >
@@ -681,14 +658,15 @@ export default function AdminInventoryPage() {
             </button>
             <button
               type="submit"
-              className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white"
+              className="rounded-full bg-rose-600 px-5 py-2 text-sm font-semibold text-white"
               disabled={submitting}
             >
-              {submitting ? "Đang lưu..." : "Xác nhận"}
+              {submitting ? "Đang lưu..." : "Xác nhận xuất"}
             </button>
           </div>
         </form>
       </DetailModal>
+
     </div>
   );
 }

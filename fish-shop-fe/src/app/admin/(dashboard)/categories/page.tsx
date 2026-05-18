@@ -6,8 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { CategoryService } from "@/services/category.service";
 import { CategoryResponse } from "@/types/category";
 import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
-import DetailModal from "@/components/common/DetailModal";
 import ToastMessage from "@/components/common/ToastMessage";
+import DetailModal from "@/components/common/DetailModal";
 import Image from "next/image";
 
 export const dynamic = "force-dynamic";
@@ -20,14 +20,10 @@ export default function CategoryListPage() {
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<CategoryResponse | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [detailTarget, setDetailTarget] = useState<CategoryResponse | null>(null);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [detailTarget, setDetailTarget] = useState<CategoryResponse | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
-
-  /** Set chứa id các danh mục gốc đang được mở (expanded) */
-  const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
   const [toast, setToast] = useState<{
     show: boolean;
@@ -54,14 +50,6 @@ export default function CategoryListPage() {
       setLoading(true);
       const data = await CategoryService.getAll();
       setCategories(data);
-      // Mặc định mở tất cả danh mục gốc có con
-      const rootIds = new Set(
-        data
-          .filter((c) => c.parentId === null)
-          .filter((root) => data.some((c) => c.parentId === root.id))
-          .map((r) => r.id),
-      );
-      setExpanded(rootIds);
     } catch (error) {
       console.error(error);
       showToast("Không thể tải danh sách danh mục.", "error");
@@ -80,32 +68,22 @@ export default function CategoryListPage() {
     if (!isDeleting) setDeleteTarget(null);
   };
 
-  const handleOpenDetail = async (categoryId: number) => {
-    setIsDetailOpen(true);
-    setDetailLoading(true);
+  const openDetailModal = async (id: number) => {
     try {
-      const data = await CategoryService.getById(categoryId);
+      setIsDetailLoading(true);
+      const data = await CategoryService.getById(id);
       setDetailTarget(data);
     } catch (error) {
       console.error(error);
-      showToast("Không thể tải chi tiết danh mục.", "error");
-      setIsDetailOpen(false);
+      showToast("Không thể tải thông tin danh mục.", "error");
     } finally {
-      setDetailLoading(false);
+      setIsDetailLoading(false);
     }
   };
 
-  const handleCloseDetail = () => {
-    setIsDetailOpen(false);
-    setDetailTarget(null);
+  const closeDetailModal = () => {
+    if (!isDetailLoading) setDetailTarget(null);
   };
-
-  const renderDetailItem = (label: string, value: React.ReactNode) => (
-    <div className="grid grid-cols-[160px_1fr] gap-4 border-b border-slate-100 py-3">
-      <p className="text-xs uppercase tracking-wider text-slate-400">{label}</p>
-      <div className="text-sm text-slate-700">{value ?? "-"}</div>
-    </div>
-  );
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
@@ -123,72 +101,18 @@ export default function CategoryListPage() {
     }
   };
 
-  const toggleExpand = (id: number) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  // ── Tính toán dữ liệu cây ────────────────────────────────────────────────
-
-  const rootCategories = useMemo(
-    () =>
-      categories
-        .filter((c) => c.parentId === null)
-        .sort((a, b) => b.id - a.id),
-    [categories],
-  );
-
-  const childrenOf = useMemo(() => {
-    const map: Record<number, CategoryResponse[]> = {};
-    for (const cat of categories) {
-      if (cat.parentId !== null) {
-        if (!map[cat.parentId]) map[cat.parentId] = [];
-        map[cat.parentId].push(cat);
-      }
-    }
-    // sort children newest first
-    for (const key of Object.keys(map)) {
-      map[Number(key)].sort((a, b) => b.id - a.id);
-    }
-    return map;
-  }, [categories]);
-
-  /** Flatten cây thành mảng rows theo thứ tự: cha → con (khi cha đang open) */
   const rows = useMemo(() => {
-    if (search.trim()) {
-      // Khi search: hiện phẳng, lọc theo query
-      const q = search.toLowerCase();
-      return categories
-        .filter(
-          (c) =>
-            c.name.toLowerCase().includes(q) ||
-            c.slug.toLowerCase().includes(q) ||
-            (c.parentName ?? "").toLowerCase().includes(q),
-        )
-        .sort((a, b) => {
-          if (a.parentId === null && b.parentId !== null) return -1;
-          if (a.parentId !== null && b.parentId === null) return 1;
-          return b.id - a.id;
-        })
-        .map((c) => ({ cat: c, depth: 0 })); // depth=0 vì đang tìm kiếm
-    }
+    const q = search.trim().toLowerCase();
+    const filtered = q
+      ? categories.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          c.slug.toLowerCase().includes(q),
+      )
+      : categories;
 
-    // Khi không search: dạng cây collapsible
-    const result: { cat: CategoryResponse; depth: number }[] = [];
-    for (const root of rootCategories) {
-      result.push({ cat: root, depth: 0 });
-      if (expanded.has(root.id)) {
-        for (const child of childrenOf[root.id] ?? []) {
-          result.push({ cat: child, depth: 1 });
-        }
-      }
-    }
-    return result;
-  }, [search, categories, rootCategories, childrenOf, expanded]);
+    return filtered.sort((a, b) => b.id - a.id).map((c) => ({ cat: c }));
+  }, [search, categories]);
 
   const PAGE_SIZE = 5;
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
@@ -205,8 +129,8 @@ export default function CategoryListPage() {
     setCurrentPage((prev) => Math.min(prev, totalPages));
   }, [totalPages]);
 
-  const rootCount = categories.filter((c) => c.parentId === null).length;
-  const childCount = categories.filter((c) => c.parentId !== null).length;
+  const activeCount = categories.filter((c) => c.isActive).length;
+  const inactiveCount = categories.length - activeCount;
 
   return (
     <div className="p-8 space-y-8">
@@ -239,18 +163,18 @@ export default function CategoryListPage() {
             label: "Tổng danh mục",
           },
           {
-            icon: "folder_open",
+            icon: "check_circle",
             color: "text-secondary",
             bg: "bg-secondary/10",
-            value: rootCount,
-            label: "Danh mục gốc",
+            value: activeCount,
+            label: "Đang hiển thị",
           },
           {
-            icon: "subdirectory_arrow_right",
-            color: "text-violet-500",
-            bg: "bg-violet-500/10",
-            value: childCount,
-            label: "Danh mục con",
+            icon: "visibility_off",
+            color: "text-slate-500",
+            bg: "bg-slate-200",
+            value: inactiveCount,
+            label: "Đã ẩn",
           },
         ].map((s) => (
           <div
@@ -277,7 +201,7 @@ export default function CategoryListPage() {
           </span>
           <input
             type="text"
-            placeholder="Tìm theo tên, slug, danh mục cha..."
+            placeholder="Tìm theo tên hoặc slug..."
             className="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-full px-10 py-2.5 text-sm text-on-surface outline-none focus:ring-2 focus:ring-primary/20 transition-all"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -292,33 +216,6 @@ export default function CategoryListPage() {
           )}
         </div>
 
-        {/* Expand/Collapse all (chỉ hiện khi không search) */}
-        {!search && rootCategories.some((r) => childrenOf[r.id]?.length) && (
-          <div className="flex gap-2">
-            <button
-              onClick={() =>
-                setExpanded(
-                  new Set(
-                    rootCategories
-                      .filter((r) => childrenOf[r.id]?.length)
-                      .map((r) => r.id),
-                  ),
-                )
-              }
-              className="text-xs text-slate-500 hover:text-primary flex items-center gap-1 px-3 py-1.5 rounded-full border border-outline-variant/20 hover:border-primary/30 transition-colors"
-            >
-              <span className="material-symbols-outlined text-[14px]">unfold_more</span>
-              Mở tất cả
-            </button>
-            <button
-              onClick={() => setExpanded(new Set())}
-              className="text-xs text-slate-500 hover:text-primary flex items-center gap-1 px-3 py-1.5 rounded-full border border-outline-variant/20 hover:border-primary/30 transition-colors"
-            >
-              <span className="material-symbols-outlined text-[14px]">unfold_less</span>
-              Đóng tất cả
-            </button>
-          </div>
-        )}
       </div>
 
       {/* ── Table ── */}
@@ -327,11 +224,10 @@ export default function CategoryListPage() {
           <table className="w-full text-left">
             <thead>
               <tr className="bg-surface-container-low text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-outline-variant/20">
-                <th className="px-8 py-5">ID</th>
-                <th className="px-8 py-5">Tên danh mục</th>
                 <th className="px-8 py-5">Hình ảnh</th>
+                <th className="px-8 py-5">Tên danh mục</th>
                 <th className="px-8 py-5">Slug</th>
-                <th className="px-8 py-5">Danh mục cha</th>
+                <th className="px-8 py-5">Trạng thái</th>
                 <th className="px-8 py-5 text-center">Thao tác</th>
               </tr>
             </thead>
@@ -359,88 +255,12 @@ export default function CategoryListPage() {
                   </td>
                 </tr>
               ) : (
-                pagedRows.map(({ cat, depth }) => {
-                  const hasChildren = !!(childrenOf[cat.id]?.length);
-                  const isOpen = expanded.has(cat.id);
-                  const isRoot = cat.parentId === null;
-                  const isSearching = !!search.trim();
-
+                pagedRows.map(({ cat }) => {
                   return (
                     <tr
                       key={cat.id}
-                      className={`transition-colors group ${depth === 1
-                        ? "bg-slate-50/60 hover:bg-slate-50"
-                        : "hover:bg-slate-50"
-                        }`}
+                      className="transition-colors group hover:bg-slate-50"
                     >
-                      {/* ID */}
-                      <td className="px-8 py-4 font-mono text-xs font-bold text-slate-400">
-                        #{cat.id}
-                      </td>
-
-                      {/* Tên — indent + toggle */}
-                      <td className="px-8 py-4">
-                        <div
-                          className="flex items-center gap-1"
-                          style={{ paddingLeft: depth === 1 ? "1.5rem" : 0 }}
-                        >
-                          {/* Nút mở/đóng (chỉ cho root có con, không search) */}
-                          {isRoot && hasChildren && !isSearching ? (
-                            <button
-                              onClick={() => toggleExpand(cat.id)}
-                              className="p-0.5 rounded hover:bg-primary/10 text-slate-400 hover:text-primary transition-colors flex-shrink-0"
-                              title={isOpen ? "Thu gọn" : "Mở rộng"}
-                            >
-                              <span
-                                className="material-symbols-outlined text-[18px] transition-transform duration-200"
-                                style={{ transform: isOpen ? "rotate(90deg)" : "rotate(0deg)" }}
-                              >
-                                chevron_right
-                              </span>
-                            </button>
-                          ) : (
-                            /* Spacer để căn chỉnh */
-                            <span className="w-6 flex-shrink-0 flex items-center justify-center">
-                              {depth === 1 && (
-                                <span className="material-symbols-outlined text-[13px] text-slate-300">
-                                  subdirectory_arrow_right
-                                </span>
-                              )}
-                              {isRoot && !hasChildren && !isSearching && (
-                                <span className="material-symbols-outlined text-[14px] text-primary/50">
-                                  folder
-                                </span>
-                              )}
-                            </span>
-                          )}
-
-                          {/* Icon folder */}
-                          {isRoot && hasChildren && (
-                            <span
-                              className={`material-symbols-outlined text-[15px] transition-colors ${isOpen ? "text-primary" : "text-primary/60"
-                                }`}
-                            >
-                              {isOpen ? "folder_open" : "folder"}
-                            </span>
-                          )}
-
-                          <span
-                            className={`font-bold ${depth === 1
-                              ? "text-slate-600 text-sm"
-                              : "text-on-surface"
-                              }`}
-                          >
-                            {cat.name}
-                          </span>
-
-                          {hasChildren && !isSearching && (
-                            <span className="ml-1 text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
-                              {childrenOf[cat.id].length}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
                       {/* Image */}
                       <td className="px-8 py-4">
                         {cat.imageUrl ? (
@@ -459,6 +279,11 @@ export default function CategoryListPage() {
                         )}
                       </td>
 
+                      {/* Tên */}
+                      <td className="px-8 py-4">
+                        <span className="font-bold text-on-surface">{cat.name}</span>
+                      </td>
+
                       {/* Slug */}
                       <td className="px-8 py-4">
                         <span className="px-3 py-1 bg-secondary/10 text-secondary rounded-full text-[10px] font-mono font-medium">
@@ -466,15 +291,18 @@ export default function CategoryListPage() {
                         </span>
                       </td>
 
-                      {/* Danh mục cha */}
+                      {/* Trạng thái */}
                       <td className="px-8 py-4 text-sm text-slate-500">
-                        {cat.parentName ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 rounded-full text-xs font-medium text-slate-600">
-                            <span className="material-symbols-outlined text-[11px]">folder</span>
-                            {cat.parentName}
+                        {cat.isActive ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-600">
+                            <span className="material-symbols-outlined text-[12px]">check_circle</span>
+                            Hoạt động
                           </span>
                         ) : (
-                          <span className="text-xs text-slate-300 italic">Danh mục gốc</span>
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">
+                            <span className="material-symbols-outlined text-[12px]">visibility_off</span>
+                            Đã ẩn
+                          </span>
                         )}
                       </td>
 
@@ -482,10 +310,9 @@ export default function CategoryListPage() {
                       <td className="px-8 py-4">
                         <div className="flex items-center justify-center gap-3">
                           <button
-                            onClick={() => handleOpenDetail(cat.id)}
+                            onClick={() => openDetailModal(cat.id)}
                             className="text-slate-400 hover:text-primary transition-colors p-1 rounded-lg hover:bg-primary/10"
                             title="Xem chi tiết"
-                            type="button"
                           >
                             <span className="material-symbols-outlined text-[18px]">visibility</span>
                           </button>
@@ -554,57 +381,64 @@ export default function CategoryListPage() {
         )}
       </div>
 
-      <DetailModal
-        isOpen={isDetailOpen}
-        onClose={handleCloseDetail}
-        title="Chi tiết danh mục"
-        subtitle={detailTarget ? `#${detailTarget.id} - ${detailTarget.name}` : undefined}
-      >
-        {detailLoading ? (
-          <div className="flex items-center justify-center py-10 text-slate-500">Đang tải...</div>
-        ) : detailTarget ? (
-          <div className="space-y-6">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex items-center gap-4">
-              {detailTarget.imageUrl ? (
-                <img
-                  src={detailTarget.imageUrl}
-                  alt={detailTarget.name}
-                  className="h-20 w-20 rounded-2xl object-cover border border-slate-200"
-                />
-              ) : (
-                <div className="h-20 w-20 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-400">
-                  <span className="material-symbols-outlined text-[20px]">image</span>
-                </div>
-              )}
-              <div>
-                <p className="text-lg font-bold text-slate-900">{detailTarget.name}</p>
-                <p className="text-sm text-slate-500">/{detailTarget.slug}</p>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white">
-              {renderDetailItem("ID", `#${detailTarget.id}`)}
-              {renderDetailItem("Slug", detailTarget.slug)}
-              {renderDetailItem("Mô tả", detailTarget.description || "-")}
-              {renderDetailItem("Danh mục cha", detailTarget.parentName || "Danh mục gốc")}
-              {renderDetailItem("Parent ID", detailTarget.parentId ?? "-")}
-              {renderDetailItem("Ảnh", detailTarget.imageUrl || "-")}
-            </div>
-          </div>
-        ) : (
-          <div className="text-center py-10 text-slate-500">Không có dữ liệu.</div>
-        )}
-      </DetailModal>
-
       <DeleteConfirmModal
         isOpen={Boolean(deleteTarget)}
         title="Xác nhận xóa danh mục"
         itemLabel={deleteTarget?.name}
-        message="Bạn có chắc chắn muốn xóa danh mục này không? Các danh mục con và sản phẩm thuộc danh mục này có thể bị ảnh hưởng."
+        message="Bạn có chắc chắn muốn xóa danh mục này không? Thao tác này không thể hoàn tác."
         onConfirm={handleDeleteConfirm}
         onClose={closeDeleteModal}
         isDeleting={isDeleting}
       />
+
+      <DetailModal
+        isOpen={Boolean(detailTarget)}
+        title={detailTarget ? detailTarget.name : "Đang tải..."}
+        subtitle={detailTarget ? `#${detailTarget.id}` : undefined}
+        onClose={closeDetailModal}
+      >
+        {detailTarget ? (
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              {detailTarget.imageUrl ? (
+                <div className="w-full h-48 rounded-lg overflow-hidden bg-gray-100 mb-4 relative">
+                  <Image src={detailTarget.imageUrl} alt={detailTarget.name} fill className="object-cover" />
+                </div>
+              ) : (
+                <div className="w-full h-48 rounded-lg bg-slate-100 mb-4 flex items-center justify-center text-slate-400">Chưa có ảnh</div>
+              )}
+
+              <p className="text-sm text-slate-500">Slug</p>
+              <div className="inline-block mt-1 mb-3 px-3 py-1 bg-secondary/10 text-secondary rounded-full text-[12px] font-mono">{detailTarget.slug}</div>
+
+              <p className="text-sm text-slate-500">Trạng thái</p>
+              <div className="mt-2">
+                {detailTarget.isActive ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-600">
+                    <span className="material-symbols-outlined text-[12px]">check_circle</span>
+                    Hoạt động
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">
+                    <span className="material-symbols-outlined text-[12px]">visibility_off</span>
+                    Đã ẩn
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-sm text-slate-500">Mô tả</p>
+              <div className="mt-2 text-sm text-slate-700 whitespace-pre-wrap">{detailTarget.description || "Không có mô tả."}</div>
+
+              <p className="text-sm text-slate-500 mt-4">Thứ tự sắp xếp</p>
+              <div className="mt-2 text-sm text-slate-700">{detailTarget.sortOrder ?? "Không thiết lập"}</div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-slate-500">Đang tải...</div>
+        )}
+      </DetailModal>
     </div>
   );
 }

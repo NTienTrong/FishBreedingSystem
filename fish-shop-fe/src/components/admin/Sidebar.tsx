@@ -93,10 +93,10 @@ export default function Sidebar() {
       </nav>
 
       <div className="p-6 bg-slate-100 dark:bg-slate-800/50 space-y-2 border-t border-slate-200 dark:border-slate-700/50">
-        <Link href="#" className="flex items-center gap-3 px-4 py-2 text-slate-500 hover:text-primary transition-colors rounded-lg">
+        {/* <Link href="#" className="flex items-center gap-3 px-4 py-2 text-slate-500 hover:text-primary transition-colors rounded-lg">
           <span className="material-symbols-outlined">help</span>
           <span className="font-medium">Support</span>
-        </Link>
+        </Link> */}
         <button
           className="flex w-full items-center gap-3 px-4 py-2 text-slate-500 hover:text-error transition-colors rounded-lg disabled:opacity-60"
           onClick={openLogoutModal}
