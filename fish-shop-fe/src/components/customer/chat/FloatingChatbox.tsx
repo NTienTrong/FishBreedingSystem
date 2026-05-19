@@ -9,7 +9,7 @@ type ChatMessage = {
   content: string;
 };
 
-const API_URL = "/api/public/chat";
+const API_URL = "/api/chat";
 
 export default function FloatingChatbox() {
   const [open, setOpen] = useState(false);
@@ -95,7 +95,7 @@ export default function FloatingChatbox() {
             {typing && (
               <div className="flex justify-start">
                 <div className="max-w-[80%] rounded-2xl rounded-bl-md px-3 py-2 text-sm bg-slate-100 text-slate-500 shadow-sm">
-                  FishSync đang bận xử lý, bạn thử lại sau ít phút nhé 😊
+                  Đang trả lời...
                 </div>
               </div>
             )}

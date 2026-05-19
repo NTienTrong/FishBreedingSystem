@@ -26,6 +26,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @EntityGraph(attributePaths = "categories")
     java.util.List<Product> findAllByOrderByIdAsc();
 
+    java.util.List<Product> findByIsActiveTrue();
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from Product p where p.id = :id")
     Optional<Product> findByIdForUpdate(@Param("id") Long id);
