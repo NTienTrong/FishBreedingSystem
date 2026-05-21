@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useCart } from "@/components/customer/cart/CartContext";
 import { useCustomerSession } from "@/components/customer/auth/useCustomerSession";
@@ -9,12 +9,14 @@ import { useCustomerSession } from "@/components/customer/auth/useCustomerSessio
 const Header = () => {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { totalBatches, hydrated } = useCart();
   const { session } = useCustomerSession();
 
   const [query, setQuery] = useState("");
 
-  const returnUrl = pathname || "/";
+  const queryString = searchParams.toString();
+  const returnUrl = queryString ? `${pathname}?${queryString}` : pathname || "/";
   return (
     <header className="fixed top-0 w-full z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl shadow-[0_20px_40px_rgba(25,28,30,0.06)]">
       <div className="flex justify-between items-center w-full px-6 py-4 max-w-7xl mx-auto">
@@ -138,15 +140,18 @@ const Header = () => {
                 </span>
               </Link>
             ) : (
-              <Link
-                href={`/auth/login?returnUrl=${encodeURIComponent(returnUrl)}`}
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.assign(`/auth/login?returnUrl=${encodeURIComponent(returnUrl)}`);
+                }}
                 className="flex items-center gap-2 bg-primary px-4 py-2 rounded-full text-white cursor-pointer hover:bg-primary-container transition-all"
               >
                 <span className="material-symbols-outlined text-xl">
                   account_circle
                 </span>
                 <span className="text-sm font-semibold">Đăng nhập</span>
-              </Link>
+              </button>
             )}
           </div>
         </div>

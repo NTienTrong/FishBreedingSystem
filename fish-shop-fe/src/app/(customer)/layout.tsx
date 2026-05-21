@@ -1,3 +1,4 @@
+import Providers from "@/app/providers";
 import CustomerShell from "@/components/customer/layout/CustomerShell";
 
 export default function CustomerLayout({
@@ -6,6 +7,8 @@ export default function CustomerLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <CustomerShell>{children}</CustomerShell>
+    <Providers>
+      <CustomerShell>{children}</CustomerShell>
+    </Providers>
   );
 }

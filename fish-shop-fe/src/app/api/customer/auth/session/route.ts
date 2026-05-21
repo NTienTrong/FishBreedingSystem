@@ -33,12 +33,46 @@ export async function GET() {
   const role = cookieStore.get(ROLE_COOKIE_NAME)?.value;
 
   if (!token || !role) {
+    console.warn("[api/customer/auth/session] missing cookie", {
+      hasToken: Boolean(token),
+      hasRole: Boolean(role),
+    });
     return NextResponse.json({ authenticated: false }, { status: 401 });
   }
 
   const maxAge = getCookieMaxAgeFromJwt(token);
   if (maxAge <= 0) {
+    console.warn("[api/customer/auth/session] token expired by exp claim");
     return NextResponse.json({ authenticated: false }, { status: 401 });
+  }
+
+  const meResponse = await fetch(`${API_URL}/api/auth/me`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    cache: "no-store",
+  });
+
+  if (!meResponse.ok) {
+    console.warn("[api/customer/auth/session] backend /api/auth/me unauthorized", {
+      status: meResponse.status,
+    });
+    const response = NextResponse.json({ authenticated: false }, { status: 401 });
+    response.cookies.set(TOKEN_COOKIE_NAME, "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 0,
+    });
+    response.cookies.set(ROLE_COOKIE_NAME, "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 0,
+    });
+    return response;
   }
 
   return NextResponse.json({ authenticated: true, role });

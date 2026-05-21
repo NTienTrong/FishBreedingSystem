@@ -7,6 +7,7 @@ export async function GET() {
   const token = cookieStore.get("customerToken")?.value;
 
   if (!token) {
+    console.warn("[api/customer/me] missing customerToken cookie");
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
@@ -18,6 +19,9 @@ export async function GET() {
   });
 
   if (!response.ok) {
+    console.warn("[api/customer/me] backend /api/auth/me unauthorized", {
+      status: response.status,
+    });
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 

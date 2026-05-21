@@ -2,37 +2,23 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { signIn, signOut, useSession } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 import { API_URL } from "@/app/config/api";
 
 export const dynamic = "force-dynamic";
 
-declare global {
-  interface Window {
-    google?: {
-      accounts?: {
-        oauth2?: {
-          initTokenClient: (options: {
-            client_id: string;
-            scope: string;
-            callback: (response: { access_token?: string; error?: string }) => void;
-          }) => { requestAccessToken: (options?: { prompt?: string }) => void };
-        };
-      };
-    };
-  }
-}
-
 export default function LoginPage() {
   const router = useRouter();
+  const { data: authSession, status: authStatus } = useSession();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const [googleReady, setGoogleReady] = useState(false);
+  const [linkingSession, setLinkingSession] = useState(false);
   const [nextUrl, setNextUrl] = useState("/");
-  const tokenClientRef = useRef<{ requestAccessToken: (options?: { prompt?: string }) => void } | null>(null);
+  const sessionLinkedRef = useRef(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -77,6 +63,7 @@ export default function LoginPage() {
       const sessionResponse = await fetch("/api/customer/auth/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ token: data.token, role: data.role }),
       });
 
@@ -96,127 +83,57 @@ export default function LoginPage() {
   };
 
   useEffect(() => {
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    if (!clientId) {
-      return;
-    }
-
-    const initializeGoogle = () => {
-      if (!window.google?.accounts?.oauth2) {
+    const linkSession = async () => {
+      if (authStatus !== "authenticated") {
         return;
       }
 
-      tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
-        client_id: clientId,
-        scope: "openid email profile",
-        callback: async (response) => {
-          if (response.error || !response.access_token) {
-            setError("Không thể xác thực Google. Vui lòng thử lại.");
-            setLoading(false);
-            return;
-          }
+      if (sessionLinkedRef.current) {
+        return;
+      }
 
-          try {
-            const userInfoResponse = await fetch(
-              "https://openidconnect.googleapis.com/v1/userinfo",
-              {
-                headers: { Authorization: `Bearer ${response.access_token}` },
-              }
-            );
+      const backendToken = (authSession as { backendToken?: string })?.backendToken;
+      const backendRole = (authSession as { role?: string })?.role;
+      const backendError = (authSession as { backendError?: string })?.backendError;
 
-            if (!userInfoResponse.ok) {
-              throw new Error("Không thể lấy thông tin Google.");
-            }
+      if (backendError) {
+        setError(backendError);
+        await signOut({ redirect: false });
+        return;
+      }
 
-            const userInfo = (await userInfoResponse.json()) as {
-              sub?: string;
-              email?: string;
-              name?: string;
-            };
+      if (!backendToken || !backendRole) {
+        return;
+      }
 
-            if (!userInfo.sub) {
-              throw new Error("Thiếu định danh Google.");
-            }
+      try {
+        setLinkingSession(true);
+        const sessionResponse = await fetch("/api/customer/auth/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ token: backendToken, role: backendRole }),
+        });
 
-            const socialResponse = await fetch(`${API_URL}/api/auth/social-login`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                provider: "GOOGLE",
-                providerId: userInfo.sub,
-                email: userInfo.email,
-                fullName: userInfo.name,
-              }),
-            });
+        if (!sessionResponse.ok) {
+          const sessionMessage = await sessionResponse.text();
+          throw new Error(sessionMessage || "Không thể khởi tạo phiên đăng nhập.");
+        }
 
-            if (!socialResponse.ok) {
-              const message = await socialResponse.text();
-              throw new Error(message || "Đăng nhập Google thất bại.");
-            }
-
-            const data = (await socialResponse.json()) as { token: string; role: string };
-
-            const sessionResponse = await fetch("/api/customer/auth/session", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ token: data.token, role: data.role }),
-            });
-
-            if (!sessionResponse.ok) {
-              const sessionMessage = await sessionResponse.text();
-              throw new Error(sessionMessage || "Không thể khởi tạo phiên đăng nhập.");
-            }
-
-            window.dispatchEvent(new Event("customer-session-updated"));
-            router.push(nextUrl);
-          } catch (err) {
-            const message = err instanceof Error ? err.message : "Đăng nhập Google thất bại.";
-            setError(message);
-          } finally {
-            setLoading(false);
-          }
-        },
-      });
-
-      setGoogleReady(true);
+        sessionLinkedRef.current = true;
+        window.dispatchEvent(new Event("customer-session-updated"));
+        router.push(nextUrl);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Không thể khởi tạo phiên đăng nhập.";
+        setError(message);
+        await signOut({ redirect: false });
+      } finally {
+        setLinkingSession(false);
+      }
     };
 
-    if (window.google?.accounts?.oauth2) {
-      initializeGoogle();
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    script.onload = initializeGoogle;
-    document.body.appendChild(script);
-
-    return () => {
-      document.body.removeChild(script);
-    };
-  }, [nextUrl, router]);
-
-  const handleGoogleLogin = () => {
-    if (loading) {
-      return;
-    }
-
-    if (!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
-      setError("Thiếu Google Client ID. Vui lòng cấu hình biến môi trường.");
-      return;
-    }
-
-    if (!tokenClientRef.current || !googleReady) {
-      setError("Google chưa sẵn sàng. Vui lòng thử lại sau vài giây.");
-      return;
-    }
-
-    setError(null);
-    setLoading(true);
-    tokenClientRef.current.requestAccessToken({ prompt: "consent" });
-  };
+    void linkSession();
+  }, [authSession, authStatus, nextUrl, router, signOut]);
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-background">
       {/* Background Layer with Blur */}
@@ -234,7 +151,7 @@ export default function LoginPage() {
         <div className="bg-white/70 backdrop-blur-2xl p-8 md:p-10 rounded-4xl shadow-[0_20px_40px_rgba(25,28,30,0.08)] border border-white/30 transition-all duration-300">
           {/* Brand Anchor */}
           <div className="flex flex-col items-center mb-10 text-center">
-            <div className="mb-4 bg-primary p-3 rounded-full shadow-lg">
+            <div className="mb-4 bg-gradient-to-r from-primary to-primary-container p-3 rounded-full shadow-lg">
               <span className="material-symbols-outlined text-white text-3xl">
                 water_drop
               </span>
@@ -259,7 +176,7 @@ export default function LoginPage() {
                   person
                 </span>
                 <input
-                  className="w-full bg-surface-container-highest/50 border-none rounded-full py-4 pl-12 pr-6 text-on-surface focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-outline/60"
+                  className="w-full bg-surface-container-high border-0 rounded-lg py-3 pl-12 pr-6 text-on-surface focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-highest transition-all placeholder:text-outline/60"
                   id="identifier"
                   name="identifier"
                   placeholder="example@fishsync.com"
@@ -288,7 +205,7 @@ export default function LoginPage() {
                   lock
                 </span>
                 <input
-                  className="w-full bg-surface-container-highest/50 border-none rounded-full py-4 pl-12 pr-12 text-on-surface focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-outline/60"
+                  className="w-full bg-surface-container-high border-0 rounded-lg py-3 pl-12 pr-12 text-on-surface focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-highest transition-all placeholder:text-outline/60"
                   id="password"
                   name="password"
                   placeholder="••••••••"
@@ -336,7 +253,7 @@ export default function LoginPage() {
 
             {/* Primary CTA */}
             <button
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-headline font-bold py-4 rounded-full shadow-lg transition-all transform active:scale-95 text-lg"
+              className="w-full bg-gradient-to-r from-primary to-primary-container text-white py-4 rounded-full font-headline font-bold text-lg shadow-[0_8px_20px_-4px_rgba(0,66,83,0.3)] hover:shadow-[0_12px_24px_-4px_rgba(0,66,83,0.4)] transition-all transform active:scale-[0.98]"
               type="submit"
               disabled={loading}
             >
@@ -364,8 +281,12 @@ export default function LoginPage() {
             <button
               className="flex items-center justify-center gap-3 py-3 px-4 bg-white/70 border border-white/30 rounded-full hover:bg-white transition-all group"
               type="button"
-              onClick={handleGoogleLogin}
-              disabled={loading}
+              onClick={() =>
+                signIn("google", {
+                  callbackUrl: `/auth/login?next=${encodeURIComponent(nextUrl)}`,
+                })
+              }
+              disabled={loading || linkingSession || authStatus === "loading"}
             >
               <span className="w-6 h-6 rounded-full bg-white flex items-center justify-center shadow-sm">
                 <img

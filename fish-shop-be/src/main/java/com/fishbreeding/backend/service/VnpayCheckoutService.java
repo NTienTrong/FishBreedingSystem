@@ -328,7 +328,7 @@ public class VnpayCheckoutService {
 
         String secureHash = hmacSHA512(hashSecret, hashData.toString());
 
-        log.debug("VNPay hashData={} secureHash={}", hashData.toString(), secureHash);
+        log.info("VNPay buildPaymentUrl params={} hashData={} secureHash={}", params, hashData.toString(), secureHash);
 
         return payUrl + "?" + query +
             "&vnp_SecureHashType=HmacSHA512&vnp_SecureHash=" + secureHash;
@@ -463,6 +463,10 @@ public class VnpayCheckoutService {
     private boolean isValidSignature(Map<String, String> params) {
 
         String provided = params.get("vnp_SecureHash");
+        if (!StringUtils.hasText(provided)) {
+            log.warn("VNPay signature missing in params={}", params);
+            return false;
+        }
 
         Map<String, String> filtered = new TreeMap<>();
         params.forEach((k, v) -> {
@@ -490,7 +494,7 @@ public class VnpayCheckoutService {
 
         String calculated = hmacSHA512(hashSecret, hashData.toString());
 
-        log.debug("VNPay verify provided={} calculated={} data={}", provided, calculated, hashData.toString());
+        log.info("VNPay verify provided={} calculated={} data={}", provided, calculated, hashData.toString());
 
         return calculated.equalsIgnoreCase(provided);
     }

@@ -15,15 +15,35 @@ export function useCustomerSession() {
   const loadSession = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/customer/me", { cache: "no-store" });
+      const sessionResponse = await fetch("/api/customer/auth/session", {
+        cache: "no-store",
+        credentials: "include",
+      });
+      if (!sessionResponse.ok) {
+        console.warn("[customer-session] cookie session invalid", {
+          status: sessionResponse.status,
+        });
+        setSession({ authenticated: false });
+        return;
+      }
+
+      const response = await fetch("/api/customer/me", {
+        cache: "no-store",
+        credentials: "include",
+      });
       if (!response.ok) {
+        console.warn("[customer-session] /api/customer/me unauthorized", {
+          status: response.status,
+        });
+        await fetch("/api/customer/auth/session", { method: "DELETE" });
         setSession({ authenticated: false });
         return;
       }
 
       const data = (await response.json()) as { fullName?: string | null; email?: string | null };
       setSession({ authenticated: true, fullName: data.fullName, email: data.email });
-    } catch {
+    } catch (error) {
+      console.warn("[customer-session] unexpected error", { error });
       setSession({ authenticated: false });
     } finally {
       setLoading(false);

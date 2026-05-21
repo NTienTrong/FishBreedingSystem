@@ -1,7 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useCart } from "@/components/customer/cart/CartContext";
+import { useCustomerSession } from "@/components/customer/auth/useCustomerSession";
+import LoginRequiredModal from "@/components/common/LoginRequiredModal";
 
 const currency = new Intl.NumberFormat("vi-VN", {
   style: "currency",
@@ -11,6 +15,18 @@ const currency = new Intl.NumberFormat("vi-VN", {
 
 export default function CartPageClient() {
   const { batches, totalBatches, totalPrice, removeBatch } = useCart();
+  const { session, loading: sessionLoading } = useCustomerSession();
+  const router = useRouter();
+  const [loginTarget, setLoginTarget] = useState<string | null>(null);
+
+  const ensureLogin = (targetUrl: string) => {
+    if (sessionLoading || !session.authenticated) {
+      setLoginTarget(targetUrl);
+      return false;
+    }
+
+    return true;
+  };
 
   if (batches.length === 0) {
     return (
@@ -60,13 +76,19 @@ export default function CartPageClient() {
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-3">
-                    <Link
-                      href={`/checkout?batchId=${batch.id}`}
+                    <button
+                      type="button"
                       className="inline-flex items-center gap-2 rounded-full bg-primary text-white px-5 py-2 text-sm font-bold hover:bg-primary-container transition-colors"
+                      onClick={() => {
+                        const targetUrl = `/checkout?batchId=${batch.id}`;
+                        if (ensureLogin(targetUrl)) {
+                          router.push(targetUrl);
+                        }
+                      }}
                     >
                       Thanh toán lượt này
                       <span className="material-symbols-outlined text-base">payments</span>
-                    </Link>
+                    </button>
                     <button
                       className="inline-flex items-center gap-2 rounded-full bg-surface-container-highest text-primary px-5 py-2 text-sm font-bold hover:bg-surface-container-high transition-colors"
                       type="button"
@@ -166,16 +188,32 @@ export default function CartPageClient() {
               <span className="material-symbols-outlined text-secondary opacity-50">verified_user</span>
             </div>
 
-            <Link
-              href="/checkout"
+            <button
+              type="button"
+              onClick={() => {
+                const targetUrl = "/checkout";
+                if (ensureLogin(targetUrl)) {
+                  router.push(targetUrl);
+                }
+              }}
               className="w-full py-5 rounded-full bg-gradient-to-br from-primary to-primary-container text-white font-display font-bold text-lg shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3"
             >
               Tiến hành thanh toán
               <span className="material-symbols-outlined">payments</span>
-            </Link>
+            </button>
           </div>
         </div>
       </div>
+      <LoginRequiredModal
+        isOpen={Boolean(loginTarget)}
+        onClose={() => setLoginTarget(null)}
+        onConfirm={() => {
+          if (!loginTarget) return;
+          const target = `/auth/login?returnUrl=${encodeURIComponent(loginTarget)}`;
+          setLoginTarget(null);
+          window.location.assign(target);
+        }}
+      />
     </main>
   );
 }
