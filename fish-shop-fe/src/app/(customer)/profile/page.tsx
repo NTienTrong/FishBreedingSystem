@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCart } from "@/components/customer/cart/CartContext";
 import LogoutConfirmModal from "@/components/common/LogoutConfirmModal";
 import ToastMessage from "@/components/common/ToastMessage";
@@ -114,6 +115,7 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
 
 export default function ProfilePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { addItem } = useCart();
   const [activeTab, setActiveTab] = useState("account");
   const [profile, setProfile] = useState<CustomerProfile>({});
@@ -190,6 +192,13 @@ export default function ProfilePage() {
 
     ensureSession();
   }, [router]);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab && tabs.some((item) => item.id === tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   const loadOrders = async () => {
     const response = await fetch("/api/customer/orders", { cache: "no-store" });
@@ -574,6 +583,7 @@ export default function ProfilePage() {
     setIsLoggingOut(true);
     try {
       await fetch("/api/customer/auth/session", { method: "DELETE" });
+      await signOut({ redirect: false });
     } finally {
       setIsLoggingOut(false);
       window.dispatchEvent(new Event("customer-session-updated"));

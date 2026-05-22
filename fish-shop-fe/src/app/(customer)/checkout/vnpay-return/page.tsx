@@ -36,7 +36,7 @@ export default async function VnpayReturnPage({ searchParams }: VnpayReturnPageP
         <p className="text-on-surface-variant leading-7 mb-8">{message}</p>
 
         <div className="flex flex-wrap gap-3">
-          <Link href="/orders" className="inline-flex items-center justify-center rounded-full bg-primary px-5 py-3 text-white font-bold">
+          <Link href="/profile?tab=orders" className="inline-flex items-center justify-center rounded-full bg-primary px-5 py-3 text-white font-bold">
             Xem đơn hàng
           </Link>
           <Link href="/products" className="inline-flex items-center justify-center rounded-full border border-outline-variant px-5 py-3 font-bold text-primary">

@@ -273,7 +273,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const getBatchById = (batchId: string) => batches.find((batch) => batch.id === batchId);
 
   const syncServerCart = async (selectedBatches?: CartBatch[]) => {
-    if (!session.authenticated || sessionLoading) {
+    if (!session.authenticated && !sessionLoading) {
       return;
     }
 

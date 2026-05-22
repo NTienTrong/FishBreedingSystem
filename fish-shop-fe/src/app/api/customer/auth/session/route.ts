@@ -46,35 +46,6 @@ export async function GET() {
     return NextResponse.json({ authenticated: false }, { status: 401 });
   }
 
-  const meResponse = await fetch(`${API_URL}/api/auth/me`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    cache: "no-store",
-  });
-
-  if (!meResponse.ok) {
-    console.warn("[api/customer/auth/session] backend /api/auth/me unauthorized", {
-      status: meResponse.status,
-    });
-    const response = NextResponse.json({ authenticated: false }, { status: 401 });
-    response.cookies.set(TOKEN_COOKIE_NAME, "", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 0,
-    });
-    response.cookies.set(ROLE_COOKIE_NAME, "", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 0,
-    });
-    return response;
-  }
-
   return NextResponse.json({ authenticated: true, role });
 }
 

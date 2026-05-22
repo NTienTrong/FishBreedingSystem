@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
-import { API_URL } from "@/app/config/api";
 
 export const dynamic = "force-dynamic";
 
@@ -47,37 +46,25 @@ export default function LoginPage() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`${API_URL}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: identifier.trim(), password }),
+      const result = await signIn("credentials", {
+        redirect: false,
+        identifier: identifier.trim(),
+        password,
       });
 
-      if (!response.ok) {
-        const message = await response.text();
-        throw new Error(message || "Đăng nhập thất bại.");
+      if (result?.error) {
+        setError(result.error || "Đăng nhập thất bại.");
+        setLoading(false);
+        return;
       }
 
-      const data = (await response.json()) as { token: string; role: string };
-
-      const sessionResponse = await fetch("/api/customer/auth/session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ token: data.token, role: data.role }),
-      });
-
-      if (!sessionResponse.ok) {
-        const sessionMessage = await sessionResponse.text();
-        throw new Error(sessionMessage || "Không thể khởi tạo phiên đăng nhập.");
+      if (!result?.ok) {
+        setError("Đăng nhập thất bại.");
+        setLoading(false);
       }
-
-      window.dispatchEvent(new Event("customer-session-updated"));
-      router.push(nextUrl);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Đăng nhập thất bại.";
       setError(message);
-    } finally {
       setLoading(false);
     }
   };
@@ -103,6 +90,10 @@ export default function LoginPage() {
       }
 
       if (!backendToken || !backendRole) {
+        console.warn("[login] missing backend token in NextAuth session", {
+          hasToken: Boolean(backendToken),
+          hasRole: Boolean(backendRole),
+        });
         return;
       }
 
@@ -116,8 +107,24 @@ export default function LoginPage() {
         });
 
         if (!sessionResponse.ok) {
+          console.warn("[login] failed to set customer session cookie", {
+            status: sessionResponse.status,
+          });
           const sessionMessage = await sessionResponse.text();
           throw new Error(sessionMessage || "Không thể khởi tạo phiên đăng nhập.");
+        }
+
+        const meResponse = await fetch("/api/customer/me", {
+          cache: "no-store",
+          credentials: "include",
+        });
+
+        if (!meResponse.ok) {
+          console.warn("[login] backend /api/customer/me unauthorized", {
+            status: meResponse.status,
+          });
+          await fetch("/api/customer/auth/session", { method: "DELETE" });
+          throw new Error("Phiên đăng nhập không hợp lệ. Vui lòng thử lại.");
         }
 
         sessionLinkedRef.current = true;

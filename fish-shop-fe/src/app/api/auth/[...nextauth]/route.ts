@@ -1,14 +1,53 @@
 import NextAuth from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import { API_URL } from "@/app/config/api";
 
 type BackendAuthPayload = {
   token: string;
   role: string;
+  id?: number | string;
+  username?: string;
 };
 
 const handler = NextAuth({
   providers: [
+    CredentialsProvider({
+      name: "Credentials",
+      credentials: {
+        identifier: { label: "Email or Username", type: "text" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        const identifier = credentials?.identifier?.trim();
+        const password = credentials?.password;
+
+        if (!identifier || !password) {
+          return null;
+        }
+
+        const response = await fetch(`${API_URL}/api/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: identifier, password }),
+        });
+
+        if (!response.ok) {
+          const message = await response.text();
+          throw new Error(message || "Đăng nhập thất bại.");
+        }
+
+        const data = (await response.json()) as BackendAuthPayload;
+
+        return {
+          id: String(data.id ?? identifier),
+          name: data.username ?? identifier,
+          email: null,
+          backendToken: data.token,
+          role: data.role,
+        };
+      },
+    }),
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
@@ -16,7 +55,16 @@ const handler = NextAuth({
   ],
   session: { strategy: "jwt" },
   callbacks: {
-    async jwt({ token, account, profile }) {
+    async jwt({ token, account, profile, user }) {
+      if (account?.provider === "credentials" && user) {
+        const data = user as { backendToken?: string; role?: string };
+        token.backendToken = data.backendToken;
+        token.role = data.role;
+        token.name = user.name ?? token.name;
+        token.email = user.email ?? token.email;
+        token.backendError = undefined;
+      }
+
       if (account?.provider === "google" && profile) {
         try {
           const response = await fetch(`${API_URL}/api/auth/social-login`, {
@@ -31,6 +79,9 @@ const handler = NextAuth({
           });
 
           if (!response.ok) {
+            console.warn("[nextauth] backend social-login failed", {
+              status: response.status,
+            });
             const message = await response.text();
             throw new Error(message || "Đăng nhập Google thất bại.");
           }

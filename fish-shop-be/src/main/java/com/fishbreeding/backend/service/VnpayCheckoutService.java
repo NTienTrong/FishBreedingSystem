@@ -310,15 +310,15 @@ public class VnpayCheckoutService {
                 String value = entry.getValue();
 
                 // VNPay expects keys as plain text and values URL-encoded (spaces as %20)
-                String encodedValue = URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
+                String encodedValue = URLEncoder.encode(value, StandardCharsets.US_ASCII);
 
                 hashData.append(key)
                     .append("=")
-                    .append(encodedValue);
+                    .append(URLEncoder.encode(value, StandardCharsets.US_ASCII));
 
-                query.append(key)
+                query.append(URLEncoder.encode(key, StandardCharsets.US_ASCII))
                     .append("=")
-                    .append(encodedValue);
+                    .append(URLEncoder.encode(value, StandardCharsets.US_ASCII));
 
             if (it.hasNext()) {
                 hashData.append("&");
@@ -331,7 +331,7 @@ public class VnpayCheckoutService {
         log.info("VNPay buildPaymentUrl params={} hashData={} secureHash={}", params, hashData.toString(), secureHash);
 
         return payUrl + "?" + query +
-            "&vnp_SecureHashType=HmacSHA512&vnp_SecureHash=" + secureHash;
+            "&vnp_SecureHash=" + secureHash;
     }
 
     // ================== CALLBACK ==================
@@ -483,7 +483,10 @@ public class VnpayCheckoutService {
         while (it.hasNext()) {
             Map.Entry<String, String> entry = it.next();
 
-                String encodedValue = URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8).replace("+", "%20");
+                String encodedValue = URLEncoder.encode(
+                    entry.getValue(),
+                    StandardCharsets.US_ASCII
+                );
                 hashData.append(entry.getKey())
                     .append("=")
                     .append(encodedValue);

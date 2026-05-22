@@ -46,6 +46,53 @@ type WardOption = {
   districtId: number;
 };
 
+
+const readLocalCartBatches = () => {
+  if (typeof window === "undefined") {
+    return [] as Array<{ id: string; createdAt?: string; items: Array<{ id: number; price: number; quantity: number }> }>;
+  }
+
+  try {
+    const raw = window.localStorage.getItem("cartBatches");
+    if (!raw) {
+      return [] as Array<{ id: string; createdAt?: string; items: Array<{ id: number; price: number; quantity: number }> }>;
+    }
+
+    const parsed = JSON.parse(raw) as Array<any>;
+    if (!Array.isArray(parsed)) {
+      return [] as Array<{ id: string; createdAt?: string; items: Array<{ id: number; price: number; quantity: number }> }>;
+    }
+
+    return parsed
+      .map((batch) => {
+        if (!batch || typeof batch.id !== "string" || !Array.isArray(batch.items)) {
+          return null;
+        }
+
+        const items = batch.items.filter(
+          (item: any) =>
+            typeof item?.id === "number"
+            && typeof item?.price === "number"
+            && typeof item?.quantity === "number"
+            && item.quantity > 0
+        );
+
+        if (items.length === 0) {
+          return null;
+        }
+
+        return {
+          id: batch.id,
+          createdAt: typeof batch.createdAt === "string" ? batch.createdAt : undefined,
+          items,
+        } as typeof parsed[number];
+      })
+      .filter((batch): batch is NonNullable<typeof batch> => batch !== null);
+  } catch {
+    return [] as Array<{ id: string; createdAt?: string; items: Array<{ id: number; price: number; quantity: number }> }>;
+  }
+};
+
 export default function CheckoutPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -366,7 +413,12 @@ export default function CheckoutPage() {
 
   const selectedBatches = useMemo(() => {
     if (!batchId) {
-      return batches;
+      if (batches.length > 0) {
+        return batches;
+      }
+
+      const fallback = readLocalCartBatches();
+      return fallback.length > 0 ? fallback : batches;
     }
 
     // Try context first
@@ -375,12 +427,9 @@ export default function CheckoutPage() {
 
     // Fallback: try reading localStorage directly (in case context wasn't populated)
     try {
-      const raw = typeof window !== 'undefined' ? window.localStorage.getItem('cartBatches') : null;
-      if (raw) {
-        const parsed = JSON.parse(raw) as Array<any>;
-        const found = Array.isArray(parsed) ? parsed.find((b) => b && b.id === batchId) : null;
-        if (found) return [found as typeof batches[number]];
-      }
+      const fallback = readLocalCartBatches();
+      const found = fallback.find((b) => b && b.id === batchId);
+      if (found) return [found as typeof batches[number]];
     } catch {
       // ignore parse errors
     }
@@ -395,15 +444,35 @@ export default function CheckoutPage() {
     [selectedBatches]
   );
 
+
   const selectedTotalItems = useMemo(
-    () => selectedBatches.reduce((sum, batch) => sum + batch.items.reduce((sub, item) => sub + item.quantity, 0), 0),
-    [selectedBatches]
+  () =>
+    selectedBatches.reduce(
+      (sum: number, batch) =>
+        sum +
+        batch.items.reduce(
+          (sub: number, item: any) => sub + item.quantity,
+          0
+        ),
+      0
+    ),
+  [selectedBatches]
   );
 
-  const selectedTotalPrice = useMemo(
-    () => selectedBatches.reduce((sum, batch) => sum + batch.items.reduce((sub, item) => sub + item.price * item.quantity, 0), 0),
-    [selectedBatches]
-  );
+const selectedTotalPrice = useMemo(
+  () =>
+    selectedBatches.reduce(
+      (sum: number, batch) =>
+        sum +
+        batch.items.reduce(
+          (sub: number, item: any) =>
+            sub + item.price * item.quantity,
+          0
+        ),
+      0
+    ),
+  [selectedBatches]
+);
 
   const discountAmountNum = appliedCoupon ? Number(appliedCoupon.discountAmount) || 0 : 0;
   const grandTotal = selectedTotalPrice - discountAmountNum + (selectedTotalItems > 0 ? shippingFee : 0);

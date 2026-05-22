@@ -9,6 +9,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -28,11 +29,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtProvider jwtProvider;
     private final SessionStoreService sessionStoreService;
+    private final boolean sessionStoreEnabled;
 
     public JwtAuthenticationFilter(JwtProvider jwtProvider,
-                                   SessionStoreService sessionStoreService) {
+                                   SessionStoreService sessionStoreService,
+                                   @Value("${app.session.store.enabled:true}") boolean sessionStoreEnabled) {
         this.jwtProvider = jwtProvider;
         this.sessionStoreService = sessionStoreService;
+        this.sessionStoreEnabled = sessionStoreEnabled;
     }
 
     @Override
@@ -50,15 +54,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String username = jwtProvider.extractUsername(token);
                 String role = jwtProvider.extractRole(token);
 
-                if (!sessionStoreService.isSessionActive(token, role)) {
-                    SecurityContextHolder.clearContext();
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                    response.getWriter().write("{\"message\":\"Session expired\",\"status\":401}");
-                    return;
-                }
+                if (sessionStoreEnabled) {
+                    if (!sessionStoreService.isSessionActive(token, role)) {
+                        SecurityContextHolder.clearContext();
+                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                        response.getWriter().write("{\"message\":\"Session expired\",\"status\":401}");
+                        return;
+                    }
 
-                sessionStoreService.refreshSession(token, role);
+                    sessionStoreService.refreshSession(token, role);
+                }
 
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                         username,

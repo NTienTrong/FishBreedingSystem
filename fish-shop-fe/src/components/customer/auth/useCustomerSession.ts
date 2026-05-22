@@ -27,6 +27,8 @@ export function useCustomerSession() {
         return;
       }
 
+      setSession({ authenticated: true });
+
       const response = await fetch("/api/customer/me", {
         cache: "no-store",
         credentials: "include",
@@ -35,8 +37,6 @@ export function useCustomerSession() {
         console.warn("[customer-session] /api/customer/me unauthorized", {
           status: response.status,
         });
-        await fetch("/api/customer/auth/session", { method: "DELETE" });
-        setSession({ authenticated: false });
         return;
       }
 
