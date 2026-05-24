@@ -26,6 +26,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final InventoryService inventoryService;
     private final TransactionService transactionService;
+    private final VnpayCheckoutService vnpayCheckoutService;
 
     private static final Map<OrderStatus, Set<OrderStatus>> ALLOWED_TRANSITIONS = buildTransitions();
 
@@ -119,15 +120,39 @@ public class OrderService {
         Order order = orderRepository.findWithUserById(orderId)
             .orElseThrow(() -> new BadRequestException("Order not found"));
 
-        if (order.getOrderStatus() != OrderStatus.PENDING_REFUND) {
-            throw new BadRequestException("Đơn hàng không ở trạng thái chờ hoàn tiền");
+        if (order.getPaymentMethod() != PaymentMethod.VNPAY) {
+            throw new BadRequestException("Chỉ hỗ trợ hoàn tiền cho đơn VNPay");
+        }
+
+        if (order.getPaymentStatus() != PaymentStatus.PAID) {
+            throw new BadRequestException("Đơn hàng chưa thanh toán thành công");
+        }
+
+        if (order.getOrderStatus() != OrderStatus.PENDING_REFUND
+                && order.getOrderStatus() != OrderStatus.PENDING) {
+            throw new BadRequestException("Đơn hàng không đủ điều kiện để hoàn tiền");
+        }
+
+        var refundResult = vnpayCheckoutService.refundPayment(order, "admin", null);
+        transactionService.createVnpayRefundTransaction(
+            order,
+            order.getOrderCode(),
+            order.getTotalAmount(),
+            refundResult.success());
+
+        if (!refundResult.success()) {
+            order.setOrderStatus(OrderStatus.PENDING_REFUND);
+            orderRepository.save(order);
+            String responseCode = refundResult.responseCode() != null ? refundResult.responseCode() : "N/A";
+            String message = refundResult.message() != null ? refundResult.message() : "Hoàn tiền thất bại";
+            return "Hoàn tiền thất bại (" + responseCode + "): " + message;
         }
 
         order.setOrderStatus(OrderStatus.CANCELLED);
         order.setPaymentStatus(PaymentStatus.REFUNDED);
         handleRestockIfNeeded(order);
         orderRepository.save(order);
-        return "Đã xác nhận hoàn tiền và hủy đơn";
+        return "Đã hoàn tiền thành công và hủy đơn";
     }
 
     private static boolean isTransitionAllowed(OrderStatus current, OrderStatus next) {

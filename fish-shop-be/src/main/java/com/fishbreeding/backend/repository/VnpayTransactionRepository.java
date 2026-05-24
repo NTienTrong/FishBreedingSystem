@@ -15,4 +15,6 @@ public interface VnpayTransactionRepository extends JpaRepository<VnpayTransacti
     List<VnpayTransaction> findAllByOrderByCreatedAtDescIdDesc();
 
     Optional<VnpayTransaction> findByVnpTxnRef(String vnpTxnRef);
+
+    Optional<VnpayTransaction> findTopByOrder_IdOrderByCreatedAtDescIdDesc(Long orderId);
 }

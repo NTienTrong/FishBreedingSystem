@@ -4,6 +4,10 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -11,6 +15,7 @@ import java.util.*;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fishbreeding.backend.dto.CustomerCheckoutRequest;
 import com.fishbreeding.backend.dto.CustomerCheckoutResponse;
@@ -62,6 +67,9 @@ public class VnpayCheckoutService {
     @Value("${app.vnpay.frontend-return-url:}")
     private String frontendReturnUrl;
 
+    @Value("${app.vnpay.refund-url:}")
+    private String refundUrl;
+
     @Value("${app.vnpay.version:2.1.0}")
     private String version;
 
@@ -76,6 +84,14 @@ public class VnpayCheckoutService {
 
     @Value("${app.vnpay.order-type:other}")
     private String orderType;
+
+    @Value("${app.vnpay.refund-command:refund}")
+    private String refundCommand;
+
+    @Value("${app.vnpay.refund-type:02}")
+    private String refundType;
+
+    private final HttpClient httpClient = HttpClient.newHttpClient();
 
     // ================== CHECKOUT ==================
 
@@ -529,6 +545,12 @@ public class VnpayCheckoutService {
                 && StringUtils.hasText(returnUrl);
     }
 
+    private boolean hasRefundConfig() {
+        return StringUtils.hasText(tmnCode)
+                && StringUtils.hasText(hashSecret)
+                && StringUtils.hasText(refundUrl);
+    }
+
     private User requireUser(String username) {
         return userRepository.findByUsername(username)
                 .orElseThrow(() -> new BadRequestException("User not found"));
@@ -555,6 +577,9 @@ public class VnpayCheckoutService {
     public record CallbackResult(boolean success, String orderCode, String message, String redirectUrl) {
     }
 
+    public record RefundResult(boolean success, String responseCode, String message, JsonNode rawResponse) {
+    }
+
     @Transactional
     public CallbackResult handleReturn(Map<String, String> params) {
 
@@ -577,5 +602,93 @@ public class VnpayCheckoutService {
     @Transactional
     public CallbackResult handleIpn(Map<String, String> params) {
         return handleCallback(params);
+    }
+
+    // ================== REFUND ==================
+
+    public RefundResult refundPayment(Order order, String performedBy, String ipAddress) {
+        if (order == null) {
+            return new RefundResult(false, null, "Order not found", null);
+        }
+
+        if (!hasRefundConfig()) {
+            return new RefundResult(false, null, "VNPay refund is not configured", null);
+        }
+
+        VnpayTransaction transaction = vnpayTransactionRepository
+            .findTopByOrder_IdOrderByCreatedAtDescIdDesc(order.getId())
+            .orElse(null);
+
+        if (transaction == null || !StringUtils.hasText(transaction.getVnpTransactionNo())
+                || transaction.getVnpPayDate() == null) {
+            return new RefundResult(false, null, "VNPay transaction data is missing", null);
+        }
+
+        String requestId = "REFUND" + order.getOrderCode() + System.currentTimeMillis();
+        String createDate = LocalDateTime.now().format(VNPAY_DATE_FORMAT);
+        String transactionDate = transaction.getVnpPayDate().format(VNPAY_DATE_FORMAT);
+        String orderInfo = "Hoan tien don hang " + order.getOrderCode();
+        String createBy = StringUtils.hasText(performedBy) ? performedBy : "admin";
+        String clientIp = StringUtils.hasText(ipAddress) ? ipAddress : "127.0.0.1";
+
+        long vnpAmount = order.getTotalAmount()
+            .setScale(2, RoundingMode.HALF_UP)
+            .movePointRight(2)
+            .longValueExact();
+
+        Map<String, String> requestBody = new LinkedHashMap<>();
+        requestBody.put("vnp_RequestId", requestId);
+        requestBody.put("vnp_Version", version);
+        requestBody.put("vnp_Command", refundCommand);
+        requestBody.put("vnp_TmnCode", tmnCode);
+        requestBody.put("vnp_TransactionType", refundType);
+        requestBody.put("vnp_TxnRef", order.getOrderCode());
+        requestBody.put("vnp_Amount", String.valueOf(vnpAmount));
+        requestBody.put("vnp_TransactionNo", transaction.getVnpTransactionNo());
+        requestBody.put("vnp_TransactionDate", transactionDate);
+        requestBody.put("vnp_CreateBy", createBy);
+        requestBody.put("vnp_CreateDate", createDate);
+        requestBody.put("vnp_IpAddr", clientIp);
+        requestBody.put("vnp_OrderInfo", orderInfo);
+
+        String hashData = String.join("|",
+            requestId,
+            version,
+            refundCommand,
+            tmnCode,
+            refundType,
+            order.getOrderCode(),
+            String.valueOf(vnpAmount),
+            transaction.getVnpTransactionNo(),
+            transactionDate,
+            createBy,
+            createDate,
+            clientIp,
+            orderInfo
+        );
+
+        String secureHash = hmacSHA512(hashSecret, hashData);
+        requestBody.put("vnp_SecureHash", secureHash);
+
+        try {
+            String payload = objectMapper.writeValueAsString(requestBody);
+            HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(refundUrl))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(payload))
+                .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            JsonNode json = objectMapper.readTree(response.body());
+
+            String responseCode = json.path("vnp_ResponseCode").asText(null);
+            String message = json.path("vnp_Message").asText(null);
+            boolean success = "00".equals(responseCode);
+
+            return new RefundResult(success, responseCode, message, json);
+        } catch (Exception ex) {
+            log.error("VNPay refund failed for order {}: {}", order.getOrderCode(), ex.getMessage(), ex);
+            return new RefundResult(false, null, "Refund request failed", null);
+        }
     }
 }

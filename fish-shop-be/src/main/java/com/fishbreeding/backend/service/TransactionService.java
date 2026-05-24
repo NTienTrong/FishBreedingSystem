@@ -80,4 +80,44 @@ public class TransactionService {
 
         return saved;
     }
+
+    @Transactional
+    public Transaction createVnpayRefundTransaction(Order order, String referenceCode, BigDecimal amount, boolean success) {
+        if (order == null) {
+            return null;
+        }
+
+        BigDecimal refundAmount = amount != null ? amount.abs().negate() : order.getTotalAmount().abs().negate();
+
+        Transaction refund = Transaction.builder()
+            .order(order)
+            .amount(refundAmount)
+            .paymentMethod(PaymentMethod.VNPAY)
+            .transactionType(TransactionType.REFUND)
+            .referenceCode(referenceCode)
+            .status(success ? TransactionStatus.SUCCESS : TransactionStatus.FAILED)
+            .build();
+
+        Transaction saved = transactionRepository.save(refund);
+
+        try {
+            var payload = Map.of(
+                "id", saved.getId(),
+                "orderCode", saved.getOrder() != null ? saved.getOrder().getOrderCode() : null,
+                "amount", saved.getAmount(),
+                "paymentMethod", saved.getPaymentMethod(),
+                "status", saved.getStatus(),
+                "createdAt", saved.getCreatedAt()
+            );
+            sseService.emit("admin", "transaction", payload);
+
+            if (saved.getOrder() != null && saved.getOrder().getOrderCode() != null) {
+                sseService.emit("order:" + saved.getOrder().getOrderCode(), "transaction", payload);
+            }
+        } catch (Exception ex) {
+            // ignore
+        }
+
+        return saved;
+    }
 }
