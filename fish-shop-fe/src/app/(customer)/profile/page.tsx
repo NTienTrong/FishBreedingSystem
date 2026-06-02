@@ -564,7 +564,20 @@ export default function ProfilePage() {
       });
 
       if (!response.ok) {
-        const message = await response.text();
+        const rawMessage = await response.text();
+        let message = rawMessage;
+
+        try {
+          const parsed = JSON.parse(rawMessage) as { message?: string };
+          message = parsed?.message ?? rawMessage;
+        } catch {
+          // Keep raw message when response is not JSON.
+        }
+
+        if (rawMessage.includes("Current password is incorrect") || message === "Current password is incorrect") {
+          message = "Mật khẩu hiện tại không đúng.";
+        }
+
         throw new Error(message || "Không thể đổi mật khẩu.");
       }
 

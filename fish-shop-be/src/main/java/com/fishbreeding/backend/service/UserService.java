@@ -112,6 +112,21 @@ public class UserService {
     }
 
     @Transactional
+    public UserResponse updateUserStatus(Long id, Boolean isActive) {
+        userValidator.validateId(id);
+        if (isActive == null) {
+            throw new BadRequestException("Status is required");
+        }
+
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("User not found with id: " + id));
+
+        user.setIsActive(isActive);
+        User updated = userRepository.save(user);
+        return UserResponse.fromEntity(updated);
+    }
+
+    @Transactional
     public void deleteUser(Long id) {
         userValidator.validateId(id);
 

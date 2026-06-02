@@ -308,6 +308,9 @@ export default function UserForm({ mode, userId }: UserFormProps) {
                 <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:inset-s-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-secondary"></div>
               </label>
             </div>
+            <p className="text-xs text-on-surface-variant">
+              {formData.isActive ? "Đang hoạt động" : "Đã khóa"}
+            </p>
 
             <div>
               <label className="block text-xs font-medium text-on-surface-variant mb-1.5">Vai trò (Role)</label>

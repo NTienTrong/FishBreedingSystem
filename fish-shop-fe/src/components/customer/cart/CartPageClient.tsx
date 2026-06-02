@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useCart } from "@/components/customer/cart/CartContext";
 import { useCustomerSession } from "@/components/customer/auth/useCustomerSession";
 import LoginRequiredModal from "@/components/common/LoginRequiredModal";
+import DeleteConfirmModal from "@/components/common/DeleteConfirmModal";
+import ToastMessage from "@/components/common/ToastMessage";
 
 const currency = new Intl.NumberFormat("vi-VN", {
   style: "currency",
@@ -14,10 +16,44 @@ const currency = new Intl.NumberFormat("vi-VN", {
 });
 
 export default function CartPageClient() {
-  const { batches, totalBatches, totalPrice, removeBatch } = useCart();
+  const { batches, totalBatches, totalPrice, removeBatch, syncServerCart } = useCart();
   const { session, loading: sessionLoading } = useCustomerSession();
   const router = useRouter();
   const [loginTarget, setLoginTarget] = useState<string | null>(null);
+  const [pendingDeleteBatchId, setPendingDeleteBatchId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [toast, setToast] = useState<{ show: boolean; message: string; variant: "success" | "error" }>({
+    show: false,
+    message: "",
+    variant: "success",
+  });
+
+  const showToast = useCallback((message: string, variant: "success" | "error") => {
+    setToast({ show: true, message, variant });
+    window.setTimeout(() => {
+      setToast((prev) => ({ ...prev, show: false }));
+    }, 2500);
+  }, []);
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDeleteBatchId) {
+      return;
+    }
+
+    setIsDeleting(true);
+    const nextBatches = batches.filter((batch) => batch.id !== pendingDeleteBatchId);
+
+    try {
+      await syncServerCart(nextBatches);
+      removeBatch(pendingDeleteBatchId);
+      showToast("Đã xóa sản phẩm khỏi giỏ hàng.", "success");
+    } catch {
+      showToast("Có lỗi xảy ra, vui lòng thử lại sau.", "error");
+    } finally {
+      setIsDeleting(false);
+      setPendingDeleteBatchId(null);
+    }
+  };
 
   const ensureLogin = (targetUrl: string) => {
     if (sessionLoading || !session.authenticated) {
@@ -43,6 +79,7 @@ export default function CartPageClient() {
           <span className="material-symbols-outlined">arrow_back</span>
           Tiếp tục mua sắm
         </Link>
+        <ToastMessage show={toast.show} message={toast.message} variant={toast.variant} />
       </main>
     );
   }
@@ -92,7 +129,7 @@ export default function CartPageClient() {
                     <button
                       className="inline-flex items-center gap-2 rounded-full bg-surface-container-highest text-primary px-5 py-2 text-sm font-bold hover:bg-surface-container-high transition-colors"
                       type="button"
-                      onClick={() => removeBatch(batch.id)}
+                      onClick={() => setPendingDeleteBatchId(batch.id)}
                     >
                       Xóa lượt này
                       <span className="material-symbols-outlined text-base">delete</span>
@@ -214,6 +251,21 @@ export default function CartPageClient() {
           window.location.assign(target);
         }}
       />
+      <DeleteConfirmModal
+        isOpen={Boolean(pendingDeleteBatchId)}
+        onClose={() => {
+          if (!isDeleting) {
+            setPendingDeleteBatchId(null);
+          }
+        }}
+        onConfirm={handleConfirmDelete}
+        isDeleting={isDeleting}
+        title="Xác nhận xóa"
+        message="Bạn có chắc chắn muốn xóa sản phẩm này khỏi giỏ hàng không?"
+        confirmLabel="Xác nhận"
+        cancelLabel="Hủy"
+      />
+      <ToastMessage show={toast.show} message={toast.message} variant={toast.variant} />
     </main>
   );
 }

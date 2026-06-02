@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.fishbreeding.backend.repository.UserRepository;
 import com.fishbreeding.backend.service.SessionStoreService;
 
 import io.jsonwebtoken.ExpiredJwtException;
@@ -30,13 +31,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtProvider jwtProvider;
     private final SessionStoreService sessionStoreService;
     private final boolean sessionStoreEnabled;
+    private final UserRepository userRepository;
 
     public JwtAuthenticationFilter(JwtProvider jwtProvider,
                                    SessionStoreService sessionStoreService,
-                                   @Value("${app.session.store.enabled:true}") boolean sessionStoreEnabled) {
+                                   @Value("${app.session.store.enabled:true}") boolean sessionStoreEnabled,
+                                   UserRepository userRepository) {
         this.jwtProvider = jwtProvider;
         this.sessionStoreService = sessionStoreService;
         this.sessionStoreEnabled = sessionStoreEnabled;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -53,6 +57,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (jwtProvider.validateToken(token)) {
                 String username = jwtProvider.extractUsername(token);
                 String role = jwtProvider.extractRole(token);
+
+                boolean isActive = userRepository.findByUsername(username)
+                        .map(user -> user.getIsActive() == null || user.getIsActive())
+                        .orElse(false);
+                if (!isActive) {
+                    SecurityContextHolder.clearContext();
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    response.getWriter().write("{\"message\":\"Account inactive\",\"status\":401}");
+                    return;
+                }
 
                 if (sessionStoreEnabled) {
                     if (!sessionStoreService.isSessionActive(token, role)) {

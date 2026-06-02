@@ -27,4 +27,11 @@ export const UserService = {
   async delete(id: number): Promise<void> {
     await apiClient.delete(`${API_URL}/${id}`);
   },
+
+  async toggleStatus(id: number, isActive: boolean): Promise<UserResponse> {
+    const res = await apiClient.put<UserResponse>(`${API_URL}/${id}/status`, null, {
+      params: { isActive },
+    });
+    return res.data;
+  },
 };

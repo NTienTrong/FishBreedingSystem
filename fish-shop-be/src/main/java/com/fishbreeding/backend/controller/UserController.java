@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.fishbreeding.backend.dto.UserRequest;
@@ -51,6 +52,13 @@ public class UserController {
             @Valid @RequestBody UserRequest request) {
 
         return ResponseEntity.ok(userService.updateUser(id, request));
+    }
+
+    @PutMapping("/{id}/status")
+    public ResponseEntity<UserResponse> updateUserStatus(
+            @PathVariable Long id,
+            @RequestParam Boolean isActive) {
+        return ResponseEntity.ok(userService.updateUserStatus(id, isActive));
     }
 
     @DeleteMapping("/{id}")

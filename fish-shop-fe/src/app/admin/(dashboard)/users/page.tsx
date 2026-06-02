@@ -30,6 +30,7 @@ export default function AdminUsersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<UserResponse | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
   const [detailTarget, setDetailTarget] = useState<UserResponse | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -133,6 +134,21 @@ export default function AdminUsersPage() {
       showToast("Xóa người dùng thất bại.", "error");
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleToggleStatus = async (user: UserResponse) => {
+    try {
+      setStatusUpdatingId(user.id);
+      const nextStatus = !user.isActive;
+      await UserService.toggleStatus(user.id, nextStatus);
+      await fetchUsers();
+      showToast(nextStatus ? "Mở khóa người dùng thành công." : "Khóa người dùng thành công.", "success");
+    } catch (error) {
+      console.error(error);
+      showToast("Cập nhật trạng thái người dùng thất bại.", "error");
+    } finally {
+      setStatusUpdatingId(null);
     }
   };
 
@@ -271,6 +287,18 @@ export default function AdminUsersPage() {
                         >
                           <span className="material-symbols-outlined text-[18px]">visibility</span>
                         </button>
+                        {/* <button
+                          onClick={() => handleToggleStatus(user)}
+                          className="text-slate-400 hover:text-primary transition-colors disabled:opacity-40"
+                          type="button"
+                          aria-label={user.isActive ? "Khóa tài khoản" : "Mở khóa tài khoản"}
+                          disabled={statusUpdatingId === user.id}
+                          title={user.isActive ? "Khóa tài khoản" : "Mở khóa tài khoản"}
+                        >
+                          <span className="material-symbols-outlined text-[18px]">
+                            {user.isActive ? "lock" : "lock_open"}
+                          </span>
+                        </button> */}
                         <Link href={`/admin/users/${user.id}/edit`} className="text-slate-400 hover:text-primary transition-colors">
                           <span className="material-symbols-outlined text-[18px]">edit</span>
                         </Link>
