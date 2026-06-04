@@ -15,10 +15,15 @@ export default function RegisterPage() {
   const [address, setAddress] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [nextUrl, setNextUrl] = useState("/");
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const phonePattern = /^[0-9+()\s-]{8,15}$/;
 
   const welcomeMessage = `Chào mừng ${fullName.trim()} đến với FishSync! Khám phá cá giống ngay.`;
 
@@ -32,28 +37,53 @@ export default function RegisterPage() {
 
     const nextErrors: Record<string, string> = {};
     const emailValue = email.trim();
+    const fullNameValue = fullName.trim();
+    const phoneValue = phone.trim();
+    const addressValue = address.trim();
     const passwordPolicy = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{6,}$/;
 
-    if (!fullName.trim()) {
+    if (!fullNameValue) {
       nextErrors.fullName = "Vui lòng nhập họ tên.";
+    } else if (fullNameValue.length > 100) {
+      nextErrors.fullName = "Họ tên tối đa 100 ký tự.";
     }
 
     if (!emailValue) {
       nextErrors.email = "Vui lòng nhập email.";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+    } else if (!emailPattern.test(emailValue)) {
       nextErrors.email = "Email không hợp lệ.";
+    } else if (emailValue.length > 100) {
+      nextErrors.email = "Email tối đa 100 ký tự.";
+    }
+
+    if (phoneValue) {
+      if (!phonePattern.test(phoneValue)) {
+        nextErrors.phone = "Số điện thoại không hợp lệ.";
+      } else if (phoneValue.length > 15) {
+        nextErrors.phone = "Số điện thoại tối đa 15 ký tự.";
+      }
+    }
+
+    if (addressValue && addressValue.length > 1000) {
+      nextErrors.address = "Địa chỉ tối đa 1000 ký tự.";
     }
 
     if (!password) {
       nextErrors.password = "Vui lòng nhập mật khẩu.";
     } else if (!passwordPolicy.test(password)) {
       nextErrors.password = "Mật khẩu tối thiểu 6 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.";
+    } else if (password.length > 100) {
+      nextErrors.password = "Mật khẩu tối đa 100 ký tự.";
     }
 
     if (!confirmPassword) {
       nextErrors.confirmPassword = "Vui lòng xác nhận mật khẩu.";
     } else if (password !== confirmPassword) {
       nextErrors.confirmPassword = "Mật khẩu xác nhận không khớp.";
+    }
+
+    if (!termsAccepted) {
+      nextErrors.terms = "Vui lòng đồng ý điều khoản dịch vụ.";
     }
 
     setValidationErrors(nextErrors);
@@ -188,6 +218,9 @@ export default function RegisterPage() {
                       if (validationErrors.fullName) {
                         setValidationErrors((prev) => ({ ...prev, fullName: "" }));
                       }
+                      if (error) {
+                        setError(null);
+                      }
                     }}
                   />
                 </div>
@@ -217,6 +250,9 @@ export default function RegisterPage() {
                       if (validationErrors.email) {
                         setValidationErrors((prev) => ({ ...prev, email: "" }));
                       }
+                      if (error) {
+                        setError(null);
+                      }
                     }}
                   />
                 </div>
@@ -241,9 +277,20 @@ export default function RegisterPage() {
                     placeholder="090 123 4567"
                     type="tel"
                     value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
+                    onChange={(event) => {
+                      setPhone(event.target.value);
+                      if (validationErrors.phone) {
+                        setValidationErrors((prev) => ({ ...prev, phone: "" }));
+                      }
+                      if (error) {
+                        setError(null);
+                      }
+                    }}
                   />
                 </div>
+                {validationErrors.phone ? (
+                  <p className="text-error text-xs px-1">{validationErrors.phone}</p>
+                ) : null}
               </div>
 
               {/* Address */}
@@ -262,9 +309,20 @@ export default function RegisterPage() {
                     placeholder="Số nhà, tên đường..."
                     type="text"
                     value={address}
-                    onChange={(event) => setAddress(event.target.value)}
+                    onChange={(event) => {
+                      setAddress(event.target.value);
+                      if (validationErrors.address) {
+                        setValidationErrors((prev) => ({ ...prev, address: "" }));
+                      }
+                      if (error) {
+                        setError(null);
+                      }
+                    }}
                   />
                 </div>
+                {validationErrors.address ? (
+                  <p className="text-error text-xs px-1">{validationErrors.address}</p>
+                ) : null}
               </div>
 
               {/* Password Fields Grid */}
@@ -282,15 +340,28 @@ export default function RegisterPage() {
                       id="password"
                       name="password"
                       placeholder="••••••••"
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       value={password}
                       onChange={(event) => {
                         setPassword(event.target.value);
                         if (validationErrors.password) {
                           setValidationErrors((prev) => ({ ...prev, password: "" }));
                         }
+                        if (error) {
+                          setError(null);
+                        }
                       }}
                     />
+                    <button
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-outline-variant hover:text-primary transition-colors"
+                      type="button"
+                      aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                      onClick={() => setShowPassword((prev) => !prev)}
+                    >
+                      <span className="material-symbols-outlined text-[18px]">
+                        {showPassword ? "visibility_off" : "visibility"}
+                      </span>
+                    </button>
                   </div>
                   {validationErrors.password ? (
                     <p className="text-error text-xs px-1">{validationErrors.password}</p>
@@ -309,15 +380,28 @@ export default function RegisterPage() {
                       id="confirm_password"
                       name="confirm_password"
                       placeholder="••••••••"
-                      type="password"
+                      type={showConfirmPassword ? "text" : "password"}
                       value={confirmPassword}
                       onChange={(event) => {
                         setConfirmPassword(event.target.value);
                         if (validationErrors.confirmPassword) {
                           setValidationErrors((prev) => ({ ...prev, confirmPassword: "" }));
                         }
+                        if (error) {
+                          setError(null);
+                        }
                       }}
                     />
+                    <button
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-outline-variant hover:text-primary transition-colors"
+                      type="button"
+                      aria-label={showConfirmPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                      onClick={() => setShowConfirmPassword((prev) => !prev)}
+                    >
+                      <span className="material-symbols-outlined text-[18px]">
+                        {showConfirmPassword ? "visibility_off" : "visibility"}
+                      </span>
+                    </button>
                   </div>
                   {validationErrors.confirmPassword ? (
                     <p className="text-error text-xs px-1">{validationErrors.confirmPassword}</p>
@@ -332,11 +416,24 @@ export default function RegisterPage() {
                   id="terms"
                   name="terms"
                   type="checkbox"
+                  checked={termsAccepted}
+                  onChange={(event) => {
+                    setTermsAccepted(event.target.checked);
+                    if (validationErrors.terms) {
+                      setValidationErrors((prev) => ({ ...prev, terms: "" }));
+                    }
+                    if (error) {
+                      setError(null);
+                    }
+                  }}
                 />
                 <label className="text-sm text-slate-600 leading-snug" htmlFor="terms">
                   Tôi đồng ý với các <Link href="#" className="text-primary font-semibold hover:underline">Điều khoản dịch vụ</Link> và <Link href="#" className="text-primary font-semibold hover:underline">Chính sách bảo mật</Link> của FishSync.
                 </label>
               </div>
+              {validationErrors.terms ? (
+                <p className="text-error text-xs px-1">{validationErrors.terms}</p>
+              ) : null}
 
               {/* Submit Button */}
               <button

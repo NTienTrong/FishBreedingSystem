@@ -25,9 +25,26 @@ async function getBlogPosts(): Promise<BlogPostResponse[]> {
   }
 }
 
-export default async function BlogPage() {
+export default async function BlogPage({
+  searchParams,
+}: {
+  searchParams?: { search?: string };
+}) {
+  const query = searchParams?.search?.trim() || "";
+  const normalizedQuery = query.toLowerCase();
+
   const blogPosts = (await getBlogPosts())
     .filter((post) => post.isPublished)
+    .filter((post) => {
+      if (!normalizedQuery) {
+        return true;
+      }
+
+      const title = post.title?.toLowerCase() ?? "";
+      const author = (post.authorFullName || post.authorUsername || "").toLowerCase();
+      const content = stripHtml(post.content || "").toLowerCase();
+      return title.includes(normalizedQuery) || author.includes(normalizedQuery) || content.includes(normalizedQuery);
+    })
     .sort((a, b) => new Date(b.publishedAt ?? b.createdAt).getTime() - new Date(a.publishedAt ?? a.createdAt).getTime());
 
   return (
@@ -42,6 +59,34 @@ export default async function BlogPage() {
         <p className="mt-4 max-w-3xl text-on-surface-variant leading-relaxed">
           Danh sách bài viết được lấy trực tiếp từ cơ sở dữ liệu. Chỉ các bài đã xuất bản mới hiển thị.
         </p>
+        <form className="mt-6 flex flex-wrap items-center gap-3" action="/blog" method="get">
+          <div className="relative flex-1 min-w-[240px] max-w-xl">
+            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline">
+              search
+            </span>
+            <input
+              className="w-full rounded-full border border-outline-variant/40 bg-surface-container-high py-3 pl-12 pr-4 text-sm text-on-surface outline-none focus:ring-2 focus:ring-primary/20"
+              name="search"
+              placeholder="Tìm theo tiêu đề, tác giả, nội dung..."
+              defaultValue={query}
+              type="text"
+            />
+          </div>
+          <button
+            className="rounded-full bg-primary px-6 py-3 text-sm font-bold text-white shadow-sm hover:bg-primary-container transition-colors"
+            type="submit"
+          >
+            Tìm kiếm
+          </button>
+          {query ? (
+            <Link
+              className="text-sm font-semibold text-primary hover:underline"
+              href="/blog"
+            >
+              Xóa lọc
+            </Link>
+          ) : null}
+        </form>
       </section>
 
       {blogPosts.length > 0 ? (
@@ -79,7 +124,7 @@ export default async function BlogPage() {
         </section>
       ) : (
         <div className="rounded-2xl bg-surface-container-low p-8 text-center text-on-surface-variant">
-          Hiện chưa có bài viết nào.
+          {query ? "Không tìm thấy bài viết phù hợp." : "Hiện chưa có bài viết nào."}
         </div>
       )}
     </main>

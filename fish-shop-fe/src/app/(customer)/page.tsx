@@ -204,7 +204,7 @@ export default async function Home() {
         <section id="blog" className="max-w-7xl mx-auto py-16">
           <div className="flex items-end justify-between gap-6 mb-8">
             <div>
-              <h2 className="text-3xl font-black font-headline text-primary">Blog kỹ thuật</h2>
+              <h2 className="text-3xl font-black font-headline text-primary">Bài viết</h2>
               <p className="mt-2 text-on-surface-variant">Cập nhật bài viết và hướng dẫn mới nhất.</p>
             </div>
             <Link href="/blog" className="text-primary font-bold hover:underline flex items-center gap-1">

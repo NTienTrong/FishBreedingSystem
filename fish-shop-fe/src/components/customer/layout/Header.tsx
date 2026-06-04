@@ -28,7 +28,7 @@ const Header = () => {
             FishSync
           </Link>
           <nav className="hidden md:flex items-center gap-8 font-['Manrope'] tracking-tight font-bold headline-sm">
-            <div className="relative group">
+            {/* <div className="relative group">
               <button className="text-[#005B71] dark:text-[#00A3C4] border-b-2 border-[#005B71] font-bold pb-1 flex items-center gap-1">
                 Danh mục
                 <span className="material-symbols-outlined text-sm">
@@ -58,12 +58,12 @@ const Header = () => {
                       className="block text-slate-600 hover:text-[#005B71] transition-colors p-2 rounded-lg hover:bg-slate-100/50"
                       href="/blog"
                     >
-                      Blog kỹ thuật
+                      Bài viết
                     </Link>
                   </li>
                 </ul>
               </div>
-            </div>
+            </div> */}
             <Link
               className="text-slate-600 dark:text-slate-400 hover:text-[#005B71] transition-colors"
               href="/products"
@@ -74,7 +74,7 @@ const Header = () => {
               className="text-slate-600 dark:text-slate-400 hover:text-[#005B71] transition-colors"
               href="/blog"
             >
-              Blog
+              Bài viết
             </Link>
             <Link
               className="text-slate-600 dark:text-slate-400 hover:text-[#005B71] transition-colors"

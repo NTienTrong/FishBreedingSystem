@@ -17,7 +17,10 @@ export default function LoginPage() {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [linkingSession, setLinkingSession] = useState(false);
   const [nextUrl, setNextUrl] = useState("/");
+  const [showPassword, setShowPassword] = useState(false);
   const sessionLinkedRef = useRef(false);
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const usernamePattern = /^[a-zA-Z0-9._-]{3,50}$/;
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -28,13 +31,23 @@ export default function LoginPage() {
     event.preventDefault();
 
     const nextErrors: Record<string, string> = {};
+    const trimmedIdentifier = identifier.trim();
+    const trimmedPassword = password.trim();
 
-    if (!identifier.trim()) {
+    if (!trimmedIdentifier) {
       nextErrors.identifier = "Vui lòng nhập email hoặc tên đăng nhập.";
+    } else if (trimmedIdentifier.includes("@")) {
+      if (!emailPattern.test(trimmedIdentifier)) {
+        nextErrors.identifier = "Email không hợp lệ.";
+      }
+    } else if (!usernamePattern.test(trimmedIdentifier)) {
+      nextErrors.identifier = "Tên đăng nhập 3-50 ký tự.";
     }
 
-    if (!password) {
+    if (!trimmedPassword) {
       nextErrors.password = "Vui lòng nhập mật khẩu.";
+    } else if (trimmedPassword.length < 6) {
+      nextErrors.password = "Mật khẩu tối thiểu 6 ký tự.";
     }
 
     setValidationErrors(nextErrors);
@@ -48,8 +61,8 @@ export default function LoginPage() {
 
       const result = await signIn("credentials", {
         redirect: false,
-        identifier: identifier.trim(),
-        password,
+        identifier: trimmedIdentifier,
+        password: trimmedPassword,
       });
 
       if (result?.error) {
@@ -194,6 +207,9 @@ export default function LoginPage() {
                     if (validationErrors.identifier) {
                       setValidationErrors((prev) => ({ ...prev, identifier: "" }));
                     }
+                    if (error) {
+                      setError(null);
+                    }
                   }}
                 />
               </div>
@@ -216,20 +232,27 @@ export default function LoginPage() {
                   id="password"
                   name="password"
                   placeholder="••••••••"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(event) => {
                     setPassword(event.target.value);
                     if (validationErrors.password) {
                       setValidationErrors((prev) => ({ ...prev, password: "" }));
                     }
+                    if (error) {
+                      setError(null);
+                    }
                   }}
                 />
                 <button
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-outline hover:text-primary transition-colors"
                   type="button"
+                  aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                  onClick={() => setShowPassword((prev) => !prev)}
                 >
-                  <span className="material-symbols-outlined">visibility</span>
+                  <span className="material-symbols-outlined">
+                    {showPassword ? "visibility_off" : "visibility"}
+                  </span>
                 </button>
               </div>
               {validationErrors.password ? (
@@ -238,17 +261,8 @@ export default function LoginPage() {
             </div>
 
             {/* Secondary Actions */}
-            <div className="flex items-center justify-between px-1">
+            {/* <div className="flex items-center justify-between px-1">
               <label className="flex items-center gap-3 cursor-pointer group">
-                <div className="relative flex items-center">
-                  <input
-                    className="peer h-5 w-5 rounded border-outline-variant text-primary focus:ring-primary/20 bg-surface-container-highest transition-all"
-                    type="checkbox"
-                  />
-                </div>
-                <span className="text-sm text-on-surface-variant group-hover:text-on-surface transition-colors">
-                  Ghi nhớ tôi
-                </span>
               </label>
               <Link
                 className="text-sm font-semibold text-primary hover:text-primary-container transition-colors"
@@ -256,7 +270,7 @@ export default function LoginPage() {
               >
                 Quên mật khẩu?
               </Link>
-            </div>
+            </div> */}
 
             {/* Primary CTA */}
             <button

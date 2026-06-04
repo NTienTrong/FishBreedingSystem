@@ -59,7 +59,7 @@ export default async function BlogDetailPage({ params }: { params: Promise<{ slu
       <section className="pt-10 pb-8">
         <Link href="/blog" className="inline-flex items-center gap-2 text-secondary font-bold hover:underline">
           <span className="material-symbols-outlined text-sm">arrow_back</span>
-          Quay lại blog
+          Quay lại
         </Link>
         <h1 className="mt-6 text-4xl lg:text-5xl font-black tracking-tight text-primary font-headline leading-tight">
           {post.title}
