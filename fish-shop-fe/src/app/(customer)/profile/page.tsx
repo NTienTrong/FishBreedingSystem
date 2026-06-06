@@ -145,6 +145,9 @@ export default function ProfilePage() {
     variant: "success",
   });
   const [editingAddressId, setEditingAddressId] = useState<number | null>(null);
+  const [deleteAddressTarget, setDeleteAddressTarget] = useState<AddressItem | null>(null);
+  const [orderStatusFilter, setOrderStatusFilter] = useState<"all" | "pending" | "cancelled" | "completed">("all");
+  const [orderPage, setOrderPage] = useState(1);
   const [addressForm, setAddressForm] = useState({
     receiverName: "",
     phoneNumber: "",
@@ -717,12 +720,58 @@ export default function ProfilePage() {
     showToast("Đã xóa địa chỉ.", "success");
   };
 
+  const handleConfirmDeleteAddress = async () => {
+    if (!deleteAddressTarget) {
+      return;
+    }
+
+    await handleDeleteAddress(deleteAddressTarget.id);
+    setDeleteAddressTarget(null);
+  };
+
   const headerSubtitle = useMemo(() => {
     if (activeTab === "orders") return "Theo dõi tình trạng các chú cá bạn đã đặt.";
     if (activeTab === "fish") return "Theo dõi hồ sơ sức khỏe cá đã mua.";
     if (activeTab === "addresses") return "Quản lý nhiều địa chỉ giao hàng.";
     return "Cập nhật thông tin tài khoản và bảo mật.";
   }, [activeTab]);
+
+  const sortedOrders = useMemo(() => {
+    return [...orders].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }, [orders]);
+
+  const filteredOrders = useMemo(() => {
+    return sortedOrders.filter((order) => {
+      if (orderStatusFilter === "all") {
+        return true;
+      }
+
+      if (orderStatusFilter === "pending") {
+        return order.orderStatus === "PENDING_PAYMENT" || order.paymentStatus === "UNPAID";
+      }
+
+      if (orderStatusFilter === "cancelled") {
+        return order.orderStatus === "CANCELLED";
+      }
+
+      return order.orderStatus === "COMPLETED";
+    });
+  }, [orderStatusFilter, sortedOrders]);
+
+  const ORDER_PAGE_SIZE = 10;
+  const totalOrderPages = Math.max(1, Math.ceil(filteredOrders.length / ORDER_PAGE_SIZE));
+  const pagedOrders = useMemo(() => {
+    const start = (orderPage - 1) * ORDER_PAGE_SIZE;
+    return filteredOrders.slice(start, start + ORDER_PAGE_SIZE);
+  }, [filteredOrders, orderPage]);
+
+  useEffect(() => {
+    if (activeTab === "orders") {
+      setOrderPage(1);
+    }
+  }, [activeTab, orderStatusFilter]);
 
   return (
     <main className="px-6 max-w-7xl mx-auto pb-20">
@@ -881,12 +930,41 @@ export default function ProfilePage() {
 
       {activeTab === "orders" && (
         <section className="space-y-6">
-          {orders.length === 0 ? (
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-primary">Danh sách đơn hàng</h2>
+              <p className="text-sm text-on-surface-variant">Mỗi trang hiển thị 10 đơn hàng gần nhất.</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {[
+                { id: "all", label: "Tất cả" },
+                { id: "pending", label: "Chờ thanh toán" },
+                { id: "completed", label: "Hoàn thành" },
+                { id: "cancelled", label: "Đã hủy" },
+              ].map((filter) => (
+                <button
+                  key={filter.id}
+                  type="button"
+                  className={`px-4 py-2 rounded-full text-xs font-bold transition-colors ${
+                    orderStatusFilter === filter.id
+                      ? "bg-primary text-white"
+                      : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest"
+                  }`}
+                  onClick={() => setOrderStatusFilter(filter.id as typeof orderStatusFilter)}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {filteredOrders.length === 0 ? (
             <div className="rounded-2xl bg-surface-container-low p-8 text-center text-on-surface-variant">
-              Bạn chưa có đơn hàng nào.
+              {orders.length === 0 ? "Bạn chưa có đơn hàng nào." : "Không có đơn hàng phù hợp bộ lọc."}
             </div>
           ) : (
-            orders.map((order) => (
+            <div className="space-y-4">
+              {pagedOrders.map((order) => (
               <div key={order.id} className="bg-surface-container-low rounded-2xl p-6 shadow-sm">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
                   <div className="space-y-2">
@@ -977,7 +1055,33 @@ export default function ProfilePage() {
                   </div>
                 )}
               </div>
-            ))
+              ))}
+              {totalOrderPages > 1 && (
+                <div className="flex items-center justify-between text-xs text-on-surface-variant pt-2">
+                  <span>
+                    Trang <strong className="text-primary">{orderPage}</strong> / {totalOrderPages}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
+                      type="button"
+                      onClick={() => setOrderPage((prev) => Math.max(1, prev - 1))}
+                      disabled={orderPage === 1}
+                    >
+                      <span className="material-symbols-outlined text-sm">chevron_left</span>
+                    </button>
+                    <button
+                      className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
+                      type="button"
+                      onClick={() => setOrderPage((prev) => Math.min(totalOrderPages, prev + 1))}
+                      disabled={orderPage === totalOrderPages}
+                    >
+                      <span className="material-symbols-outlined text-sm">chevron_right</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </section>
       )}
@@ -1069,7 +1173,7 @@ export default function ProfilePage() {
                     <button
                       className="px-3 py-1.5 rounded-full bg-surface-container-high text-primary text-sm font-bold"
                       type="button"
-                      onClick={() => handleDeleteAddress(addr.id)}
+                      onClick={() => setDeleteAddressTarget(addr)}
                     >
                       Xóa
                     </button>
@@ -1234,6 +1338,36 @@ export default function ProfilePage() {
                 disabled={cancelSubmitting}
               >
                 {cancelSubmitting ? "Đang gửi..." : "Gửi yêu cầu"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteAddressTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-primary mb-2">Xác nhận xóa địa chỉ</h3>
+            <p className="text-sm text-on-surface-variant mb-4">
+              Bạn có chắc muốn xóa địa chỉ của {deleteAddressTarget.receiverName}?
+            </p>
+            <div className="rounded-xl bg-surface-container-low p-3 text-xs text-on-surface-variant">
+              {formatAddress(deleteAddressTarget)}
+            </div>
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                className="px-4 py-2 rounded-full bg-surface-container-high text-primary font-bold"
+                type="button"
+                onClick={() => setDeleteAddressTarget(null)}
+              >
+                Hủy
+              </button>
+              <button
+                className="px-4 py-2 rounded-full bg-error text-white font-bold"
+                type="button"
+                onClick={handleConfirmDeleteAddress}
+              >
+                Xóa địa chỉ
               </button>
             </div>
           </div>

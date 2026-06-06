@@ -86,7 +86,7 @@ export default async function Home() {
       <section className="max-w-7xl mx-auto pt-10 pb-12">
         <div className="relative overflow-hidden rounded-[2.5rem] shadow-[0_30px_80px_rgba(0,0,0,0.08)]">
           <img
-            src="https://images.unsplash.com/photo-1524704796725-9fc3044fbb92?auto=format&fit=crop&w=1600&q=80"
+            src="/images/banner-fish.png"
             alt="Banner cá cảnh"
             className="w-full h-96 object-cover"
           />
@@ -102,9 +102,6 @@ export default async function Home() {
                 <Link href="/products" className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-bold text-white">
                   Xem sản phẩm
                 </Link>
-                <a href="tel:0769999295" className="inline-flex items-center gap-2 rounded-full border border-white/30 px-4 py-3 text-sm font-semibold text-white/90">
-                  076 999 9295
-                </a>
               </div>
             </div>
           </div>

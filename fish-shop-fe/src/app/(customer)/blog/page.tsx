@@ -56,9 +56,6 @@ export default async function BlogPage({
         <h1 className="mt-6 text-4xl lg:text-6xl font-black tracking-tight text-primary font-headline leading-tight">
           Bài viết kỹ thuật từ hệ thống
         </h1>
-        <p className="mt-4 max-w-3xl text-on-surface-variant leading-relaxed">
-          Danh sách bài viết được lấy trực tiếp từ cơ sở dữ liệu. Chỉ các bài đã xuất bản mới hiển thị.
-        </p>
         <form className="mt-6 flex flex-wrap items-center gap-3" action="/blog" method="get">
           <div className="relative flex-1 min-w-[240px] max-w-xl">
             <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline">

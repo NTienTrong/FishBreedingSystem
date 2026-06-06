@@ -268,7 +268,7 @@ public class AuthService {
 
     private void ensureActive(User user) {
         if (user.getIsActive() != null && !user.getIsActive()) {
-            throw new BadRequestException("Account is inactive");
+            throw new BadRequestException("Tài khoản đã bị khóa.");
         }
     }
 

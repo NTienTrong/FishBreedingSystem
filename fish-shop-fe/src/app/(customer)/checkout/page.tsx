@@ -100,6 +100,7 @@ export default function CheckoutPage() {
   const batchId = searchParams.get("batchId");
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [profile, setProfile] = useState<CustomerProfile>({});
+  const [addresses, setAddresses] = useState<AddressItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("COD");
@@ -118,6 +119,28 @@ export default function CheckoutPage() {
   const [loadingShippingFee, setLoadingShippingFee] = useState(false);
   const [shippingFeeError, setShippingFeeError] = useState<string | null>(null);
   const [appliedCoupon, setAppliedCoupon] = useState<CouponApplyResponse | null>(null);
+  const [addressModalOpen, setAddressModalOpen] = useState(false);
+  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
+  const [pendingAddressId, setPendingAddressId] = useState<number | null>(null);
+
+  const formatAddress = (addr: AddressItem) =>
+    [addr.streetAddress, addr.wardName, addr.districtName, addr.provinceName]
+      .filter(Boolean)
+      .join(", ");
+
+  const applyAddress = (address: AddressItem) => {
+    setProfile({
+      fullName: address.receiverName,
+      phone: address.phoneNumber,
+      address: address.streetAddress,
+    });
+    setProvinceId(address.provinceId);
+    setProvince(address.provinceName);
+    setDistrictId(address.districtId);
+    setDistrict(address.districtName);
+    setWardCode(address.wardCode);
+    setWard(address.wardName);
+  };
 
   useEffect(() => {
     const loadProvinces = async () => {
@@ -344,19 +367,12 @@ export default function CheckoutPage() {
         const addressResponse = await fetch("/api/customer/addresses", { cache: "no-store" });
         if (addressResponse.ok) {
           const data = (await addressResponse.json()) as AddressItem[];
+          setAddresses(data);
           const defaultAddress = data.find((item) => item.isDefault) ?? data[0];
           if (defaultAddress) {
-            setProfile({
-              fullName: defaultAddress.receiverName,
-              phone: defaultAddress.phoneNumber,
-              address: defaultAddress.streetAddress,
-            });
-            setProvinceId(defaultAddress.provinceId);
-            setProvince(defaultAddress.provinceName);
-            setDistrictId(defaultAddress.districtId);
-            setDistrict(defaultAddress.districtName);
-            setWardCode(defaultAddress.wardCode);
-            setWard(defaultAddress.wardName);
+            setSelectedAddressId(defaultAddress.id);
+            setPendingAddressId(defaultAddress.id);
+            applyAddress(defaultAddress);
           }
         }
       } finally {
@@ -625,14 +641,30 @@ const selectedTotalPrice = useMemo(
         <div className="lg:col-span-7 space-y-6">
           {/* Section 1: Shipping Information */}
           <section className="bg-surface-container-lowest rounded-2xl p-6 md:p-8 shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center">
-                <span className="material-symbols-outlined text-on-primary-fixed text-xl">local_shipping</span>
+            <div className="flex flex-wrap items-center gap-4 mb-6 justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center">
+                  <span className="material-symbols-outlined text-on-primary-fixed text-xl">local_shipping</span>
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-primary">Thông tin người nhận</h2>
+                  <p className="text-xs text-on-surface-variant">Shipper sẽ liên hệ SĐT này để giao hàng</p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-lg font-bold text-primary">Thông tin người nhận</h2>
-                <p className="text-xs text-on-surface-variant">Shipper sẽ liên hệ SĐT này để giao hàng</p>
-              </div>
+              <button
+                className="px-4 py-2 rounded-full border border-outline-variant text-sm font-semibold text-primary hover:bg-surface-container-high transition-colors"
+                type="button"
+                onClick={() => {
+                  if (addresses.length === 0) {
+                    setError("Bạn chưa có địa chỉ trong sổ địa chỉ.");
+                    return;
+                  }
+                  setPendingAddressId(selectedAddressId ?? addresses[0]?.id ?? null);
+                  setAddressModalOpen(true);
+                }}
+              >
+                Thay đổi địa chỉ
+              </button>
             </div>
 
             <div className="space-y-5">
@@ -1018,6 +1050,88 @@ const selectedTotalPrice = useMemo(
           </div>
         </aside>
       </div>
+
+      {addressModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-primary">Chọn địa chỉ giao hàng</h3>
+              <button
+                type="button"
+                className="text-slate-400 hover:text-slate-600"
+                onClick={() => setAddressModalOpen(false)}
+                aria-label="Đóng"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            {addresses.length === 0 ? (
+              <div className="rounded-xl bg-surface-container-low p-4 text-sm text-on-surface-variant">
+                Bạn chưa có địa chỉ nào trong sổ địa chỉ.
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+                {addresses.map((item) => (
+                  <label
+                    key={item.id}
+                    className={`flex items-start gap-3 rounded-xl border p-4 cursor-pointer transition-colors ${
+                      pendingAddressId === item.id
+                        ? "border-primary bg-primary/5"
+                        : "border-outline-variant/40 hover:bg-surface-container-low"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="address"
+                      className="mt-1"
+                      checked={pendingAddressId === item.id}
+                      onChange={() => setPendingAddressId(item.id)}
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-bold text-on-surface">{item.receiverName}</p>
+                        {item.isDefault && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary-container text-secondary font-bold uppercase">
+                            Mặc định
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-on-surface-variant mt-1">{item.phoneNumber}</p>
+                      <p className="text-xs text-on-surface-variant mt-1">{formatAddress(item)}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                className="px-5 py-2 rounded-full border border-outline-variant text-sm font-semibold text-on-surface-variant hover:bg-surface-container-low transition-colors"
+                onClick={() => setAddressModalOpen(false)}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="px-6 py-2 rounded-full bg-primary text-white text-sm font-semibold hover:bg-primary-container transition-colors disabled:opacity-60"
+                disabled={!pendingAddressId}
+                onClick={() => {
+                  const selected = addresses.find((item) => item.id === pendingAddressId);
+                  if (selected) {
+                    setSelectedAddressId(selected.id);
+                    applyAddress(selected);
+                  }
+                  setAddressModalOpen(false);
+                }}
+              >
+                Xác nhận
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

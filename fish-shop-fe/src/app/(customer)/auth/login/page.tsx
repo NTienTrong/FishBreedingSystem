@@ -66,6 +66,10 @@ export default function LoginPage() {
       });
 
       if (result?.error) {
+        var errorMessage = result.error
+        if (result.error == "Account is inactive") {
+          errorMessage = "Tài khoản của bạn đã bị khóa."
+        }
         setError(result.error || "Đăng nhập thất bại.");
         setLoading(false);
         return;
