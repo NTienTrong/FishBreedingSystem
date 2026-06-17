@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
 import { signOut } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCart } from "@/components/customer/cart/CartContext";
@@ -113,7 +113,7 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   VNPAY: "Thanh toán VNPay",
 };
 
-export default function ProfilePage() {
+function ProfilePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { addItem } = useCart();
@@ -1386,5 +1386,13 @@ export default function ProfilePage() {
         cancelLabel="Ở lại"
       />
     </main>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-500">Đang tải hồ sơ...</div>}>
+      <ProfilePageContent />
+    </Suspense>
   );
 }

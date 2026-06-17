@@ -100,7 +100,9 @@ export default function AdminTransactionsPage() {
 
   const filteredTransactions = useMemo(() => {
     const sortedTransactions = [...transactions].sort((a, b) => {
-      const dateDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateDiff = timeB - timeA;
       return dateDiff !== 0 ? dateDiff : b.id - a.id;
     });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCart } from "@/components/customer/cart/CartContext";
 import ApplyCouponInput from "@/components/customer/checkout/ApplyCouponInput";
@@ -93,7 +93,7 @@ const readLocalCartBatches = () => {
   }
 };
 
-export default function CheckoutPage() {
+function CheckoutPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { batches, removeBatches, syncServerCart, clear, hydrated, getBatchById } = useCart();
@@ -1133,5 +1133,13 @@ const selectedTotalPrice = useMemo(
         </div>
       )}
     </main>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-500">Đang tải trang thanh toán...</div>}>
+      <CheckoutPageContent />
+    </Suspense>
   );
 }

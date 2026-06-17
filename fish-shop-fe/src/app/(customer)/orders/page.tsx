@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -48,7 +48,7 @@ const PAYMENT_LABELS: Record<string, string> = {
   REFUNDED: "Đã hoàn tiền",
 };
 
-export default function OrdersPage() {
+function OrdersPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
@@ -340,5 +340,13 @@ export default function OrdersPage() {
         </div>
       )}
     </main>
+  );
+}
+
+export default function OrdersPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-500">Đang tải đơn hàng...</div>}>
+      <OrdersPageContent />
+    </Suspense>
   );
 }
