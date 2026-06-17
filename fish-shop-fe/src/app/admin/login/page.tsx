@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import Link from "next/link";
 import '@/app/globals.css';
 import { useRouter } from "next/navigation";
 
@@ -67,125 +66,137 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="bg-[#0f172a] blueprint-grid min-h-screen flex flex-col font-['Inter'] selection:bg-secondary-container selection:text-on-secondary-container">
-      {/* Main Content */}
-      <main className="grow flex items-center justify-center p-6 md:p-12">
-        <div className="relative w-full max-w-md">
-          {/* Decorative Tech Accents */}
-          <div className="absolute -top-12 -left-12 w-24 h-24 border-t-2 border-l-2 border-primary-fixed-dim/20"></div>
-          <div className="absolute -bottom-12 -right-12 w-24 h-24 border-b-2 border-r-2 border-primary-fixed-dim/20"></div>
+    <div className="relative min-h-screen overflow-hidden bg-slate-950 font-['Inter'] selection:bg-cyan-200 selection:text-slate-900">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-40 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-cyan-500/20 blur-3xl" />
+        <div className="absolute bottom-0 left-0 h-72 w-72 rounded-full bg-teal-400/10 blur-3xl" />
+        <div className="absolute right-0 top-20 h-72 w-72 rounded-full bg-sky-500/10 blur-3xl" />
+      </div>
 
-          {/* Central Card: Flat Design, Sharp Corners */}
-          <div className="bg-surface-container-lowest border border-outline-variant/15 p-10 md:p-14 relative z-10 shadow-2xl">
-
-            {/* Brand & Header */}
-            <div className="flex flex-col items-center mb-10">
-              <div className="w-16 h-16 bg-primary flex items-center justify-center mb-6">
-                <span className="material-symbols-outlined text-surface text-4xl">water_drop</span>
-              </div>
-              <h1 className="font-['Manrope'] font-extrabold text-2xl text-primary tracking-tighter text-center">
-                Hydro-Precision
-              </h1>
-              <span className="font-['Manrope'] font-medium text-on-surface-variant text-sm tracking-widest uppercase mt-2">
-                Quản trị hệ thống
-              </span>
-            </div>
-
-            {/* Login Form */}
-            <form className="space-y-6" onSubmit={handleLogin}>
+      <main className="relative z-10 flex min-h-screen items-center justify-center p-6 md:p-10">
+        <div className="w-full max-w-5xl overflow-hidden rounded-3xl border border-white/10 bg-slate-900/80 shadow-[0_30px_80px_-35px_rgba(6,182,212,0.6)] backdrop-blur-xl">
+          <div className="grid md:grid-cols-2">
+            <section className="relative hidden md:flex flex-col justify-between bg-linear-to-br from-cyan-500/15 via-teal-500/15 to-slate-900 p-10 lg:p-12">
               <div>
-                <label className="block font-['Inter'] text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2" htmlFor="username">
-                  Tên đăng nhập
-                </label>
-                <div className="relative">
-                  <input
-                    className="w-full bg-surface-container-highest border-none focus:ring-2 focus:ring-primary py-4 px-4 font-['Inter'] text-on-surface placeholder:text-outline/50 transition-all duration-200 outline-none"
-                    id="username"
-                    name="username"
-                    placeholder="admin"
-                    required
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                  />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline/40 text-sm">person</span>
+                <div className="mb-8 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-400/20 text-cyan-200 ring-1 ring-cyan-200/30">
+                  <span className="material-symbols-outlined text-3xl">water_drop</span>
+                </div>
+                <p className="text-xs uppercase tracking-[0.22em] text-cyan-100/80">Fish Breeding Control</p>
+                <h1 className="mt-4 font-['Manrope'] text-4xl font-extrabold tracking-tight text-white">
+                  Admin Portal
+                </h1>
+                <p className="mt-5 max-w-sm text-sm leading-7 text-cyan-50/80">
+                  Quản trị dữ liệu sản phẩm, đơn hàng và vận hành hệ thống trong một không gian bảo mật tập trung.
+                </p>
+              </div>
+
+              <div className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-5 text-sm text-cyan-50/80">
+                <p className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-base text-cyan-200">verified_user</span>
+                  Tất cả phiên đăng nhập quản trị đều được kiểm tra quyền ADMIN.
+                </p>
+                <p className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-base text-cyan-200">network_locked</span>
+                  Nhật ký truy cập được theo dõi để đảm bảo an toàn hệ thống.
+                </p>
+              </div>
+            </section>
+
+            <section className="p-7 sm:p-10 lg:p-12">
+              <div className="mb-8 flex items-center gap-3 md:hidden">
+                <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-400/20 text-cyan-200">
+                  <span className="material-symbols-outlined text-2xl">water_drop</span>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-cyan-100/70">Fish Breeding Control</p>
+                  <h1 className="font-['Manrope'] text-2xl font-extrabold tracking-tight text-white">Admin Portal</h1>
                 </div>
               </div>
 
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label className="block font-['Inter'] text-xs font-bold text-on-surface-variant uppercase tracking-wider" htmlFor="password">
+              <div className="mb-8">
+                <h2 className="font-['Manrope'] text-3xl font-extrabold tracking-tight text-white">
+                  Đăng nhập quản trị
+                </h2>
+                <p className="mt-2 text-sm text-slate-300">
+                  Nhập thông tin tài khoản để truy cập trang điều hành hệ thống.
+                </p>
+              </div>
+
+              <form className="space-y-5" onSubmit={handleLogin}>
+                <div>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-slate-300" htmlFor="username">
+                    Tên đăng nhập
+                  </label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">person</span>
+                    <input
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950/70 py-3.5 pl-12 pr-4 text-sm text-white outline-none transition-all placeholder:text-slate-500 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
+                      id="username"
+                      name="username"
+                      placeholder="Nhập tên đăng nhập"
+                      required
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-slate-300" htmlFor="password">
                     Mật khẩu
                   </label>
-                  <Link className="text-[10px] text-secondary hover:text-primary font-bold uppercase transition-colors" href="#">Quên?</Link>
+                  <div className="relative">
+                    <span className="material-symbols-outlined pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">lock</span>
+                    <input
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950/70 py-3.5 pl-12 pr-4 text-sm text-white outline-none transition-all placeholder:text-slate-500 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
+                      id="password"
+                      name="password"
+                      placeholder="••••••••"
+                      required
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                  </div>
                 </div>
-                <div className="relative">
-                  <input
-                    className="w-full bg-surface-container-highest border-none focus:ring-2 focus:ring-primary py-4 px-4 font-['Inter'] text-on-surface placeholder:text-outline/50 transition-all duration-200 outline-none"
-                    id="password"
-                    name="password"
-                    placeholder="••••••••"
-                    required
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline/40 text-sm">lock</span>
-                </div>
-              </div>
 
-              {error && (
-                <div className="text-red-500 text-sm font-medium text-center">
-                  {error}
-                </div>
-              )}
+                {error && (
+                  <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-200">
+                    {error}
+                  </div>
+                )}
 
-              {sessionMessage && !error && (
-                <div className="text-amber-600 text-sm font-medium text-center">
-                  {sessionMessage}
-                </div>
-              )}
+                {sessionMessage && !error && (
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm font-medium text-amber-200">
+                    {sessionMessage}
+                  </div>
+                )}
 
-              <div className="pt-4">
                 <button
-                  className="w-full bg-primary hover:bg-black text-surface font-['Manrope'] font-bold text-sm py-4 px-8 tracking-widest uppercase transition-all duration-300 flex items-center justify-center gap-3 group disabled:opacity-70 disabled:cursor-not-allowed"
+                  className="group mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-linear-to-r from-cyan-500 to-teal-500 px-6 py-3.5 font-['Manrope'] text-sm font-bold uppercase tracking-[0.14em] text-slate-950 transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
                   type="submit"
                   disabled={isLoading}
                 >
-                  {isLoading ? 'Đang xác thực...' : 'Đăng nhập hệ thống'}
-                  {!isLoading && <span className="material-symbols-outlined text-lg group-hover:translate-x-1 transition-transform">arrow_forward</span>}
+                  {isLoading ? "Đang xác thực..." : "Đăng nhập hệ thống"}
+                  {!isLoading && (
+                    <span className="material-symbols-outlined text-lg transition-transform group-hover:translate-x-1">
+                      arrow_forward
+                    </span>
+                  )}
                 </button>
-              </div>
-            </form>
+              </form>
 
-            {/* Security Warning */}
-            <div className="mt-12 pt-8 border-t border-outline-variant/10 flex gap-3">
-              <span className="material-symbols-outlined text-error shrink-0">gpp_maybe</span>
-              <p className="text-[11px] leading-relaxed text-on-surface-variant font-medium">
-                Khu vực dành riêng cho nhân viên. Mọi hành vi truy cập trái phép sẽ bị ghi lại.
-                <span className="block text-[10px] text-outline mt-1 italic">IP: 192.168.1.104 • AES-256 Encrypted</span>
+              <p className="mt-6 text-center text-xs text-slate-500">
+                Khu vực chỉ dành cho nhân sự có thẩm quyền quản trị.
               </p>
-            </div>
-          </div>
-
-          {/* Technical Data Subtext */}
-          <div className="mt-6 flex justify-between items-center text-[10px] text-primary-fixed-dim/40 font-mono tracking-tighter">
-            <span>SYSTEM_STATUS: SECURE</span>
-            <span>HATCHERY_OS v4.2.0</span>
+            </section>
           </div>
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="w-full flex flex-col md:flex-row justify-between items-center px-12 py-4 gap-4 bg-slate-100 dark:bg-slate-900 backdrop-blur-md tonal-transition absolute bottom-0">
-        <div className="font-['Inter'] text-xs font-medium tracking-wide uppercase text-slate-600 dark:text-slate-400 opacity-80">
-          © 2024 Hatchery Management Systems. Secure Admin Access Only.
-        </div>
-        <div className="flex gap-6">
-          <Link className="font-['Inter'] text-xs font-medium tracking-wide uppercase text-slate-500 dark:text-slate-400 hover:text-cyan-700 dark:hover:text-cyan-200 transition-all opacity-80 hover:opacity-100" href="#">Privacy Policy</Link>
-          <Link className="font-['Inter'] text-xs font-medium tracking-wide uppercase text-slate-500 dark:text-slate-400 hover:text-cyan-700 dark:hover:text-cyan-200 transition-all opacity-80 hover:opacity-100" href="#">Terms of Service</Link>
-          <Link className="font-['Inter'] text-xs font-medium tracking-wide uppercase text-slate-500 dark:text-slate-400 hover:text-cyan-700 dark:hover:text-cyan-200 transition-all opacity-80 hover:opacity-100" href="#">Security Protocols</Link>
-        </div>
+      <footer className="relative z-10 pb-6 text-center text-[11px] uppercase tracking-[0.12em] text-slate-500">
+        2026 Fish Breeding System • Secure Admin Access
       </footer>
     </div>
   );

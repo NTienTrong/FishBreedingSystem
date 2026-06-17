@@ -398,22 +398,6 @@ export default function CouponForm({ mode, couponId }: CouponFormProps) {
             </div>
           </section>
         </div>
-
-        <div className="col-span-12 flex justify-end gap-3 pt-2">
-          <Link
-            href="/admin/coupons"
-            className="px-6 py-2.5 rounded-full border border-outline-variant text-primary font-bold text-sm hover:bg-surface-container-low transition-colors"
-          >
-            Hủy
-          </Link>
-          <button
-            className="px-8 py-2.5 rounded-full bg-linear-to-br from-primary to-primary-container text-white font-bold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-100 transition-all disabled:opacity-70 disabled:hover:scale-100"
-            type="submit"
-            disabled={loading || !!errors.fetch}
-          >
-            {loading ? "Đang lưu..." : isEdit ? "Lưu thay đổi" : "Tạo mã giảm giá"}
-          </button>
-        </div>
       </form>
     </div>
   );
