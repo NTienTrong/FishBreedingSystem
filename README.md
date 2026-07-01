@@ -1,171 +1,135 @@
-# Fish Breeding System
+# Fish Breeding System - FishSync
 
-Đây là dự án bán cá giống sử dụng:
-- **Frontend**: Next.js (App Router, TailwindCSS, TypeScript)
-- **Backend**: Spring Boot (Java 17, Spring Data JPA, Lombok)
-- **Database**: PostgreSQL 15
-- **Infrastructure**: Docker & Docker Compose
+Dự án Hệ thống quản lý và bán cá giống **FishSync** bao gồm:
+- **Frontend**: Next.js 14 (App Router, TailwindCSS v4, TypeScript)
+- **Backend**: Spring Boot 3 (Java 17, Spring Data JPA, Redis Cache, Maven)
+- **Database**: PostgreSQL 15 & Redis 7
+- **Tích hợp bên thứ 3**: VNPay Sandbox (Thanh toán), Giao Hàng Nhanh - GHN (Vận chuyển), Google OAuth (Đăng nhập).
 
-## Yêu cầu
+---
 
-- [Docker](https://www.docker.com/) và [Docker Compose](https://docs.docker.com/compose/)
+## 📌 Yêu cầu hệ thống trước khi cài đặt
 
-## Hướng dẫn chạy (Deployment)
+- **Java Development Kit (JDK)**: Phiên bản 17 trở lên
+- **Node.js**: Phiên bản 18 trở lên & **npm**
+- **Maven**: Phiên bản 3.x (hoặc dùng `mvnw` tích hợp sẵn trong backend)
+- **Docker & Docker Compose**: Để chạy nhanh toàn bộ dự án hoặc chạy Database/Redis.
 
-Chạy lệnh sau tại thư mục gốc của dự án (nơi chứa file `docker-compose.yml`):
+---
+
+## 📦 Hướng dẫn sau khi giải nén file ZIP (Nén tối ưu)
+
+Để giảm dung lượng khi nén/gửi file ZIP, các thư mục dependencies và build cache nặng như `node_modules` (ở frontend) và `target` (ở backend) đã được xóa bỏ. Sau khi bạn giải nén file ZIP, hãy thực hiện một trong hai cách dưới đây để hệ thống tự động tải lại các thư viện và chạy chương trình:
+
+---
+
+## 🚀 Cách 1: Khởi chạy nhanh bằng Docker Compose (Không cần tải thư viện thủ công)
+
+Nếu máy của bạn đã cài sẵn **Docker Desktop**, bạn chỉ cần chạy lệnh sau tại thư mục gốc (nơi chứa file `docker-compose.yml`):
 
 ```bash
 docker-compose up --build
 ```
+*Docker sẽ tự động tải toàn bộ dependencies của Maven và npm trong quá trình build container mà bạn không cần chạy lệnh tải thủ công.*
 
-Sau khi các container đã khởi động thành công:
-- **Frontend** sẽ chạy tại: [http://localhost:3000](http://localhost:3000)
-- **Backend (API)** sẽ chạy tại: [http://localhost:8080](http://localhost:8080)
-- **Postgres Database**: `localhost:5432`
+Khi khởi động thành công:
+- **Giao diện Khách hàng (Frontend)**: [http://localhost:3000](http://localhost:3000)
+- **Cổng API (Backend)**: [http://localhost:8080](http://localhost:8080)
+- **PostgreSQL Database**: `localhost:5432` (Username/Password: `postgres`/`postgres`)
+- **Redis Cache**: `localhost:6379`
 
-## Lưu ý phát triển
+---
 
-Khi phát triển (Development):
-- **Frontend**: vào thư mục `frontend` và chạy `npm run dev` (Yêu cầu Node.js).
-- **Backend**: vào thư mục `backend` và chạy bằng Maven hoặc mở bằng IntelliJ IDEA/Eclipse (Dùng cấu hình `application.properties` với `localhost` cho CSDL thay vì `db`).
+## 💻 Cách 2: Khởi chạy môi trường phát triển (Development Mode)
 
-#database
--- ==========================================================
--- 1. NHÓM NGƯỜI DÙNG (USERS)
--- ==========================================================
-CREATE TABLE users (
-    user_id SERIAL PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    full_name VARCHAR(100),
-    email VARCHAR(100) UNIQUE,
-    phone VARCHAR(15),
-    address TEXT,
-    role VARCHAR(20) DEFAULT 'customer', -- 'admin', 'customer'
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+Chạy cơ sở dữ liệu trên Docker và chạy độc lập Backend, Frontend trên môi trường máy local (yêu cầu máy có sẵn JDK 17+, Node.js 18+, Maven).
 
--- ==========================================================
--- 2. NHÓM SẢN PHẨM & THUỘC TÍNH (PRODUCTS & ATTRIBUTES)
--- ==========================================================
-CREATE TABLE categories (
-    category_id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    slug VARCHAR(100) UNIQUE, -- slug để làm URL SEO
-    description TEXT,
-    parent_id INT REFERENCES categories(category_id) -- Danh mục cha/con
-);
+### Bước 1: Khởi động PostgreSQL và Redis
+Tại thư mục gốc của dự án, khởi chạy các container database:
+```bash
+docker-compose up -d db redis
+```
 
-CREATE TABLE products (
-    product_id SERIAL PRIMARY KEY,
-    name VARCHAR(200) NOT NULL,
-    sku VARCHAR(50) UNIQUE, -- Mã định danh sản phẩm (VD: KOI-001)
-    summary TEXT,           -- Mô tả ngắn
-    description TEXT,       -- Mô tả chi tiết (HTML)
-    price DECIMAL(15, 2) NOT NULL,
-    stock_quantity INT DEFAULT 0,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+### Bước 2: Cài đặt và chạy Backend (fish-shop-be)
+1. Di chuyển vào thư mục backend:
+   ```bash
+   cd fish-shop-be
+   ```
+2. Tạo file `.env` tại thư mục `fish-shop-be` (nếu chưa có) và cấu hình các thông số kết nối:
+   ```env
+   # Database
+   DB_URL=jdbc:postgresql://localhost:5432/fish_db
+   DB_USERNAME=postgres
+   DB_PASSWORD=postgres
 
--- Bảng trung gian: Một cá có thể thuộc nhiều danh mục (Cá cảnh, Cá giống, Giảm giá...)
-CREATE TABLE product_category_map (
-    product_id INT REFERENCES products(product_id) ON DELETE CASCADE,
-    category_id INT REFERENCES categories(category_id) ON DELETE CASCADE,
-    PRIMARY KEY (product_id, category_id)
-);
+   # Redis
+   REDIS_HOST=localhost
+   REDIS_PORT=6379
+   REDIS_PASSWORD=
 
--- Bảng quản lý Hình ảnh (Một cá nhiều ảnh)
-CREATE TABLE product_images (
-    image_id SERIAL PRIMARY KEY,
-    product_id INT REFERENCES products(product_id) ON DELETE CASCADE,
-    image_url TEXT NOT NULL,
-    is_main BOOLEAN DEFAULT FALSE, -- Ảnh đại diện chính
-    sort_order INT DEFAULT 0
-);
+   # JWT Secret Key
+   JWT_SECRET=Zmlyc2gtYnJlZWRpbmctc3lzdGVtLXN1cGVyLXNlY3VyZS1qd3Qta2V5LWNoYW5nZS1pbi1wcm9k
 
--- Bảng định nghĩa các thuộc tính sinh học (pH, Nhiệt độ, Độ khó, Thức ăn...)
-CREATE TABLE attributes (
-    attribute_id SERIAL PRIMARY KEY,
-    name VARCHAR(50) NOT NULL
-);
+   # VNPay Configuration (Sandbox)
+   VNPAY_TMN_CODE=TL651GVC
+   VNPAY_HASH_SECRET=JSL6NDM4WVY1YYJR7IDKIFL8I94ZDGMI
+   VNPAY_PAY_URL=https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+   VNPAY_RETURN_URL=http://localhost:8083/api/customer/checkout/vnpay/return
+   VNPAY_FRONTEND_RETURN_URL=http://localhost:3001/checkout/vnpay-return
+   ```
+3. Biên dịch và chạy ứng dụng Spring Boot:
+   ```bash
+   # Lệnh này tự động tải tất cả các thư viện trong pom.xml (nếu chưa có) và khởi động Backend
+   mvn spring-boot:run
+   ```
+   *Backend chạy ở chế độ dev local tại cổng:* **`http://localhost:8083`**
 
--- Bảng trung gian: Giá trị thuộc tính cụ thể cho từng sản phẩm (Phục vụ AI gợi ý)
-CREATE TABLE product_attribute_values (
-    product_id INT REFERENCES products(product_id) ON DELETE CASCADE,
-    attribute_id INT REFERENCES attributes(attribute_id) ON DELETE CASCADE,
-    attr_value VARCHAR(255) NOT NULL, -- Ví dụ: '6.5 - 7.5'
-    PRIMARY KEY (product_id, attribute_id)
-);
+---
 
--- ==========================================================
--- 3. NHÓM ĐẶT HÀNG & GIỎ HÀNG (ORDERS & CART)
--- ==========================================================
+### Bước 3: Cài đặt và chạy Frontend (fish-shop-fe)
+1. Di chuyển vào thư mục frontend:
+   ```bash
+   cd ../fish-shop-fe
+   ```
+2. Tạo file `.env.local` tại thư mục `fish-shop-fe` (nếu chưa có) và cấu hình kết nối tới API Backend và NextAuth:
+   ```env
+   NEXT_PUBLIC_API_URL=http://localhost:8083
+   NEXTAUTH_URL=http://localhost:3001
+   NEXTAUTH_SECRET=FishSyncSecretKey2026MienPhiHoanToan
 
--- Bảng trung gian: Giỏ hàng (Cart)
-CREATE TABLE cart_items (
-    cart_id SERIAL PRIMARY KEY,
-    user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
-    product_id INT REFERENCES products(product_id) ON DELETE CASCADE,
-    quantity INT DEFAULT 1,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+   # Đăng nhập Google (Tùy chọn)
+   GOOGLE_CLIENT_ID=your_google_client_id_here
+   GOOGLE_CLIENT_SECRET=your_google_client_secret_here
+   ```
+3. Cài đặt các thư viện phụ thuộc:
+   ```bash
+   # Tải và cài đặt toàn bộ thư viện trong package.json vào thư mục node_modules
+   npm install
+   ```
+4. Khởi chạy Next.js ở chế độ phát triển:
+   ```bash
+   # Khởi chạy Next.js dev server
+   npm run dev
+   ```
+   *Frontend chạy ở chế độ dev local tại cổng:* **`http://localhost:3001`**
 
-CREATE TABLE orders (
-    order_id SERIAL PRIMARY KEY,
-    user_id INT REFERENCES users(user_id) ON DELETE SET NULL,
-    order_code VARCHAR(50) UNIQUE NOT NULL, -- Mã đơn hàng cho VNPay
-    
-    total_amount DECIMAL(15, 2) NOT NULL,
-    order_status VARCHAR(20) DEFAULT 'pending', -- pending, confirmed, shipping, completed, cancelled
-    
-    -- Thông tin giao hàng tại thời điểm đặt (tránh thay đổi theo profile)
-    recipient_name VARCHAR(100) NOT NULL,
-    recipient_phone VARCHAR(15) NOT NULL,
-    shipping_address TEXT NOT NULL,
-    order_note TEXT,
-    
-    payment_method VARCHAR(20) DEFAULT 'VNPAY',
-    payment_status INT DEFAULT 0, -- 0: Chờ, 1: Thành công, 2: Lỗi
-    
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+---
 
--- Bảng trung gian: Chi tiết đơn hàng (Order Items)
-CREATE TABLE order_items (
-    order_id INT REFERENCES orders(order_id) ON DELETE CASCADE,
-    product_id INT REFERENCES products(product_id),
-    quantity INT NOT NULL,
-    price_at_purchase DECIMAL(15, 2) NOT NULL, -- Lưu giá lúc mua
-    PRIMARY KEY (order_id, product_id)
-);
+## 🛠️ Cấu hình Tích hợp bên thứ 3 (Ví dụ & Chạy thử)
 
--- ==========================================================
--- 4. NHÓM THANH TOÁN VNPAY (PAYMENTS)
--- ==========================================================
-CREATE TABLE vnpay_transactions (
-    vnpay_id SERIAL PRIMARY KEY,
-    order_id INT REFERENCES orders(order_id) ON DELETE CASCADE,
-    vnp_txn_ref VARCHAR(50),      -- Mã tham chiếu gửi đi
-    vnp_transaction_no VARCHAR(50), -- Mã giao dịch VNPay trả về
-    vnp_response_code VARCHAR(10),  -- 00 là thành công
-    vnp_amount DECIMAL(15, 2),
-    vnp_bank_code VARCHAR(20),
-    vnp_pay_date TIMESTAMP,
-    vnp_raw_response JSONB,         -- Lưu log toàn bộ phản hồi từ VNPay
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+### 1. Thanh toán qua VNPay Sandbox
+- Bạn có thể thực hiện thanh toán thử nghiệm bằng thẻ test của VNPay Sandbox.
+- **Danh sách thẻ test**: [Tài liệu VNPay Sandbox](https://sandbox.vnpayment.vn/apis/list-web-sandbox/)
+  - *Ngân hàng*: NCB
+  - *Số thẻ*: `9704198526191432119`
+  - *Tên chủ thẻ*: `NGUYEN VAN A`
+  - *Ngày phát hành*: `07/15`
+  - *Mã OTP*: `123456`
 
--- ==========================================================
--- 5. NHÓM NỘI DUNG & BLOG (CMS)
--- ==========================================================
-CREATE TABLE blog_posts (
-    post_id SERIAL PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
-    slug VARCHAR(255) UNIQUE,
-    content TEXT NOT NULL,
-    thumbnail_url TEXT,
-    author_id INT REFERENCES users(user_id),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+### 2. Giao Hàng Nhanh (GHN) API
+- Dự án sử dụng API của GHN để tính toán phí vận chuyển tự động dựa trên địa chỉ (Tỉnh/Quận/Phường).
+- Mã Token và Shop ID test đã được cấu hình mặc định sẵn trong file `.env` của Backend.
+
+---
+
+
