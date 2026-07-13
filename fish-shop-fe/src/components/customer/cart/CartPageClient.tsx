@@ -178,7 +178,7 @@ export default function CartPageClient() {
               <span className="material-symbols-outlined">arrow_back</span>
               Tiếp tục mua sắm
             </Link>
-            <div className="flex gap-4 w-full md:w-auto">
+            {/* <div className="flex gap-4 w-full md:w-auto">
               <div className="relative flex-grow">
                 <input
                   className="w-full md:w-64 bg-surface-container-highest border-none rounded-full px-6 py-3 text-sm focus:ring-2 focus:ring-primary/20 placeholder:text-on-surface-variant/50"
@@ -189,7 +189,7 @@ export default function CartPageClient() {
               <button className="bg-secondary-container text-on-secondary-container px-8 py-3 rounded-full font-bold text-sm hover:brightness-95 transition-all">
                 Áp dụng
               </button>
-            </div>
+            </div> */}
           </div>
         </div>
 
@@ -203,7 +203,7 @@ export default function CartPageClient() {
                 <span className="font-bold">{currency.format(totalPrice)}</span>
               </div>
               <div className="flex justify-between items-center text-on-surface-variant">
-                <span className="font-medium text-xs">Phí vận chuyển <br/><span className="text-[10px] opacity-70">(Tính lại khi thanh toán)</span></span>
+                <span className="font-medium text-xs">Phí vận chuyển <br /><span className="text-[10px] opacity-70">(Tính lại khi thanh toán)</span></span>
                 <span className="font-bold">Tùy quận huyện</span>
               </div>
               <div className="flex justify-between items-center text-secondary">

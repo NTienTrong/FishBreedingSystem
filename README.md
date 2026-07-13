@@ -34,7 +34,7 @@ docker-compose up --build
 
 Khi khởi động thành công:
 - **Giao diện Khách hàng (Frontend)**: [http://localhost:3000](http://localhost:3000)
-- **Cổng API (Backend)**: [http://localhost:8080](http://localhost:8080)
+- **Cổng API (Backend)**: [http://localhost:8083](http://localhost:8083)
 - **PostgreSQL Database**: `localhost:5432` (Username/Password: `postgres`/`postgres`)
 - **Redis Cache**: `localhost:6379`
 

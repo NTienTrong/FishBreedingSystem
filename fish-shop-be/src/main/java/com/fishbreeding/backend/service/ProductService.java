@@ -84,8 +84,42 @@ public class ProductService {
         return toResponse(product);
     }
 
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "activeProducts")
+    public List<ProductResponse> getActiveProducts() {
+        List<Product> products = productRepository.findByIsActiveTrueOrderByIdAsc();
+        if (products.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> productIds = products.stream().map(Product::getId).toList();
+
+        Map<Long, List<ProductImage>> imagesByProduct = productImageRepository
+            .findByProduct_IdInOrderBySortOrderAscIdAsc(productIds)
+            .stream()
+            .collect(Collectors.groupingBy(image -> image.getProduct().getId()));
+
+        Map<Long, List<ProductAttributeValue>> attributesByProduct = productAttributeValueRepository
+            .findByProduct_IdInOrderByAttribute_IdAsc(productIds)
+            .stream()
+            .collect(Collectors.groupingBy(value -> value.getProduct().getId()));
+
+        return products.stream()
+            .map(product -> toResponse(product, imagesByProduct, attributesByProduct))
+            .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public ProductResponse getActiveProductById(Long id) {
+        ProductResponse response = getProductById(id);
+        if (response.getIsActive() == null || !response.getIsActive()) {
+            throw new NotFoundException("Product not found or inactive");
+        }
+        return response;
+    }
+
     @Transactional
-    @CacheEvict(cacheNames = {"products", "productById"}, allEntries = true)
+    @CacheEvict(cacheNames = {"products", "productById", "activeProducts"}, allEntries = true)
     public ProductResponse createProduct(ProductRequest request) {
         String name = request.getName().trim();
         String slug = buildUniqueSlug(name, null);
@@ -99,6 +133,7 @@ public class ProductService {
                 .summary(trimToNull(request.getSummary()))
                 .description(trimToNull(request.getDescription()))
                 .price(request.getPrice())
+                .costPrice(request.getCostPrice())
             .stockQuantity(defaultStockQuantity(request.getStockQuantity()))
             .isActive(defaultIsActive(request.getIsActive()))
                 .categories(categories)
@@ -116,7 +151,7 @@ public class ProductService {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = {"products", "productById"}, allEntries = true)
+    @CacheEvict(cacheNames = {"products", "productById", "activeProducts"}, allEntries = true)
     public ProductResponse updateProduct(Long id, ProductRequest request) {
         productValidator.validateId(id);
 
@@ -138,7 +173,10 @@ public class ProductService {
         product.setSummary(trimToNull(request.getSummary()));
         product.setDescription(trimToNull(request.getDescription()));
         product.setPrice(request.getPrice());
-        product.setStockQuantity(defaultStockQuantity(request.getStockQuantity()));
+        product.setCostPrice(request.getCostPrice());
+        if (request.getStockQuantity() != null) {
+            product.setStockQuantity(request.getStockQuantity());
+        }
         product.setIsActive(defaultIsActive(request.getIsActive()));
         product.setCategories(resolveCategories(request.getCategoryIds()));
 
@@ -151,7 +189,7 @@ public class ProductService {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = {"products", "productById"}, allEntries = true)
+    @CacheEvict(cacheNames = {"products", "productById", "activeProducts"}, allEntries = true)
     public void deleteProduct(Long id) {
         productValidator.validateId(id);
 
@@ -220,6 +258,7 @@ public class ProductService {
                 .summary(product.getSummary())
                 .description(product.getDescription())
                 .price(product.getPrice())
+                .costPrice(product.getCostPrice())
                 .stockQuantity(product.getStockQuantity())
                 .isActive(product.getIsActive())
                 .createdAt(product.getCreatedAt())

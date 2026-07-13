@@ -14,4 +14,7 @@ public class InventoryExportRequest {
     private Integer quantity;
 
     private String reason;
+    private String recipientName;
+    private String phone;
+    private String address;
 }

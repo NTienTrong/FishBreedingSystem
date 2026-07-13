@@ -215,6 +215,7 @@ export default function AdminProductsPage() {
                 <th className="px-8 py-5">Tên cá</th>
                 <th className="px-8 py-5">Hình ảnh</th>
                 <th className="px-8 py-5">Danh mục</th>
+                <th className="px-8 py-5">Giá nhập</th>
                 <th className="px-8 py-5">Giá bán</th>
                 <th className="px-8 py-5">Số lượng</th>
                 <th className="px-8 py-5">Trạng thái</th>
@@ -224,11 +225,11 @@ export default function AdminProductsPage() {
             <tbody className="divide-y divide-outline-variant/5">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-10">Đang tải...</td>
+                  <td colSpan={8} className="text-center py-10">Đang tải...</td>
                 </tr>
               ) : filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-10">Chưa có sản phẩm nào.</td>
+                  <td colSpan={8} className="text-center py-10">Chưa có sản phẩm nào.</td>
                 </tr>
               ) : (
                 pagedProducts.map((product) => {
@@ -257,6 +258,9 @@ export default function AdminProductsPage() {
                       </td>
                       <td className="px-8 py-4 text-sm text-slate-500">
                         {product.categories.length ? product.categories.map((cat) => cat.name).join(", ") : "-"}
+                      </td>
+                      <td className="px-8 py-4 font-semibold text-slate-600">
+                        {product.costPrice ? currency.format(product.costPrice) : "-"}
                       </td>
                       <td className="px-8 py-4 font-semibold text-secondary">{currency.format(product.price)}</td>
                       <td className="px-8 py-4 text-sm text-slate-600">{product.stockQuantity ?? 0}</td>
@@ -367,7 +371,8 @@ export default function AdminProductsPage() {
             <div className="rounded-2xl border border-slate-200 bg-white">
               {renderDetailItem("ID", `#${detailTarget.id}`)}
               {renderDetailItem("SKU", detailTarget.sku || "-")}
-              {renderDetailItem("Giá", currency.format(detailTarget.price))}
+              {renderDetailItem("Giá nhập", detailTarget.costPrice ? currency.format(detailTarget.costPrice) : "-")}
+              {renderDetailItem("Giá bán", currency.format(detailTarget.price))}
               {renderDetailItem("Tồn kho", detailTarget.stockQuantity)}
               {renderDetailItem("Trạng thái", detailTarget.isActive ? "Đang kinh doanh" : "Ngừng kinh doanh")}
               {renderDetailItem("Ngày tạo", detailTarget.createdAt ? dateTimeFormatter.format(new Date(detailTarget.createdAt)) : "-")}

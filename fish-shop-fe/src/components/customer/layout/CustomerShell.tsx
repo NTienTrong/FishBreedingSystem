@@ -7,6 +7,7 @@ import Footer from "@/components/customer/layout/Footer";
 import FloatingChatbox from "@/components/customer/chat/FloatingChatbox";
 import ToastMessage from "@/components/common/ToastMessage";
 import { CartProvider } from "@/components/customer/cart/CartContext";
+import { WishlistProvider } from "@/components/customer/wishlist/WishlistContext";
 
 const WELCOME_MESSAGE_KEY = "welcomeMessage";
 
@@ -37,13 +38,15 @@ export default function CustomerShell({ children }: { children: React.ReactNode 
 
   return (
     <CartProvider>
-      <div className="flex flex-col min-h-screen bg-background text-on-background font-body selection:bg-secondary-container">
-        <Header />
-        <div className="grow pt-24">{children}</div>
-        <Footer />
-        <FloatingChatbox />
-        <ToastMessage show={Boolean(toastMessage)} message={toastMessage ?? ""} variant="success" />
-      </div>
+      <WishlistProvider>
+        <div className="flex flex-col min-h-screen bg-background text-on-background font-body selection:bg-secondary-container">
+          <Header />
+          <div className="grow pt-24">{children}</div>
+          <Footer />
+          <FloatingChatbox />
+          <ToastMessage show={Boolean(toastMessage)} message={toastMessage ?? ""} variant="success" />
+        </div>
+      </WishlistProvider>
     </CartProvider>
   );
 }

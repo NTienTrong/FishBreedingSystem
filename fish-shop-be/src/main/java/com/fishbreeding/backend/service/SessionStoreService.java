@@ -2,6 +2,7 @@ package com.fishbreeding.backend.service;
 
 import java.time.Duration;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -13,13 +14,16 @@ public class SessionStoreService {
     private static final Duration CUSTOMER_TTL = Duration.ofDays(3);
 
     private final StringRedisTemplate redisTemplate;
+    private final boolean enabled;
 
-    public SessionStoreService(StringRedisTemplate redisTemplate) {
+    public SessionStoreService(StringRedisTemplate redisTemplate,
+                               @Value("${app.session.store.enabled:true}") boolean enabled) {
         this.redisTemplate = redisTemplate;
+        this.enabled = enabled;
     }
 
     public void registerSession(String token, String role, String username) {
-        if (!StringUtils.hasText(token)) {
+        if (!enabled || !StringUtils.hasText(token)) {
             return;
         }
 
@@ -30,6 +34,9 @@ public class SessionStoreService {
     }
 
     public boolean isSessionActive(String token, String role) {
+        if (!enabled) {
+            return true;
+        }
         if (!StringUtils.hasText(token)) {
             return false;
         }
@@ -41,7 +48,7 @@ public class SessionStoreService {
     }
 
     public void refreshSession(String token, String role) {
-        if (!StringUtils.hasText(token)) {
+        if (!enabled || !StringUtils.hasText(token)) {
             return;
         }
 
@@ -51,7 +58,7 @@ public class SessionStoreService {
     }
 
     public void revokeSession(String token, String role) {
-        if (!StringUtils.hasText(token)) {
+        if (!enabled || !StringUtils.hasText(token)) {
             return;
         }
 

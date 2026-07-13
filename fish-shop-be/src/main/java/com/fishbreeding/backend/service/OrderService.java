@@ -35,6 +35,10 @@ public class OrderService {
         Order order = orderRepository.findWithUserById(orderId)
             .orElseThrow(() -> new BadRequestException("Order not found"));
 
+        if (org.springframework.util.StringUtils.hasText(ghnOrderCode)) {
+            order.setGhnOrderCode(ghnOrderCode.trim());
+        }
+
         OrderStatus currentStatus = order.getOrderStatus();
         if (currentStatus == OrderStatus.PENDING_PAYMENT || currentStatus == OrderStatus.PENDING_REFUND) {
             throw new BadRequestException("Đơn đang chờ thanh toán/hoàn tiền, không thể thao tác.");

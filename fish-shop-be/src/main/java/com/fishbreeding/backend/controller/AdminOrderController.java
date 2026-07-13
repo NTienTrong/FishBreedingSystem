@@ -92,6 +92,7 @@ public class AdminOrderController {
         return AdminOrderResponse.builder()
             .id(order.getId())
             .orderCode(order.getOrderCode())
+            .ghnOrderCode(order.getGhnOrderCode())
             .orderStatus(order.getOrderStatus())
             .paymentStatus(order.getPaymentStatus())
             .paymentMethod(order.getPaymentMethod())

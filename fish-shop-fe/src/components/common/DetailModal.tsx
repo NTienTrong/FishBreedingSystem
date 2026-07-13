@@ -31,10 +31,10 @@ export default function DetailModal({ isOpen, title, subtitle, onClose, children
   }
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center px-4">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center px-4 detail-modal-backdrop-container">
       <button
         aria-label="Đóng"
-        className="absolute inset-0 bg-slate-950/55"
+        className="absolute inset-0 bg-slate-950/55 detail-modal-backdrop"
         onClick={onClose}
         type="button"
       />
@@ -43,9 +43,9 @@ export default function DetailModal({ isOpen, title, subtitle, onClose, children
         role="dialog"
         aria-modal="true"
         aria-labelledby="detail-modal-title"
-        className="relative w-full max-w-4xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+        className="relative w-full max-w-4xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl detail-modal-content-container"
       >
-        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5 detail-modal-header">
           <div>
             <h3 id="detail-modal-title" className="text-lg font-extrabold text-slate-900">
               {title}
@@ -55,14 +55,14 @@ export default function DetailModal({ isOpen, title, subtitle, onClose, children
           <button
             type="button"
             onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 no-print"
             aria-label="Đóng"
           >
             <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
         </div>
 
-        <div className="max-h-[70vh] overflow-y-auto px-6 py-5">
+        <div className="max-h-[70vh] overflow-y-auto px-6 py-5 detail-modal-body">
           {children}
         </div>
       </div>

@@ -11,6 +11,18 @@ type BackendAuthPayload = {
 };
 
 const handler = NextAuth({
+  secret: process.env.NEXTAUTH_SECRET,
+  logger: {
+    error(code, metadata) {
+      console.error("[next-auth][error]", code, metadata);
+    },
+    warn(code) {
+      console.warn("[next-auth][warn]", code);
+    },
+    debug(code, metadata) {
+      console.log("[next-auth][debug]", code, metadata);
+    }
+  },
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -51,6 +63,13 @@ const handler = NextAuth({
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+      authorization: {
+        params: {
+          prompt: "select_account",
+          access_type: "offline",
+          response_type: "code"
+        }
+      }
     }),
   ],
   session: { strategy: "jwt" },

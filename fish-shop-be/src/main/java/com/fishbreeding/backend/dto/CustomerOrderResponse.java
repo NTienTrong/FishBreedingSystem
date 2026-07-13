@@ -20,10 +20,13 @@ import lombok.NoArgsConstructor;
 public class CustomerOrderResponse {
     private Long id;
     private String orderCode;
+    private String ghnOrderCode;
     private OrderStatus orderStatus;
     private PaymentMethod paymentMethod;
     private PaymentStatus paymentStatus;
     private BigDecimal totalAmount;
     private LocalDateTime createdAt;
+    private java.math.BigDecimal latitude;
+    private java.math.BigDecimal longitude;
     private List<CustomerOrderItemResponse> items;
 }

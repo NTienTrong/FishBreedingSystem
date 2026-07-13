@@ -266,19 +266,30 @@ export default function CategoryListPage() {
                         {cat.imageUrl ? (
                           <div className="flex items-center gap-2">
                             <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-gray-100">
-                              <Image
+                              <img
                                 src={cat.imageUrl}
                                 alt={cat.name}
-                                fill
-                                className="object-cover"
+                                className="h-12 w-12 rounded-xl object-cover border border-slate-200"
                               />
                             </div>
                           </div>
                         ) : (
                           <span className="text-xs text-slate-400">Không có ảnh</span>
                         )}
+                        {/* </td>
+                        <td className="px-8 py-4">
+                        {cat.imageUrl ? (
+                          <img
+                            src={cat.imageUrl}
+                            alt={cat.name}
+                            className="h-12 w-12 rounded-xl object-cover border border-slate-200"
+                          />
+                        ) : (
+                          <div className="h-12 w-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400">
+                            <span className="material-symbols-outlined text-[18px]">image</span>
+                          </div>
+                        )} */}
                       </td>
-
                       {/* Tên */}
                       <td className="px-8 py-4">
                         <span className="font-bold text-on-surface">{cat.name}</span>

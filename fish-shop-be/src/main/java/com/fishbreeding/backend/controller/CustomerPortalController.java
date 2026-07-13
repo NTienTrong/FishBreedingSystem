@@ -42,6 +42,7 @@ import com.fishbreeding.backend.entity.UserAddress;
 import com.fishbreeding.backend.entity.WishlistItem;
 import com.fishbreeding.backend.exception.BadRequestException;
 import com.fishbreeding.backend.repository.CartItemRepository;
+import com.fishbreeding.backend.service.GhnLocationService;
 import com.fishbreeding.backend.repository.OrderRepository;
 import com.fishbreeding.backend.repository.ProductAttributeValueRepository;
 import com.fishbreeding.backend.repository.ProductImageRepository;
@@ -67,6 +68,7 @@ public class CustomerPortalController {
     private final WishlistItemRepository wishlistItemRepository;
     private final UserAddressRepository userAddressRepository;
     private final CartItemRepository cartItemRepository;
+    private final GhnLocationService ghnLocationService;
 
     @GetMapping("/orders")
     public ResponseEntity<List<CustomerOrderResponse>> listOrders(java.security.Principal principal) {
@@ -130,6 +132,35 @@ public class CustomerPortalController {
         return ResponseEntity.ok(detailResponse);
     }
 
+    @GetMapping("/orders/{orderCode}/tracking")
+    public ResponseEntity<?> getOrderTracking(java.security.Principal principal, @PathVariable String orderCode) {
+        User user = requireUser(principal);
+        Order order = orderRepository.findWithUserByOrderCode(orderCode)
+                .orElseThrow(() -> new BadRequestException("Order not found"));
+
+        if (!order.getUser().getId().equals(user.getId())) {
+            throw new BadRequestException("Unauthorized");
+        }
+
+        String ghnOrderCode = order.getGhnOrderCode();
+        if (!StringUtils.hasText(ghnOrderCode)) {
+            return ResponseEntity.ok(java.util.Map.of(
+                "orderCode", order.getOrderCode(),
+                "status", order.getOrderStatus().toString(),
+                "ghnOrderCode", "",
+                "trackingData", java.util.Map.of("message", "Đơn hàng chưa được bàn giao cho đơn vị vận chuyển GHN.")
+            ));
+        }
+
+        Object ghnDetail = ghnLocationService.getOrderTrackingDetail(ghnOrderCode);
+        return ResponseEntity.ok(java.util.Map.of(
+            "orderCode", order.getOrderCode(),
+            "status", order.getOrderStatus().toString(),
+            "ghnOrderCode", ghnOrderCode,
+            "trackingData", ghnDetail != null ? ghnDetail : java.util.Map.of()
+        ));
+    }
+
     @GetMapping("/fish-records")
     public ResponseEntity<List<CustomerFishRecordResponse>> listFishRecords(java.security.Principal principal) {
         User user = requireUser(principal);
@@ -178,6 +209,7 @@ public class CustomerPortalController {
             responses.add(CustomerWishlistItemResponse.builder()
                     .productId(product.getId())
                     .name(product.getName())
+                    .slug(product.getSlug())
                     .sku(product.getSku())
                     .price(product.getPrice())
                     .stockQuantity(product.getStockQuantity())
@@ -210,6 +242,7 @@ public class CustomerPortalController {
         return ResponseEntity.ok(CustomerWishlistItemResponse.builder()
                 .productId(item.getProduct().getId())
                 .name(item.getProduct().getName())
+                .slug(item.getProduct().getSlug())
                 .sku(item.getProduct().getSku())
                 .price(item.getProduct().getPrice())
                 .stockQuantity(item.getProduct().getStockQuantity())
@@ -504,11 +537,14 @@ public class CustomerPortalController {
         return CustomerOrderResponse.builder()
                 .id(order.getId())
                 .orderCode(order.getOrderCode())
+                .ghnOrderCode(order.getGhnOrderCode())
                 .orderStatus(order.getOrderStatus())
             .paymentMethod(order.getPaymentMethod())
             .paymentStatus(order.getPaymentStatus())
                 .totalAmount(order.getTotalAmount())
                 .createdAt(order.getCreatedAt())
+                .latitude(order.getLatitude())
+                .longitude(order.getLongitude())
                 .items(itemResponses)
                 .build();
     }

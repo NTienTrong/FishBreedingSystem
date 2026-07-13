@@ -19,15 +19,78 @@ const dateTimeFormatter = new Intl.DateTimeFormat("vi-VN", {
   timeStyle: "short",
 });
 
+type ParsedReason = {
+  recipientName: string;
+  phone: string;
+  address: string;
+  reason: string;
+};
+
+const parseInvoiceReason = (reasonStr: string | null): ParsedReason => {
+  if (!reasonStr) {
+    return { recipientName: "Khách lẻ tại cửa hàng", phone: "-", address: "-", reason: "-" };
+  }
+  try {
+    const trimmed = reasonStr.trim();
+    if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+      const parsed = JSON.parse(trimmed);
+      return {
+        recipientName: parsed.recipientName || "Khách lẻ tại cửa hàng",
+        phone: parsed.phone || "-",
+        address: parsed.address || "-",
+        reason: parsed.reason || "-",
+      };
+    }
+  } catch (e) {
+    // Fallback if not JSON
+  }
+
+  if (reasonStr.includes("|")) {
+    const parts = reasonStr.split("|").map(p => p.trim());
+    const data: any = {};
+    parts.forEach(part => {
+      const colonIndex = part.indexOf(":");
+      if (colonIndex !== -1) {
+        const key = part.slice(0, colonIndex).trim().toLowerCase();
+        const value = part.slice(colonIndex + 1).trim();
+        if (key.includes("khách") || key.includes("tên")) data.recipientName = value;
+        else if (key.includes("sđt") || key.includes("điện thoại")) data.phone = value;
+        else if (key.includes("địa chỉ")) data.address = value;
+        else if (key.includes("lý do") || key.includes("reason")) data.reason = value;
+      }
+    });
+    return {
+      recipientName: data.recipientName || "Khách lẻ tại cửa hàng",
+      phone: data.phone || "-",
+      address: data.address || "-",
+      reason: data.reason || reasonStr,
+    };
+  }
+
+  return {
+    recipientName: "Khách lẻ tại cửa hàng",
+    phone: "-",
+    address: "-",
+    reason: reasonStr,
+  };
+};
+
 type RestockFormState = {
   productId: string;
   quantity: string;
+  costPrice: string;
+  supplierName: string;
+  phone: string;
+  address: string;
   reason: string;
 };
 
 type ExportFormState = {
   productId: string;
   quantity: string;
+  recipientName: string;
+  phone: string;
+  address: string;
   reason: string;
 };
 
@@ -43,16 +106,25 @@ export default function AdminInventoryPage() {
   const [loadingLogs, setLoadingLogs] = useState(true);
   const [isRestockOpen, setIsRestockOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<StockLogResponse | null>(null);
+  const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
   const [restockLockedId, setRestockLockedId] = useState<number | null>(null);
   const [exportLockedId, setExportLockedId] = useState<number | null>(null);
   const [restockForm, setRestockForm] = useState<RestockFormState>({
     productId: "",
     quantity: "",
+    costPrice: "",
+    supplierName: "",
+    phone: "",
+    address: "",
     reason: "",
   });
   const [exportForm, setExportForm] = useState<ExportFormState>({
     productId: "",
     quantity: "",
+    recipientName: "",
+    phone: "",
+    address: "",
     reason: "",
   });
   const [submitting, setSubmitting] = useState(false);
@@ -160,6 +232,10 @@ export default function AdminInventoryPage() {
     setRestockForm({
       productId: product ? String(product.id) : products[0] ? String(products[0].id) : "",
       quantity: "",
+      costPrice: product?.costPrice ? String(product.costPrice) : "",
+      supplierName: "",
+      phone: "",
+      address: "",
       reason: "",
     });
     setRestockLockedId(product ? product.id : null);
@@ -170,6 +246,9 @@ export default function AdminInventoryPage() {
     setExportForm({
       productId: product ? String(product.id) : products[0] ? String(products[0].id) : "",
       quantity: "",
+      recipientName: "",
+      phone: "",
+      address: "",
       reason: "",
     });
     setExportLockedId(product ? product.id : null);
@@ -180,25 +259,32 @@ export default function AdminInventoryPage() {
     event.preventDefault();
     const quantity = Number(restockForm.quantity);
     const productId = Number(restockForm.productId);
+    const costPrice = Number(restockForm.costPrice);
 
-    if (!productId || Number.isNaN(quantity) || quantity <= 0) {
-      showToast("Vui lòng nhập sản phẩm và số lượng hợp lệ.", "error");
+    if (!productId || Number.isNaN(quantity) || quantity <= 0 || Number.isNaN(costPrice) || costPrice < 0) {
+      showToast("Vui lòng nhập sản phẩm, số lượng và giá nhập hợp lệ.", "error");
       return;
     }
 
     const payload: InventoryRestockRequest = {
       productId,
       quantity,
-      reason: restockForm.reason.trim() ? restockForm.reason.trim() : null,
+      costPrice,
+      supplierName: restockForm.supplierName.trim() || "Nhà cung cấp lẻ",
+      phone: restockForm.phone.trim() || "-",
+      address: restockForm.address.trim() || "-",
+      reason: restockForm.reason.trim() || "Nhập hàng vào kho",
     };
 
     try {
       setSubmitting(true);
-      await InventoryService.restock(payload);
+      const newLog = await InventoryService.restock(payload);
       showToast("Nhập kho thành công.", "success");
       setIsRestockOpen(false);
       fetchProducts();
       fetchLogs();
+      setSelectedInvoice(newLog);
+      setIsInvoiceOpen(true);
     } catch (error) {
       console.error(error);
       showToast("Nhập kho thất bại.", "error");
@@ -220,16 +306,21 @@ export default function AdminInventoryPage() {
     const payload: InventoryExportRequest = {
       productId,
       quantity,
-      reason: exportForm.reason.trim() ? exportForm.reason.trim() : null,
+      recipientName: exportForm.recipientName.trim() || "Khách lẻ tại cửa hàng",
+      phone: exportForm.phone.trim() || "-",
+      address: exportForm.address.trim() || "-",
+      reason: exportForm.reason.trim() || "Xuất kho bán lẻ",
     };
 
     try {
       setSubmitting(true);
-      await InventoryService.exportStock(payload);
+      const newLog = await InventoryService.exportStock(payload);
       showToast("Xuất kho thành công.", "success");
       setIsExportOpen(false);
       fetchProducts();
       fetchLogs();
+      setSelectedInvoice(newLog);
+      setIsInvoiceOpen(true);
     } catch (error) {
       console.error(error);
       showToast("Xuất kho thất bại.", "error");
@@ -440,18 +531,19 @@ export default function AdminInventoryPage() {
                   <th className="px-6 py-4">Số lượng</th>
                   <th className="px-6 py-4">Ghi chú</th>
                   <th className="px-6 py-4">Giá vốn</th>
+                  <th className="px-6 py-4 text-right">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-outline-variant/10">
                 {loadingLogs ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-10 text-center text-slate-500">
+                    <td colSpan={7} className="px-6 py-10 text-center text-slate-500">
                       Đang tải dữ liệu...
                     </td>
                   </tr>
                 ) : logs.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-10 text-center text-slate-500">
+                    <td colSpan={7} className="px-6 py-10 text-center text-slate-500">
                       Chưa có lịch sử biến động.
                     </td>
                   </tr>
@@ -473,9 +565,34 @@ export default function AdminInventoryPage() {
                         <td className={`px-6 py-4 text-sm font-bold ${quantityClass}`}>
                           {log.quantityChanged > 0 ? "+" : ""}{log.quantityChanged}
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-500">{log.reason || "-"}</td>
+                        <td className="px-6 py-4 text-sm text-slate-500">
+                          {log.partnerName ? (log.reason || "-") : (log.changeType === "EXPORT" || log.changeType === "IMPORT"
+                            ? parseInvoiceReason(log.reason).reason 
+                            : log.reason || "-")}
+                        </td>
                         <td className="px-6 py-4 text-sm text-slate-500">
                           {log.costPrice ? currency.format(log.costPrice) : "-"}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-right">
+                          {log.changeType === "EXPORT" || log.changeType === "IMPORT" ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedInvoice(log);
+                                setIsInvoiceOpen(true);
+                              }}
+                              className={`rounded-full border px-3 py-1 text-xs font-bold transition-colors inline-flex items-center gap-1 ${
+                                log.changeType === "IMPORT"
+                                  ? "border-emerald-200 text-emerald-700 hover:bg-emerald-700 hover:text-white"
+                                  : "border-primary/20 text-primary hover:bg-primary hover:text-white"
+                              }`}
+                            >
+                              <span className="material-symbols-outlined text-[14px]">receipt</span>
+                              {log.changeType === "IMPORT" ? "In phiếu nhập" : "In hóa đơn"}
+                            </button>
+                          ) : (
+                            "-"
+                          )}
                         </td>
                       </tr>
                     );
@@ -558,6 +675,61 @@ export default function AdminInventoryPage() {
           </div>
 
           <div>
+            <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Đơn giá nhập (VNĐ/con)</label>
+            <input
+              type="number"
+              min={0}
+              placeholder="Ví dụ: 50000"
+              className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/15"
+              value={restockForm.costPrice}
+              onChange={(event) => setRestockForm((prev) => ({ ...prev, costPrice: event.target.value }))}
+              required
+            />
+          </div>
+
+          {restockForm.quantity && restockForm.costPrice && (
+            <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block">Tổng tiền nhập dự kiến</span>
+              <span className="text-xl font-black text-primary dark:text-[#00A3C4] mt-1 block">
+                {currency.format(Number(restockForm.quantity) * Number(restockForm.costPrice))}
+              </span>
+            </div>
+          )}
+
+          <div>
+            <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Nhà cung cấp / Người giao</label>
+            <input
+              type="text"
+              className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/15"
+              value={restockForm.supplierName}
+              onChange={(event) => setRestockForm((prev) => ({ ...prev, supplierName: event.target.value }))}
+              placeholder="Ví dụ: Trại cá giống Tiên Du"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Số điện thoại</label>
+            <input
+              type="text"
+              className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/15"
+              value={restockForm.phone}
+              onChange={(event) => setRestockForm((prev) => ({ ...prev, phone: event.target.value }))}
+              placeholder="Ví dụ: 0912345678"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Địa chỉ giao hàng</label>
+            <input
+              type="text"
+              className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/15"
+              value={restockForm.address}
+              onChange={(event) => setRestockForm((prev) => ({ ...prev, address: event.target.value }))}
+              placeholder="Ví dụ: Tiên Du, Bắc Ninh"
+            />
+          </div>
+
+          <div>
             <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Lý do nhập kho</label>
             <textarea
               className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/15"
@@ -634,13 +806,47 @@ export default function AdminInventoryPage() {
           </div>
 
           <div>
+            <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Tên người nhận / Khách hàng</label>
+            <input
+              type="text"
+              className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/15"
+              value={exportForm.recipientName}
+              onChange={(event) => setExportForm((prev) => ({ ...prev, recipientName: event.target.value }))}
+              placeholder="Ví dụ: Nguyễn Văn A (bỏ trống nếu là khách lẻ)"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Số điện thoại</label>
+              <input
+                type="text"
+                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/15"
+                value={exportForm.phone}
+                onChange={(event) => setExportForm((prev) => ({ ...prev, phone: event.target.value }))}
+                placeholder="Ví dụ: 0987654321"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Địa chỉ nhận</label>
+              <input
+                type="text"
+                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/15"
+                value={exportForm.address}
+                onChange={(event) => setExportForm((prev) => ({ ...prev, address: event.target.value }))}
+                placeholder="Ví dụ: Hà Nội"
+              />
+            </div>
+          </div>
+
+          <div>
             <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Lý do xuất kho</label>
             <textarea
               className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/15"
               rows={3}
               value={exportForm.reason}
               onChange={(event) => setExportForm((prev) => ({ ...prev, reason: event.target.value }))}
-              placeholder="Ví dụ: Xuất bán hoặc hao hụt"
+              placeholder="Ví dụ: Bán lẻ cho khách hàng"
             />
           </div>
 
@@ -665,6 +871,163 @@ export default function AdminInventoryPage() {
             </button>
           </div>
         </form>
+      </DetailModal>
+
+      <DetailModal
+        isOpen={isInvoiceOpen}
+        title={selectedInvoice?.changeType === "IMPORT" ? "Phiếu nhập kho" : "Hóa đơn xuất kho"}
+        subtitle={selectedInvoice?.changeType === "IMPORT" ? "Chi tiết chứng từ nhập kho vật tư, cá cảnh." : "Chi tiết chứng từ xuất kho vật tư, cá cảnh."}
+        onClose={() => {
+          setIsInvoiceOpen(false);
+          setSelectedInvoice(null);
+        }}
+      >
+        {selectedInvoice && (
+          <div>
+            <div className="print-section p-8 bg-white border border-slate-200 rounded-2xl max-w-2xl mx-auto text-slate-800 font-sans">
+              <div className="flex justify-between items-start border-b border-slate-200 pb-6">
+                <div>
+                  <h2 className="text-2xl font-black text-[#005B71] tracking-tight">FishSync</h2>
+                  <p className="text-xs text-slate-500 mt-1">Hệ thống cung cấp & quản lý cá cảnh hàng đầu</p>
+                  <p className="text-xs text-slate-400 mt-2">Thị trấn Lim, Huyện Tiên Du, Tỉnh Bắc Ninh</p>
+                  <p className="text-xs text-slate-400">Hotline: 1900 8888 | Email: contact@fishsync.vn</p>
+                </div>
+                <div className="text-right">
+                  <h3 className="text-lg font-bold text-slate-700">
+                    {selectedInvoice.changeType === "IMPORT" ? "PHIẾU NHẬP KHO" : "PHIẾU XUẤT KHO"}
+                  </h3>
+                  <p className="text-xs font-semibold text-[#005B71] mt-1">
+                    Số phiếu: {selectedInvoice.changeType === "IMPORT" ? "PNK" : "PXK"}-{selectedInvoice.id}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-2">
+                    Ngày lập: {dateTimeFormatter.format(new Date(selectedInvoice.createdAt))}
+                  </p>
+                  <p className="text-xs text-slate-400">Thủ kho: Admin User</p>
+                </div>
+              </div>
+
+              <div className="my-6 space-y-2">
+                <h4 className="text-xs uppercase tracking-widest text-slate-400 font-bold">
+                  {selectedInvoice.changeType === "IMPORT" ? "Thông tin nhà cung cấp" : "Thông tin người nhận hàng"}
+                </h4>
+                {(() => {
+                  const details = parseInvoiceReason(selectedInvoice.reason);
+                  const partnerName = selectedInvoice.partnerName || (selectedInvoice.changeType === "IMPORT"
+                    ? (details.recipientName === "Khách lẻ tại cửa hàng" ? "Nhà cung cấp lẻ" : details.recipientName)
+                    : details.recipientName);
+                  const partnerPhone = selectedInvoice.partnerPhone || details.phone;
+                  const partnerAddress = selectedInvoice.partnerAddress || details.address;
+                  const partnerReason = selectedInvoice.partnerName ? (selectedInvoice.reason || "-") : details.reason;
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm bg-slate-50 rounded-xl p-4">
+                      <div>
+                        <p className="text-slate-500">
+                          {selectedInvoice.changeType === "IMPORT" ? "Nhà cung cấp / Người giao:" : "Khách hàng / Người nhận:"}
+                        </p>
+                        <p className="font-semibold text-slate-800">{partnerName}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-500">Số điện thoại:</p>
+                        <p className="font-semibold text-slate-800">{partnerPhone}</p>
+                      </div>
+                      <div className="md:col-span-2">
+                        <p className="text-slate-500">
+                          {selectedInvoice.changeType === "IMPORT" ? "Địa chỉ giao hàng:" : "Địa chỉ nhận hàng:"}
+                        </p>
+                        <p className="font-semibold text-slate-800">{partnerAddress}</p>
+                      </div>
+                      <div className="md:col-span-2">
+                        <p className="text-slate-500">
+                          {selectedInvoice.changeType === "IMPORT" ? "Lý do nhập kho:" : "Lý do xuất kho:"}
+                        </p>
+                        <p className="font-semibold text-slate-800">{partnerReason}</p>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              <div className="mt-6">
+                <table className="w-full text-left text-sm border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-400 text-xs font-bold uppercase">
+                      <th className="py-2">Sản phẩm / Mặt hàng</th>
+                      <th className="py-2 text-center">Số lượng</th>
+                      <th className="py-2 text-right">Đơn giá (VND)</th>
+                      <th className="py-2 text-right">Thành tiền (VND)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {(() => {
+                      const qty = Math.abs(selectedInvoice.quantityChanged);
+                      const relatedProduct = products.find((p) => p.id === selectedInvoice.productId);
+                      const price = selectedInvoice.changeType === "IMPORT"
+                        ? (selectedInvoice.costPrice || relatedProduct?.costPrice || 0)
+                        : (relatedProduct?.price || 0);
+                      const total = qty * price;
+                      return (
+                        <tr>
+                          <td className="py-3 font-medium text-slate-800">
+                            {selectedInvoice.productName}
+                            {relatedProduct?.sku ? <span className="text-xs text-slate-400 block mt-0.5">SKU: {relatedProduct.sku}</span> : null}
+                          </td>
+                          <td className="py-3 text-center font-bold text-slate-800">{qty}</td>
+                          <td className="py-3 text-right text-slate-600">
+                            {price > 0 ? currency.format(price) : "Liên hệ"}
+                          </td>
+                          <td className="py-3 text-right font-bold text-slate-800">
+                            {price > 0 ? currency.format(total) : "Liên hệ"}
+                          </td>
+                        </tr>
+                      );
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4 text-center mt-12 text-xs pt-8 border-t border-slate-100">
+                <div>
+                  <p className="font-bold text-slate-700">Người lập phiếu</p>
+                  <p className="text-slate-400 mt-1">(Ký, ghi rõ họ tên)</p>
+                  <p className="mt-12 font-semibold text-slate-800">Admin User</p>
+                </div>
+                <div>
+                  <p className="font-bold text-slate-700">Thủ kho</p>
+                  <p className="text-slate-400 mt-1">(Ký, ghi rõ họ tên)</p>
+                  <p className="mt-12 text-slate-400">........................</p>
+                </div>
+                <div>
+                  <p className="font-bold text-slate-700">
+                    {selectedInvoice.changeType === "IMPORT" ? "Người giao hàng" : "Người nhận hàng"}
+                  </p>
+                  <p className="text-slate-400 mt-1">(Ký, ghi rõ họ tên)</p>
+                  <p className="mt-12 text-slate-400">........................</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6 border-t border-slate-200 pt-5">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsInvoiceOpen(false);
+                  setSelectedInvoice(null);
+                }}
+                className="rounded-full border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Đóng
+              </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="rounded-full bg-[#005B71] px-5 py-2 text-sm font-semibold text-white hover:bg-black transition-colors flex items-center gap-2"
+              >
+                <span className="material-symbols-outlined text-sm">print</span>
+                {selectedInvoice.changeType === "IMPORT" ? "In phiếu nhập" : "In phiếu xuất"}
+              </button>
+            </div>
+          </div>
+        )}
       </DetailModal>
 
     </div>

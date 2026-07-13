@@ -40,6 +40,7 @@ export async function forwardAdminRequest(request: Request, backendPath: string)
     method,
     headers,
     body,
+    cache: "no-store",
   });
 
   if (response.status === 204) {

@@ -38,13 +38,27 @@ public class InventoryController {
 
     @PostMapping("/export")
     public ResponseEntity<StockLogResponse> exportStock(@Valid @RequestBody InventoryExportRequest request) {
-        StockLogResponse response = inventoryService.deductStock(request.getProductId(), request.getQuantity(), request.getReason());
+        StockLogResponse response = inventoryService.deductStock(
+                request.getProductId(),
+                request.getQuantity(),
+                request.getReason(),
+                request.getRecipientName(),
+                request.getPhone(),
+                request.getAddress()
+        );
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PutMapping("/export")
     public ResponseEntity<StockLogResponse> exportStockPut(@Valid @RequestBody InventoryExportRequest request) {
-        StockLogResponse response = inventoryService.deductStock(request.getProductId(), request.getQuantity(), request.getReason());
+        StockLogResponse response = inventoryService.deductStock(
+                request.getProductId(),
+                request.getQuantity(),
+                request.getReason(),
+                request.getRecipientName(),
+                request.getPhone(),
+                request.getAddress()
+        );
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

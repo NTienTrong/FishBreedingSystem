@@ -42,6 +42,7 @@ export default function ProductForm({ mode, productId }: ProductFormProps) {
     summary: "",
     description: "",
     price: "0",
+    costPrice: "0",
     isActive: true,
     categoryIds: [] as number[],
     images: [] as FormImage[],
@@ -78,6 +79,7 @@ export default function ProductForm({ mode, productId }: ProductFormProps) {
             summary: detail.summary || "",
             description: detail.description || "",
             price: String(detail.price ?? 0),
+            costPrice: String(detail.costPrice ?? 0),
             isActive: Boolean(detail.isActive),
             categoryIds: detail.categories.map((item) => item.id),
             images: detail.images.map((item) => ({
@@ -274,6 +276,11 @@ export default function ProductForm({ mode, productId }: ProductFormProps) {
       nextErrors.price = "Giá sản phẩm phải lớn hơn hoặc bằng 0.";
     }
 
+    const parsedCostPrice = Number(formData.costPrice);
+    if (!Number.isFinite(parsedCostPrice) || parsedCostPrice < 0) {
+      nextErrors.costPrice = "Giá nhập sản phẩm phải lớn hơn hoặc bằng 0.";
+    }
+
     if (formData.categoryIds.length === 0) {
       nextErrors.categoryIds = "Vui lòng chọn ít nhất 1 danh mục.";
     }
@@ -309,6 +316,7 @@ export default function ProductForm({ mode, productId }: ProductFormProps) {
       summary: formData.summary.trim() || null,
       description: formData.description.trim() || null,
       price: Number(formData.price),
+      costPrice: Number(formData.costPrice),
       isActive: formData.isActive,
       categoryIds: formData.categoryIds,
       images,
@@ -451,13 +459,6 @@ export default function ProductForm({ mode, productId }: ProductFormProps) {
                     onChange={handleUploadNewImage}
                   />
                 </label>
-                <button
-                  type="button"
-                  className="text-sm font-semibold text-primary hover:underline"
-                  onClick={addImage}
-                >
-                  + Thêm URL
-                </button>
               </div>
             </div>
 
@@ -488,23 +489,6 @@ export default function ProductForm({ mode, productId }: ProductFormProps) {
                         onChange={(event) => updateImage(index, event.target.value)}
                       />
                     </div>
-                    <label className="col-span-2 px-3 py-2 rounded-lg text-xs text-center font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">
-                      {uploadingImageIndexes.includes(index) ? "Đang tải..." : "Upload"}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        disabled={loading || uploadingImageIndexes.includes(index)}
-                        onChange={(event) => handleUploadExistingImage(index, event)}
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      className={`col-span-2 px-3 py-2 rounded-lg text-xs font-semibold ${image.isMain ? "bg-primary text-white" : "bg-slate-100 text-slate-600"}`}
-                      onClick={() => setMainImage(index)}
-                    >
-                      Ảnh chính
-                    </button>
                     <button
                       type="button"
                       className="col-span-2 px-3 py-2 rounded-lg text-xs font-semibold bg-error/10 text-error"
@@ -546,6 +530,21 @@ export default function ProductForm({ mode, productId }: ProductFormProps) {
                   min={0}
                 />
                 {errors.price && <p className="text-xs text-error mt-1">{errors.price}</p>}
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-on-surface-variant mb-1.5">
+                  Giá nhập (VNĐ) <span className="text-slate-400 font-normal text-[10px]">(Cập nhật từ Quản lý kho)</span>
+                </label>
+                <input
+                  className={`w-full bg-surface-container-highest border-none rounded-lg px-4 py-3 font-bold text-primary focus:ring-2 focus:ring-primary/20 outline-none ${errors.costPrice ? "ring-2 ring-error" : ""}`}
+                  placeholder="0"
+                  value={formData.costPrice}
+                  name="costPrice"
+                  onChange={handleInputChange}
+                  type="number"
+                  min={0}
+                />
+                {errors.costPrice && <p className="text-xs text-error mt-1">{errors.costPrice}</p>}
               </div>
               <div>
                 <label className="block text-xs font-medium text-on-surface-variant mb-2">Danh mục</label>

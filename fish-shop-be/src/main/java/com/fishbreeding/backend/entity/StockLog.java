@@ -35,6 +35,15 @@ public class StockLog {
     @Column(name = "reason", columnDefinition = "TEXT")
     private String reason;
 
+    @Column(name = "partner_name")
+    private String partnerName;
+
+    @Column(name = "partner_phone", length = 50)
+    private String partnerPhone;
+
+    @Column(name = "partner_address", length = 500)
+    private String partnerAddress;
+
     @Column(name = "cost_price", precision = 15, scale = 2)
     private BigDecimal costPrice;
 

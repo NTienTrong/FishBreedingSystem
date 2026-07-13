@@ -297,8 +297,9 @@ public class VnpayCheckoutService {
             .longValueExact();
 
         String txnRef = order.getOrderCode();
-        String createDate = LocalDateTime.now().format(VNPAY_DATE_FORMAT);
-        String expireDate = LocalDateTime.now().plusMinutes(15).format(VNPAY_DATE_FORMAT);
+        java.time.ZonedDateTime nowVietnam = java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+        String createDate = nowVietnam.format(VNPAY_DATE_FORMAT);
+        String expireDate = nowVietnam.plusMinutes(15).format(VNPAY_DATE_FORMAT);
 
         Map<String, String> params = new TreeMap<>();
         params.put("vnp_Version", version);
@@ -625,7 +626,8 @@ public class VnpayCheckoutService {
         }
 
         String requestId = "REFUND" + order.getOrderCode() + System.currentTimeMillis();
-        String createDate = LocalDateTime.now().format(VNPAY_DATE_FORMAT);
+        java.time.ZonedDateTime nowVietnam = java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+        String createDate = nowVietnam.format(VNPAY_DATE_FORMAT);
         String transactionDate = transaction.getVnpPayDate().format(VNPAY_DATE_FORMAT);
         String orderInfo = "Hoan tien don hang " + order.getOrderCode();
         String createBy = StringUtils.hasText(performedBy) ? performedBy : "admin";

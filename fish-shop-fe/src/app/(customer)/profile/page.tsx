@@ -4,6 +4,12 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
 import { signOut } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
+
+const OrderTrackingMap = dynamic(
+  () => import("@/components/customer/orders/OrderTrackingMap"),
+  { ssr: false }
+);
 import { useCart } from "@/components/customer/cart/CartContext";
 import LogoutConfirmModal from "@/components/common/LogoutConfirmModal";
 import ToastMessage from "@/components/common/ToastMessage";
@@ -30,11 +36,14 @@ type CustomerOrderItem = {
 type CustomerOrder = {
   id: number;
   orderCode: string;
+  ghnOrderCode?: string | null;
   orderStatus: string;
   paymentMethod?: string | null;
   paymentStatus?: string | null;
   totalAmount: number;
   createdAt: string;
+  latitude?: number | null;
+  longitude?: number | null;
   items: CustomerOrderItem[];
 };
 
@@ -99,6 +108,16 @@ const STATUS_LABELS: Record<string, string> = {
   DELIVERING: "Đang giao",
   COMPLETED: "Hoàn thành",
   CANCELLED: "Đã hủy",
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  PENDING_PAYMENT: "bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 border border-amber-200/50 dark:border-amber-900/30",
+  PENDING: "bg-sky-50 dark:bg-sky-950/20 text-sky-600 dark:text-sky-400 border border-sky-200/50 dark:border-sky-900/30",
+  PENDING_REFUND: "bg-purple-50 dark:bg-purple-950/20 text-purple-600 dark:text-purple-400 border border-purple-200/50 dark:border-purple-900/30",
+  PROCESSING: "bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 border border-blue-200/50 dark:border-blue-900/30",
+  DELIVERING: "bg-indigo-50 dark:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200/50 dark:border-indigo-900/30",
+  COMPLETED: "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-900/30",
+  CANCELLED: "bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 border border-rose-200/50 dark:border-rose-900/30",
 };
 
 const PAYMENT_LABELS: Record<string, string> = {
@@ -760,7 +779,7 @@ function ProfilePageContent() {
     });
   }, [orderStatusFilter, sortedOrders]);
 
-  const ORDER_PAGE_SIZE = 10;
+  const ORDER_PAGE_SIZE = 5;
   const totalOrderPages = Math.max(1, Math.ceil(filteredOrders.length / ORDER_PAGE_SIZE));
   const pagedOrders = useMemo(() => {
     const start = (orderPage - 1) * ORDER_PAGE_SIZE;
@@ -774,557 +793,722 @@ function ProfilePageContent() {
   }, [activeTab, orderStatusFilter]);
 
   return (
-    <main className="px-6 max-w-7xl mx-auto pb-20">
+    <main className="px-4 sm:px-6 max-w-7xl mx-auto pb-24 pt-6">
       <ToastMessage show={toast.show} message={toast.message} variant={toast.variant} />
-      <header className="mb-10">
-        <nav className="flex items-center gap-2 text-label-md text-on-surface-variant mb-4">
-          <Link href="/" className="hover:text-primary transition-colors">Trang chủ</Link>
-          <span className="material-symbols-outlined text-sm">chevron_right</span>
-          <span className="text-primary font-semibold">Tài khoản của tôi</span>
-        </nav>
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-primary">Hồ sơ khách hàng</h1>
-            <p className="mt-2 text-on-surface-variant font-medium">{headerSubtitle}</p>
-          </div>
-          <button
-            className="group inline-flex items-center gap-2 rounded-full border border-rose-200 bg-white/80 px-5 py-2 text-sm font-semibold text-rose-600 shadow-sm transition-all hover:border-rose-300 hover:bg-rose-50 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
-            type="button"
-            onClick={openLogoutModal}
-            disabled={isLoggingOut}
-          >
-            <span className="material-symbols-outlined text-[18px] transition-transform group-hover:scale-105">logout</span>
-            {isLoggingOut ? "Đang đăng xuất..." : "Đăng xuất"}
-          </button>
-        </div>
-        {isGoogleAccount && (
-          <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-surface-container-low px-4 py-2 text-xs font-semibold text-on-surface-variant">
-            <span className="material-symbols-outlined text-sm">verified</span>
-            Bạn đang đăng nhập bằng tài khoản Google.
-          </div>
-        )}
-      </header>
+      
+      {/* Breadcrumbs */}
+      <nav className="flex items-center gap-2 text-xs font-semibold text-on-surface-variant/70 mb-4">
+        <Link href="/" className="hover:text-primary transition-colors flex items-center gap-1">
+          <span className="material-symbols-outlined text-sm">home</span> Trang chủ
+        </Link>
+        <span className="material-symbols-outlined text-[12px] text-on-surface-variant/40">chevron_right</span>
+        <span className="text-primary font-bold">Tài khoản của tôi</span>
+      </nav>
 
-      <div className="flex flex-wrap gap-3 mb-8">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            className={`px-4 py-2 rounded-full text-sm font-bold transition-colors ${
-              activeTab === tab.id
-                ? "bg-primary text-white"
-                : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest"
-            }`}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Hero Header Card */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#005B71] to-[#008ba8] p-8 md:p-10 text-white shadow-lg mb-8 border border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="flex items-center gap-4.5 relative z-10">
+          <div className="h-16 w-16 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center text-3xl font-black text-white shadow-inner select-none">
+            {profile.fullName ? profile.fullName.charAt(0).toUpperCase() : "U"}
+          </div>
+          <div>
+            <span className="inline-block rounded-full bg-white/20 px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider mb-1.5 backdrop-blur-md">
+              {isGoogleAccount ? "Tài khoản Google" : "Tài khoản Local"}
+            </span>
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight">{profile.fullName || "Khách hàng"}</h1>
+            <p className="text-white/70 text-xs md:text-sm font-medium">{profile.email || "Đang tải email..."}</p>
+          </div>
+        </div>
+        <button
+          className="group inline-flex items-center gap-2 rounded-full bg-rose-600 hover:bg-rose-700 active:scale-95 px-5 py-2.5 text-xs font-bold text-white shadow-md transition-all border border-white/10 self-start md:self-auto disabled:opacity-50 relative z-10"
+          type="button"
+          onClick={openLogoutModal}
+          disabled={isLoggingOut}
+        >
+          <span className="material-symbols-outlined text-sm transition-transform group-hover:rotate-12">logout</span>
+          {isLoggingOut ? "Đang đăng xuất..." : "Đăng xuất"}
+        </button>
+        <div className="absolute right-0 bottom-0 top-0 w-1/3 opacity-10 hidden md:flex items-center justify-center">
+          <span className="material-symbols-outlined text-[160px] select-none translate-y-6">manage_accounts</span>
+        </div>
       </div>
 
-      {activeTab === "account" && (
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-surface-container-lowest rounded-2xl p-6 shadow-sm">
-            <h2 className="text-xl font-bold text-primary mb-6">Thông tin cá nhân</h2>
-            {error && <div className="mb-4 rounded-lg bg-error/10 text-error text-sm px-4 py-2">{error}</div>}
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Họ và tên</label>
-                <input
-                  className="w-full mt-2 rounded-lg bg-surface-container-highest border-0 p-3"
-                  value={profile.fullName ?? ""}
-                  onChange={(event) => setProfile((prev) => ({ ...prev, fullName: event.target.value }))}
-                  disabled={loadingProfile}
-                />
-              </div>
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Số điện thoại</label>
-                <input
-                  className="w-full mt-2 rounded-lg bg-surface-container-highest border-0 p-3"
-                  value={profile.phone ?? ""}
-                  onChange={(event) => setProfile((prev) => ({ ...prev, phone: event.target.value }))}
-                  disabled={loadingProfile}
-                />
-              </div>
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Địa chỉ mặc định</label>
-                <textarea
-                  className="w-full mt-2 rounded-lg bg-surface-container-highest border-0 p-3"
-                  rows={4}
-                  value={profile.address ?? ""}
-                  onChange={(event) => setProfile((prev) => ({ ...prev, address: event.target.value }))}
-                  disabled={loadingProfile}
-                />
-              </div>
-              <button
-                className="px-6 py-3 rounded-full bg-primary text-white font-bold hover:bg-primary-container transition-colors"
-                type="button"
-                onClick={handleUpdateProfile}
-                disabled={savingProfile}
-              >
-                {savingProfile ? "Đang lưu..." : "Lưu thay đổi"}
-              </button>
-            </div>
+      {/* Dashboard Layout Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        {/* Left Column - Sidebar Navigation */}
+        <div className="lg:col-span-1 space-y-4">
+          {/* Desktop Tab Menu */}
+          <div className="hidden lg:flex flex-col gap-1.5 p-3.5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm">
+            {tabs.map((tab) => {
+              let icon = "account_circle";
+              if (tab.id === "orders") icon = "local_shipping";
+              else if (tab.id === "addresses") icon = "home_pin";
+              else if (tab.id === "fish") icon = "history_edu";
+              return (
+                <button
+                  key={tab.id}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all w-full text-left ${
+                    activeTab === tab.id
+                      ? "bg-primary text-white shadow-sm"
+                      : "text-on-surface-variant/80 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-primary"
+                  }`}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                >
+                  <span className="material-symbols-outlined text-lg">{icon}</span>
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
 
-          <div className="bg-surface-container-lowest rounded-2xl p-6 shadow-sm space-y-6">
-            <div>
-              <h2 className="text-xl font-bold text-primary mb-4">Thông tin đăng nhập</h2>
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Email</label>
-                  <input className="w-full mt-2 rounded-lg bg-surface-container-highest border-0 p-3" value={profile.email ?? ""} readOnly />
-                </div>
-                <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Phương thức đăng nhập</label>
-                  <div className="mt-2 flex items-center gap-2 rounded-lg bg-surface-container-highest p-3">
-                    <span className="material-symbols-outlined text-lg">verified</span>
-                    <span className="text-sm font-semibold">
-                      {isGoogleAccount ? "Google" : "LOCAL"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
+          {/* Mobile Tab Pills (Scrollable) */}
+          <div className="lg:hidden flex overflow-x-auto gap-2 pb-2 scrollbar-none">
+            {tabs.map((tab) => {
+              let icon = "account_circle";
+              if (tab.id === "orders") icon = "local_shipping";
+              else if (tab.id === "addresses") icon = "home_pin";
+              else if (tab.id === "fish") icon = "history_edu";
+              return (
+                <button
+                  key={tab.id}
+                  className={`flex items-center gap-2 px-4.5 py-2.5 rounded-full text-xs font-bold whitespace-nowrap transition-all flex-shrink-0 ${
+                    activeTab === tab.id
+                      ? "bg-primary text-white shadow-sm"
+                      : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest"
+                  }`}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                >
+                  <span className="material-symbols-outlined text-sm">{icon}</span>
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
-            {isLocalAccount && (
-              <div>
-                <h3 className="text-lg font-bold text-primary mb-3">Đổi mật khẩu</h3>
-                {passwordError && <div className="mb-3 rounded-lg bg-error/10 text-error text-sm px-4 py-2">{passwordError}</div>}
-                {passwordMessage && <div className="mb-3 rounded-lg bg-emerald-50 text-emerald-700 text-sm px-4 py-2">{passwordMessage}</div>}
-                <div className="space-y-3">
-                  <input
-                    className="w-full rounded-lg bg-surface-container-highest border-0 p-3"
-                    type="password"
-                    placeholder="Mật khẩu hiện tại"
-                    value={currentPassword}
-                    onChange={(event) => setCurrentPassword(event.target.value)}
-                  />
-                  <input
-                    className="w-full rounded-lg bg-surface-container-highest border-0 p-3"
-                    type="password"
-                    placeholder="Mật khẩu mới"
-                    value={newPassword}
-                    onChange={(event) => setNewPassword(event.target.value)}
-                  />
-                  <input
-                    className="w-full rounded-lg bg-surface-container-highest border-0 p-3"
-                    type="password"
-                    placeholder="Xác nhận mật khẩu mới"
-                    value={confirmPassword}
-                    onChange={(event) => setConfirmPassword(event.target.value)}
-                  />
+        {/* Right Column - Active tab panel Content */}
+        <div className="lg:col-span-3">
+          {activeTab === "account" && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Personal Information card */}
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm space-y-5">
+                <h2 className="text-base font-extrabold text-primary flex items-center gap-2 border-b border-slate-50 dark:border-slate-800/40 pb-3">
+                  <span className="material-symbols-outlined text-lg">badge</span> Thông tin cá nhân
+                </h2>
+                {error && <div className="rounded-2xl bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-300 text-xs px-4 py-2 border border-rose-100 dark:border-rose-900/30">{error}</div>}
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant/80 pl-1">Họ và tên</label>
+                    <input
+                      className="w-full mt-1.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800 focus:border-primary focus:ring-2 focus:ring-primary/10 p-3.5 text-xs font-semibold outline-none transition-all"
+                      value={profile.fullName ?? ""}
+                      onChange={(event) => setProfile((prev) => ({ ...prev, fullName: event.target.value }))}
+                      disabled={loadingProfile}
+                      placeholder="Nhập họ và tên"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant/80 pl-1">Số điện thoại</label>
+                    <input
+                      className="w-full mt-1.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800 focus:border-primary focus:ring-2 focus:ring-primary/10 p-3.5 text-xs font-semibold outline-none transition-all"
+                      value={profile.phone ?? ""}
+                      onChange={(event) => setProfile((prev) => ({ ...prev, phone: event.target.value }))}
+                      disabled={loadingProfile}
+                      placeholder="Nhập số điện thoại"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant/80 pl-1">Địa chỉ mặc định</label>
+                    <textarea
+                      className="w-full mt-1.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800 focus:border-primary focus:ring-2 focus:ring-primary/10 p-3.5 text-xs font-semibold outline-none transition-all"
+                      rows={3}
+                      value={profile.address ?? ""}
+                      onChange={(event) => setProfile((prev) => ({ ...prev, address: event.target.value }))}
+                      disabled={loadingProfile}
+                      placeholder="Nhập địa chỉ nhà riêng"
+                    />
+                  </div>
                   <button
-                    className="px-6 py-3 rounded-full bg-secondary text-on-secondary font-bold hover:bg-secondary-container transition-colors"
+                    className="w-full sm:w-auto px-6 py-3.5 rounded-full bg-primary hover:bg-primary/90 text-white font-bold text-xs shadow-sm transition-all hover:scale-[1.02]"
                     type="button"
-                    onClick={handleChangePassword}
+                    onClick={handleUpdateProfile}
+                    disabled={savingProfile}
                   >
-                    Cập nhật mật khẩu
+                    {savingProfile ? "Đang lưu..." : "Lưu thay đổi"}
                   </button>
                 </div>
               </div>
-            )}
-          </div>
-        </section>
-      )}
 
-      {activeTab === "orders" && (
-        <section className="space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-bold text-primary">Danh sách đơn hàng</h2>
-              <p className="text-sm text-on-surface-variant">Mỗi trang hiển thị 10 đơn hàng gần nhất.</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {[
-                { id: "all", label: "Tất cả" },
-                { id: "pending", label: "Chờ thanh toán" },
-                { id: "completed", label: "Hoàn thành" },
-                { id: "cancelled", label: "Đã hủy" },
-              ].map((filter) => (
-                <button
-                  key={filter.id}
-                  type="button"
-                  className={`px-4 py-2 rounded-full text-xs font-bold transition-colors ${
-                    orderStatusFilter === filter.id
-                      ? "bg-primary text-white"
-                      : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest"
-                  }`}
-                  onClick={() => setOrderStatusFilter(filter.id as typeof orderStatusFilter)}
-                >
-                  {filter.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {filteredOrders.length === 0 ? (
-            <div className="rounded-2xl bg-surface-container-low p-8 text-center text-on-surface-variant">
-              {orders.length === 0 ? "Bạn chưa có đơn hàng nào." : "Không có đơn hàng phù hợp bộ lọc."}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {pagedOrders.map((order) => (
-              <div key={order.id} className="bg-surface-container-low rounded-2xl p-6 shadow-sm">
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-3">
-                      <h3 className="text-lg font-bold text-primary">#{order.orderCode}</h3>
-                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-surface-container-high text-on-surface-variant">
-                        {STATUS_LABELS[order.orderStatus] ?? order.orderStatus}
-                      </span>
-                    </div>
-                    <p className="text-sm text-on-surface-variant">
-                      {new Date(order.createdAt).toLocaleDateString("vi-VN")}
-                    </p>
-                    <div className="flex flex-wrap gap-3 text-xs text-on-surface-variant">
-                      {order.paymentMethod && (
-                        <span>Thanh toán: {PAYMENT_METHOD_LABELS[order.paymentMethod] ?? order.paymentMethod}</span>
-                      )}
-                      {order.paymentStatus && (
-                        <span>Trạng thái: {PAYMENT_LABELS[order.paymentStatus] ?? order.paymentStatus}</span>
-                      )}
-                    </div>
+              {/* Login and security card */}
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm space-y-6">
+                <div className="space-y-4">
+                  <h2 className="text-base font-extrabold text-primary flex items-center gap-2 border-b border-slate-50 dark:border-slate-800/40 pb-3">
+                    <span className="material-symbols-outlined text-lg">security</span> Tài khoản & Bảo mật
+                  </h2>
+                  <div>
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant/80 pl-1">Địa chỉ Email</label>
+                    <input className="w-full mt-1.5 rounded-2xl bg-slate-50/70 dark:bg-slate-950/70 border border-slate-200/40 dark:border-slate-850 p-3.5 text-xs font-semibold text-on-surface-variant/80 cursor-not-allowed outline-none" value={profile.email ?? ""} readOnly />
                   </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className="text-lg font-black text-primary">{currency.format(order.totalAmount)}</span>
-                    {order.orderStatus === "PENDING" && order.paymentMethod === "COD" && (
-                      <button
-                        className="px-4 py-2 rounded-full bg-error text-white font-bold"
-                        type="button"
-                        onClick={() => setActionOrder(order)}
-                      >
-                        Hủy đơn
-                      </button>
-                    )}
-                    {order.orderStatus === "PENDING" && order.paymentMethod === "VNPAY" && order.paymentStatus === "PAID" && (
-                      <button
-                        className="px-4 py-2 rounded-full bg-amber-500 text-white font-bold"
-                        type="button"
-                        onClick={() => setActionOrder(order)}
-                      >
-                        Yêu cầu hủy & Hoàn tiền
-                      </button>
-                    )}
-                    {order.orderStatus === "PROCESSING" && (
-                      <span className="text-xs font-semibold text-on-surface-variant">
-                        Vui lòng liên hệ hotline để hủy đơn.
-                      </span>
-                    )}
-                    <button
-                      className="px-4 py-2 rounded-full bg-surface-container-high text-primary font-bold"
-                      type="button"
-                      onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}
-                    >
-                      {expandedOrderId === order.id ? "Thu gọn" : "Xem chi tiết"}
-                    </button>
-                    <button
-                      className="px-4 py-2 rounded-full bg-primary text-white font-bold"
-                      type="button"
-                      onClick={() => handleReorder(order)}
-                    >
-                      Mua lại
-                    </button>
+                  <div>
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant/80 pl-1">Phương thức đăng nhập</label>
+                    <div className="mt-1.5 flex items-center gap-2 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800 p-3.5">
+                      <span className="material-symbols-outlined text-base text-primary">verified</span>
+                      <span className="text-xs font-bold uppercase tracking-wider">{isGoogleAccount ? "Google" : "LOCAL"}</span>
+                    </div>
                   </div>
                 </div>
-                {expandedOrderId === order.id && (
-                  <div className="mt-5 space-y-3">
-                    {order.items.map((item) => (
-                      <div
-                        key={item.productId}
-                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl bg-white/80 p-4"
+
+                {isLocalAccount && (
+                  <div className="space-y-4 pt-3 border-t border-slate-50 dark:border-slate-800/40">
+                    <h3 className="text-sm font-extrabold text-primary">Đổi mật khẩu</h3>
+                    {passwordError && <div className="rounded-2xl bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-300 text-xs px-4 py-2 border border-rose-100 dark:border-rose-900/30">{passwordError}</div>}
+                    {passwordMessage && <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300 text-xs px-4 py-2 border border-emerald-100 dark:border-emerald-900/30">{passwordMessage}</div>}
+                    <div className="space-y-3">
+                      <input
+                        className="w-full rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800 focus:border-primary focus:ring-2 focus:ring-primary/10 p-3.5 text-xs font-semibold outline-none transition-all"
+                        type="password"
+                        placeholder="Mật khẩu hiện tại"
+                        value={currentPassword}
+                        onChange={(event) => setCurrentPassword(event.target.value)}
+                      />
+                      <input
+                        className="w-full rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800 focus:border-primary focus:ring-2 focus:ring-primary/10 p-3.5 text-xs font-semibold outline-none transition-all"
+                        type="password"
+                        placeholder="Mật khẩu mới"
+                        value={newPassword}
+                        onChange={(event) => setNewPassword(event.target.value)}
+                      />
+                      <input
+                        className="w-full rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800 focus:border-primary focus:ring-2 focus:ring-primary/10 p-3.5 text-xs font-semibold outline-none transition-all"
+                        type="password"
+                        placeholder="Xác nhận mật khẩu mới"
+                        value={confirmPassword}
+                        onChange={(event) => setConfirmPassword(event.target.value)}
+                      />
+                      <button
+                        className="w-full px-6 py-3.5 rounded-full bg-slate-800 hover:bg-slate-750 text-white font-bold text-xs shadow-sm transition-all"
+                        type="button"
+                        onClick={handleChangePassword}
                       >
-                        <div className="flex items-center gap-4">
-                          <div className="h-16 w-16 overflow-hidden rounded-xl bg-surface-container-high">
-                            {item.imageUrl ? (
-                              <img className="h-full w-full object-cover" src={item.imageUrl} alt={item.name} />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center text-xs text-on-surface-variant">
-                                No image
-                              </div>
-                            )}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-primary">{item.name}</p>
-                            <p className="text-xs text-on-surface-variant">Số lượng: {item.quantity}</p>
-                          </div>
-                        </div>
-                        <span className="font-bold text-primary">{currency.format(item.lineTotal)}</span>
-                      </div>
-                    ))}
+                        Cập nhật mật khẩu
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
-              ))}
-              {totalOrderPages > 1 && (
-                <div className="flex items-center justify-between text-xs text-on-surface-variant pt-2">
-                  <span>
-                    Trang <strong className="text-primary">{orderPage}</strong> / {totalOrderPages}
-                  </span>
-                  <div className="flex items-center gap-2">
+            </div>
+          )}
+
+          {activeTab === "orders" && (
+            <div className="space-y-6">
+              {/* Header Filter Panel */}
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800/80 pb-4">
+                <div>
+                  <h2 className="text-base font-extrabold text-slate-800 dark:text-slate-200">Đơn hàng của tôi</h2>
+                  <p className="text-xs text-on-surface-variant/75 mt-0.5">Mỗi trang hiển thị 5 đơn hàng gần nhất.</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {[
+                    { id: "all", label: "Tất cả" },
+                    { id: "pending", label: "Chờ thanh toán" },
+                    { id: "completed", label: "Hoàn thành" },
+                    { id: "cancelled", label: "Đã hủy" },
+                  ].map((filter) => (
                     <button
-                      className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
+                      key={filter.id}
                       type="button"
-                      onClick={() => setOrderPage((prev) => Math.max(1, prev - 1))}
-                      disabled={orderPage === 1}
+                      className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${
+                        orderStatusFilter === filter.id
+                          ? "bg-primary text-white shadow-sm"
+                          : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest"
+                      }`}
+                      onClick={() => setOrderStatusFilter(filter.id as typeof orderStatusFilter)}
                     >
-                      <span className="material-symbols-outlined text-sm">chevron_left</span>
+                      {filter.label}
                     </button>
-                    <button
-                      className="w-8 h-8 flex items-center justify-center rounded-lg border border-outline-variant/30 text-on-surface-variant disabled:opacity-40"
-                      type="button"
-                      onClick={() => setOrderPage((prev) => Math.min(totalOrderPages, prev + 1))}
-                      disabled={orderPage === totalOrderPages}
+                  ))}
+                </div>
+              </div>
+
+              {filteredOrders.length === 0 ? (
+                <div className="rounded-3xl bg-surface-container-low p-12 text-center text-on-surface-variant/70 border border-slate-100 dark:border-slate-800 shadow-inner font-semibold text-xs">
+                  Không có đơn hàng phù hợp bộ lọc.
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  {pagedOrders.map((order) => (
+                    <div
+                      key={order.id}
+                      className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-100/80 dark:border-slate-800/80 transition-all duration-300 hover:shadow-md"
                     >
-                      <span className="material-symbols-outlined text-sm">chevron_right</span>
-                    </button>
-                  </div>
+                      {/* Order Card Header */}
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-50 dark:border-slate-800/40 pb-4 mb-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2.5">
+                            <span className="material-symbols-outlined text-primary text-lg">receipt_long</span>
+                            <h3 className="text-base font-extrabold text-primary">#{order.orderCode}</h3>
+                            <span className={`px-3 py-0.5 rounded-full text-xs font-bold ${STATUS_COLORS[order.orderStatus] ?? "bg-surface-container-high text-on-surface-variant"}`}>
+                              {STATUS_LABELS[order.orderStatus] ?? order.orderStatus}
+                            </span>
+                          </div>
+                          <p className="text-xs font-semibold text-on-surface-variant/70 pl-7">
+                            Ngày đặt: {new Date(order.createdAt).toLocaleDateString("vi-VN")} • {new Date(order.createdAt).toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <span className="text-base font-black text-primary">{currency.format(order.totalAmount)}</span>
+                        </div>
+                      </div>
+
+                      {/* Summary of Items */}
+                      <div className="space-y-3 mb-4">
+                        {order.items.slice(0, 2).map((item) => (
+                          <div key={item.productId} className="flex items-center gap-3">
+                            <div className="h-10 w-10 overflow-hidden rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 flex-shrink-0">
+                              {item.imageUrl ? (
+                                <img className="h-full w-full object-cover" src={item.imageUrl} alt={item.name} />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center text-[10px] text-on-surface-variant">🐟</div>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{item.name}</p>
+                              <p className="text-[10px] text-on-surface-variant/70">Số lượng: {item.quantity} • {currency.format(item.price)}</p>
+                            </div>
+                          </div>
+                        ))}
+                        {order.items.length > 2 && (
+                          <p className="text-[11px] font-semibold text-on-surface-variant/70 pl-13">
+                            + và {order.items.length - 2} sản phẩm khác
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Order Actions */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-50 dark:border-slate-800/40">
+                        <div className="flex flex-wrap gap-2">
+                          {order.orderStatus === "PENDING" && order.paymentMethod === "COD" && (
+                            <button
+                              className="px-4 py-2 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs transition-colors border border-rose-100"
+                              type="button"
+                              onClick={() => setActionOrder(order)}
+                            >
+                              Hủy đơn
+                            </button>
+                          )}
+                          {order.orderStatus === "PENDING" && order.paymentMethod === "VNPAY" && order.paymentStatus === "PAID" && (
+                            <button
+                              className="px-4 py-2 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-600 font-bold text-xs transition-colors border border-amber-100"
+                              type="button"
+                              onClick={() => setActionOrder(order)}
+                            >
+                              Yêu cầu hủy & Hoàn tiền
+                            </button>
+                          )}
+                          {order.orderStatus === "PROCESSING" && (
+                            <span className="text-xs font-semibold text-on-surface-variant/70 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-100 dark:border-slate-800/60 flex items-center gap-1">
+                              <span className="material-symbols-outlined text-sm">support_agent</span> Vui lòng gọi hotline để hủy
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {(order.orderStatus === "DELIVERING" || order.orderStatus === "COMPLETED") && (
+                            <button
+                              className="px-4.5 py-2 rounded-full bg-primary text-white font-bold text-xs flex items-center gap-1.5 hover:bg-primary/90 transition-all hover:scale-[1.02] shadow-sm"
+                              type="button"
+                              onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}
+                            >
+                              <span className="material-symbols-outlined text-sm">local_shipping</span>
+                              Theo dõi đơn hàng
+                            </button>
+                          )}
+                          <button
+                            className="px-4 py-2 rounded-full bg-surface-container-high text-primary font-bold text-xs hover:bg-surface-container-highest transition-colors"
+                            type="button"
+                            onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}
+                          >
+                            {expandedOrderId === order.id ? "Thu gọn" : "Xem chi tiết"}
+                          </button>
+                          <button
+                            className="px-4 py-2 rounded-full bg-slate-800 text-white font-bold text-xs hover:bg-slate-750 transition-colors"
+                            type="button"
+                            onClick={() => handleReorder(order)}
+                          >
+                            Mua lại
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Detail block */}
+                      {expandedOrderId === order.id && (
+                        <div className="mt-5 space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                          <div className="flex flex-wrap gap-4 text-xs font-bold text-on-surface-variant/85 bg-slate-50 dark:bg-slate-800/30 p-3 rounded-2xl">
+                            {order.paymentMethod && <span className="flex items-center gap-1"><span className="material-symbols-outlined text-sm">payments</span>Thanh toán: {order.paymentMethod}</span>}
+                            {order.paymentStatus && <span className="flex items-center gap-1"><span className="material-symbols-outlined text-sm">info</span>Trạng thái: {PAYMENT_LABELS[order.paymentStatus] ?? order.paymentStatus}</span>}
+                          </div>
+
+                          <div className="space-y-2.5">
+                            <p className="text-xs font-black text-slate-800 dark:text-slate-200">Chi tiết sản phẩm</p>
+                            {order.items.map((item) => (
+                              <div
+                                key={item.productId}
+                                className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50/50 dark:bg-slate-800/20 p-4 border border-slate-100/50 dark:border-slate-800/40"
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className="h-12 w-12 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-850 border border-slate-200/40 flex-shrink-0">
+                                    {item.imageUrl ? (
+                                      <img className="h-full w-full object-cover" src={item.imageUrl} alt={item.name} />
+                                    ) : (
+                                      <div className="flex h-full w-full items-center justify-center text-xs text-on-surface-variant">🐟</div>
+                                    )}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="font-bold text-xs text-primary truncate">{item.name}</p>
+                                    <p className="text-[10px] text-on-surface-variant/80 font-semibold">Số lượng: {item.quantity} • {currency.format(item.price)}</p>
+                                  </div>
+                                </div>
+                                <span className="font-extrabold text-xs text-primary">{currency.format(item.lineTotal)}</span>
+                              </div>
+                            ))}
+                          </div>
+                          
+                          {/* Order Tracking Map for DELIVERING and COMPLETED orders */}
+                          {(order.orderStatus === "DELIVERING" || order.orderStatus === "COMPLETED") && (
+                            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                              <OrderTrackingMap
+                                orderCode={order.orderCode}
+                                status={order.orderStatus}
+                                latitude={order.latitude}
+                                longitude={order.longitude}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Pagination */}
+                  {totalOrderPages > 1 && (
+                    <div className="flex items-center justify-between text-xs text-on-surface-variant/80 pt-2 bg-white/40 dark:bg-slate-900/10 px-2">
+                      <span className="font-bold">
+                        Trang <strong className="text-primary text-sm font-black">{orderPage}</strong> / {totalOrderPages}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          className="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-850 hover:bg-slate-50 dark:hover:bg-slate-800 text-on-surface-variant disabled:opacity-40 disabled:cursor-not-allowed shadow-sm transition-all"
+                          type="button"
+                          onClick={() => setOrderPage((prev) => Math.max(1, prev - 1))}
+                          disabled={orderPage === 1}
+                        >
+                          <span className="material-symbols-outlined text-base">chevron_left</span>
+                        </button>
+                        <button
+                          className="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-850 hover:bg-slate-50 dark:hover:bg-slate-800 text-on-surface-variant disabled:opacity-40 disabled:cursor-not-allowed shadow-sm transition-all"
+                          type="button"
+                          onClick={() => setOrderPage((prev) => Math.min(totalOrderPages, prev + 1))}
+                          disabled={orderPage === totalOrderPages}
+                        >
+                          <span className="material-symbols-outlined text-base">chevron_right</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
-        </section>
-      )}
 
-
-      {activeTab === "fish" && (
-        <section>
-          {fishRecords.length === 0 ? (
-            <div className="rounded-2xl bg-surface-container-low p-8 text-center text-on-surface-variant">
-              Chưa có hồ sơ sức khỏe cá.
-            </div>
-          ) : (
+          {activeTab === "fish" && (
             <div className="space-y-6">
-              {fishRecords.map((record) => (
-                <div key={`${record.productId}-${record.purchasedAt}`} className="rounded-2xl bg-surface-container-low p-6">
-                  <div className="flex gap-4 items-center">
-                    <img className="w-24 h-24 rounded-xl object-cover" src={record.imageUrl || ""} alt={record.name} />
-                    <div>
-                      <h3 className="font-bold text-primary">{record.name}</h3>
-                      <p className="text-sm text-on-surface-variant">
-                        Mua ngày: {new Date(record.purchasedAt).toLocaleDateString("vi-VN")}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <h4 className="text-sm font-bold text-on-surface-variant mb-2">Lịch sử & chăm sóc</h4>
-                    {record.attributes.length === 0 ? (
-                      <p className="text-sm text-on-surface-variant">Chưa có thông tin vaccine.</p>
-                    ) : (
-                      <ul className="space-y-1 text-sm">
-                        {record.attributes.map((attr) => (
-                          <li key={`${record.productId}-${attr.attributeName}`} className="flex justify-between">
-                            <span className="text-on-surface-variant">{attr.attributeName}</span>
-                            <span className="font-semibold text-primary">{attr.value}</span>
-                          </li>
-                        ))}
-
-                      </ul>
-                    )}
-                  </div>
-                  {record.certificateUrl ? (
-                    <a className="inline-flex mt-4 text-sm font-bold text-primary" href={record.certificateUrl}>
-                      Tải giấy chứng nhận
-                    </a>
-                  ) : null}
+              <h2 className="text-base font-extrabold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800/80 pb-3 mb-1">
+                Lịch sử chăm sóc cá
+              </h2>
+              {fishRecords.length === 0 ? (
+                <div className="rounded-3xl bg-surface-container-low p-12 text-center text-on-surface-variant/70 border border-slate-100 dark:border-slate-800 shadow-inner text-xs font-semibold">
+                  Chưa có hồ sơ sức khỏe cá.
                 </div>
-              ))}
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {fishRecords.map((record) => (
+                    <div key={`${record.productId}-${record.purchasedAt}`} className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+                      <div>
+                        <div className="flex gap-4 items-start border-b border-slate-50 dark:border-slate-850 pb-3 mb-3">
+                          <img className="w-16 h-16 rounded-2xl object-cover border border-slate-100/80 dark:border-slate-800 flex-shrink-0" src={record.imageUrl || ""} alt={record.name} />
+                          <div>
+                            <h3 className="font-extrabold text-xs text-primary leading-tight">{record.name}</h3>
+                            <p className="text-[10px] text-on-surface-variant/80 mt-1 font-semibold flex items-center gap-1">
+                              <span className="material-symbols-outlined text-xs">calendar_month</span> Mua ngày: {new Date(record.purchasedAt).toLocaleDateString("vi-VN")}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <h4 className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Lịch sử tiêm chủng & Thông tin</h4>
+                          {record.attributes.length === 0 ? (
+                            <p className="text-xs text-on-surface-variant font-medium">Chưa cập nhật thông tin chăm sóc.</p>
+                          ) : (
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              {record.attributes.map((attr) => (
+                                <div key={`${record.productId}-${attr.attributeName}`} className="bg-slate-50 dark:bg-slate-950 p-2 rounded-xl border border-slate-100/50 dark:border-slate-800/40">
+                                  <span className="block text-[9px] font-bold text-on-surface-variant/70 uppercase truncate">{attr.attributeName}</span>
+                                  <span className="font-extrabold text-[11px] text-primary block mt-0.5 truncate">{attr.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {record.certificateUrl ? (
+                        <a
+                          className="mt-4 w-full py-2.5 rounded-xl border border-primary/45 hover:bg-primary/5 dark:hover:bg-primary/10 text-primary text-center font-bold text-xs transition-colors flex items-center justify-center gap-1.5"
+                          href={record.certificateUrl}
+                        >
+                          <span className="material-symbols-outlined text-base">download_certificate</span>
+                          Tải giấy chứng nhận cá
+                        </a>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
-        </section>
-      )}
 
-      {activeTab === "addresses" && (
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="space-y-4">
-            {addresses.length === 0 ? (
-              <div className="rounded-2xl bg-surface-container-low p-6 text-on-surface-variant">
-                Chưa có địa chỉ nào.
-              </div>
-            ) : (
-              addresses.map((addr) => (
-                <div key={addr.id} className="rounded-2xl bg-surface-container-low p-5 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-primary">{addr.receiverName}</h3>
-                    {addr.isDefault && (
-                      <span className="text-xs font-bold px-2 py-1 rounded-full bg-secondary-container text-on-secondary-container">
-                        Mặc định
-                      </span>
-                    )}
+          {activeTab === "addresses" && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Address List */}
+              <div className="space-y-4">
+                <h2 className="text-base font-extrabold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800/80 pb-3 mb-1">
+                  Sổ địa chỉ của tôi
+                </h2>
+                {addresses.length === 0 ? (
+                  <div className="rounded-3xl bg-surface-container-low p-12 text-center text-on-surface-variant/70 border border-slate-100 dark:border-slate-800 shadow-inner font-semibold text-xs">
+                    Chưa có địa chỉ nào được thiết lập.
                   </div>
-                  <p className="text-sm text-on-surface-variant">{addr.phoneNumber}</p>
-                  <p className="text-sm text-on-surface-variant">{formatAddress(addr)}</p>
-                  <div className="flex gap-2 pt-2">
-                    <button
-                      className="px-3 py-1.5 rounded-full bg-surface-container-high text-primary text-sm font-bold"
-                      type="button"
-                      onClick={() => handleEditAddress(addr)}
+                ) : (
+                  addresses.map((addr) => (
+                    <div
+                      key={addr.id}
+                      className="rounded-3xl bg-white dark:bg-slate-900 p-5 border border-slate-100 dark:border-slate-800 shadow-sm space-y-3 transition-all hover:shadow-md"
                     >
-                      Sửa
-                    </button>
-                    <button
-                      className="px-3 py-1.5 rounded-full bg-primary text-white text-sm font-bold disabled:opacity-60"
-                      type="button"
-                      onClick={() => handleSetDefaultAddress(addr.id)}
-                      disabled={addr.isDefault}
-                    >
-                      Thiết lập mặc định
-                    </button>
-                    <button
-                      className="px-3 py-1.5 rounded-full bg-surface-container-high text-primary text-sm font-bold"
-                      type="button"
-                      onClick={() => setDeleteAddressTarget(addr)}
-                    >
-                      Xóa
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-          <div className="bg-surface-container-lowest rounded-2xl p-6">
-            <h3 className="text-xl font-bold text-primary mb-4">
-              {editingAddressId ? "Cập nhật địa chỉ" : "Thêm địa chỉ mới"}
-            </h3>
-            <div className="space-y-3">
-              <input
-                className="w-full rounded-lg bg-surface-container-highest border-0 p-3"
-                placeholder="Họ và tên người nhận"
-                value={addressForm.receiverName}
-                onChange={(event) => setAddressForm((prev) => ({ ...prev, receiverName: event.target.value }))}
-              />
-              <input
-                className="w-full rounded-lg bg-surface-container-highest border-0 p-3"
-                placeholder="Số điện thoại"
-                value={addressForm.phoneNumber}
-                onChange={(event) => {
-                  const value = event.target.value.replace(/[^\d]/g, "");
-                  setAddressForm((prev) => ({ ...prev, phoneNumber: value.slice(0, 10) }));
-                }}
-              />
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-on-surface-variant">Tỉnh / Thành phố</label>
-                  <select
-                    className="w-full rounded-lg bg-surface-container-highest border-0 p-3"
-                    value={addressForm.provinceId ?? ""}
-                    onChange={(event) => {
-                      const nextId = Number(event.target.value);
-                      const selected = provinces.find((item) => item.id === nextId);
-                      setAddressForm((prev) => ({
-                        ...prev,
-                        provinceId: Number.isFinite(nextId) ? nextId : null,
-                        provinceName: selected?.name ?? "",
-                        districtId: null,
-                        districtName: "",
-                        wardCode: "",
-                        wardName: "",
-                      }));
-                    }}
-                  >
-                    {provinces.map((item) => (
-                      <option key={item.id} value={item.id}>{item.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-on-surface-variant">Quận / Huyện</label>
-                  <select
-                    className="w-full rounded-lg bg-surface-container-highest border-0 p-3"
-                    value={addressForm.districtId ?? ""}
-                    onChange={(event) => {
-                      const nextId = Number(event.target.value);
-                      const selected = districts.find((item) => item.id === nextId);
-                      setAddressForm((prev) => ({
-                        ...prev,
-                        districtId: Number.isFinite(nextId) ? nextId : null,
-                        districtName: selected?.name ?? "",
-                      }));
-                    }}
-                  >
-                    {districts.map((item) => (
-                      <option key={item.id} value={item.id}>{item.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-on-surface-variant">Phường / Xã</label>
-                  <select
-                    className="w-full rounded-lg bg-surface-container-highest border-0 p-3"
-                    value={addressForm.wardCode}
-                    onChange={(event) => {
-                      const nextCode = event.target.value;
-                      const selected = wards.find((item) => item.code === nextCode);
-                      setAddressForm((prev) => ({
-                        ...prev,
-                        wardCode: nextCode,
-                        wardName: selected?.name ?? "",
-                      }));
-                    }}
-                  >
-                    {wards.map((item) => (
-                      <option key={item.code} value={item.code}>{item.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <textarea
-                className="w-full rounded-lg bg-surface-container-highest border-0 p-3"
-                placeholder="Số nhà, tên đường"
-                rows={4}
-                value={addressForm.streetAddress}
-                onChange={(event) => setAddressForm((prev) => ({ ...prev, streetAddress: event.target.value }))}
-              />
-              <label className="flex items-center gap-2 text-sm text-on-surface-variant">
-                <input
-                  type="checkbox"
-                  checked={addressForm.isDefault}
-                  onChange={(event) => setAddressForm((prev) => ({ ...prev, isDefault: event.target.checked }))}
-                />
-                Đặt làm địa chỉ mặc định
-              </label>
-              <div className="flex flex-wrap gap-3">
-                <button
-                  className="px-6 py-3 rounded-full bg-primary text-white font-bold"
-                  type="button"
-                  onClick={handleSaveAddress}
-                >
-                  {editingAddressId ? "Cập nhật" : "Lưu địa chỉ"}
-                </button>
-                {editingAddressId && (
-                  <button
-                    className="px-6 py-3 rounded-full bg-surface-container-high text-primary font-bold"
-                    type="button"
-                    onClick={resetAddressForm}
-                  >
-                    Hủy
-                  </button>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-primary text-base">person</span>
+                          <h3 className="font-extrabold text-xs text-primary">{addr.receiverName}</h3>
+                        </div>
+                        {addr.isDefault && (
+                          <span className="text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 border border-emerald-200/50">
+                            Mặc định
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-on-surface-variant/80 font-semibold flex items-center gap-1.5"><span className="material-symbols-outlined text-xs">phone_iphone</span> {addr.phoneNumber}</p>
+                      <p className="text-xs text-on-surface-variant/80 font-semibold flex items-start gap-1.5"><span className="material-symbols-outlined text-xs mt-0.5">location_on</span> {formatAddress(addr)}</p>
+                      <div className="flex gap-2 pt-2 border-t border-slate-50 dark:border-slate-850">
+                        <button
+                          className="px-3.5 py-1.5 rounded-full bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-bold border border-slate-200/30"
+                          type="button"
+                          onClick={() => handleEditAddress(addr)}
+                        >
+                          Sửa
+                        </button>
+                        <button
+                          className="px-3.5 py-1.5 rounded-full bg-primary text-white text-[11px] font-bold disabled:opacity-60"
+                          type="button"
+                          onClick={() => handleSetDefaultAddress(addr.id)}
+                          disabled={addr.isDefault}
+                        >
+                          Thiết lập mặc định
+                        </button>
+                        <button
+                          className="px-3.5 py-1.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-bold border border-rose-100"
+                          type="button"
+                          onClick={() => setDeleteAddressTarget(addr)}
+                        >
+                          Xóa
+                        </button>
+                      </div>
+                    </div>
+                  ))
                 )}
               </div>
-            </div>
-          </div>
-        </section>
-      )}
 
+              {/* Form to edit or create addresses */}
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
+                <h3 className="text-base font-extrabold text-primary border-b border-slate-50 dark:border-slate-850 pb-3">
+                  {editingAddressId ? "Cập nhật địa chỉ" : "Thêm địa chỉ mới"}
+                </h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant pl-1">Họ tên người nhận</label>
+                    <input
+                      className="w-full mt-1 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800 focus:border-primary focus:ring-2 focus:ring-primary/10 p-3.5 text-xs font-semibold outline-none transition-all"
+                      placeholder="Họ và tên người nhận"
+                      value={addressForm.receiverName}
+                      onChange={(event) => setAddressForm((prev) => ({ ...prev, receiverName: event.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant pl-1">Số điện thoại</label>
+                    <input
+                      className="w-full mt-1 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800 focus:border-primary focus:ring-2 focus:ring-primary/10 p-3.5 text-xs font-semibold outline-none transition-all"
+                      placeholder="Số điện thoại người nhận"
+                      value={addressForm.phoneNumber}
+                      onChange={(event) => {
+                        const value = event.target.value.replace(/[^\d]/g, "");
+                        setAddressForm((prev) => ({ ...prev, phoneNumber: value.slice(0, 10) }));
+                      }}
+                    />
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant pl-1">Tỉnh / Thành phố</label>
+                      <select
+                        className="w-full mt-1 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800 p-3.5 text-xs font-semibold outline-none"
+                        value={addressForm.provinceId ?? ""}
+                        onChange={(event) => {
+                          const nextId = Number(event.target.value);
+                          const selected = provinces.find((item) => item.id === nextId);
+                          setAddressForm((prev) => ({
+                            ...prev,
+                            provinceId: Number.isFinite(nextId) ? nextId : null,
+                            provinceName: selected?.name ?? "",
+                            districtId: null,
+                            districtName: "",
+                            wardCode: "",
+                            wardName: "",
+                          }));
+                        }}
+                      >
+                        <option value="">Chọn Tỉnh / Thành</option>
+                        {provinces.map((item) => (
+                          <option key={item.id} value={item.id}>{item.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant pl-1">Quận / Huyện</label>
+                      <select
+                        className="w-full mt-1 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800 p-3.5 text-xs font-semibold outline-none disabled:opacity-50"
+                        value={addressForm.districtId ?? ""}
+                        disabled={!addressForm.provinceId}
+                        onChange={(event) => {
+                          const nextId = Number(event.target.value);
+                          const selected = districts.find((item) => item.id === nextId);
+                          setAddressForm((prev) => ({
+                            ...prev,
+                            districtId: Number.isFinite(nextId) ? nextId : null,
+                            districtName: selected?.name ?? "",
+                            wardCode: "",
+                            wardName: "",
+                          }));
+                        }}
+                      >
+                        <option value="">Chọn Quận / Huyện</option>
+                        {districts.map((item) => (
+                          <option key={item.id} value={item.id}>{item.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant pl-1">Phường / Xã</label>
+                      <select
+                        className="w-full mt-1 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800 p-3.5 text-xs font-semibold outline-none disabled:opacity-50"
+                        value={addressForm.wardCode}
+                        disabled={!addressForm.districtId}
+                        onChange={(event) => {
+                          const nextCode = event.target.value;
+                          const selected = wards.find((item) => item.code === nextCode);
+                          setAddressForm((prev) => ({
+                            ...prev,
+                            wardCode: nextCode,
+                            wardName: selected?.name ?? "",
+                          }));
+                        }}
+                      >
+                        <option value="">Chọn Phường / Xã</option>
+                        {wards.map((item) => (
+                          <option key={item.code} value={item.code}>{item.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant pl-1">Địa chỉ chi tiết</label>
+                    <textarea
+                      className="w-full mt-1 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800 focus:border-primary focus:ring-2 focus:ring-primary/10 p-3.5 text-xs font-semibold outline-none transition-all"
+                      placeholder="Số nhà, ngõ ngách, tên đường..."
+                      rows={3}
+                      value={addressForm.streetAddress}
+                      onChange={(event) => setAddressForm((prev) => ({ ...prev, streetAddress: event.target.value }))}
+                    />
+                  </div>
+                  
+                  <label className="flex items-center gap-2.5 text-xs font-bold text-on-surface-variant/80 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded-sm border-slate-300 text-primary focus:ring-primary"
+                      checked={addressForm.isDefault}
+                      onChange={(event) => setAddressForm((prev) => ({ ...prev, isDefault: event.target.checked }))}
+                    />
+                    Đặt làm địa chỉ mặc định
+                  </label>
+                  
+                  <div className="flex flex-wrap gap-2.5 pt-2">
+                    <button
+                      className="px-6 py-3 rounded-full bg-primary hover:bg-primary/95 text-white font-bold text-xs shadow-sm hover:scale-[1.02] transition-all"
+                      type="button"
+                      onClick={handleSaveAddress}
+                    >
+                      {editingAddressId ? "Cập nhật" : "Lưu địa chỉ"}
+                    </button>
+                    {editingAddressId && (
+                      <button
+                        className="px-6 py-3 rounded-full bg-slate-50 hover:bg-slate-100 dark:bg-slate-850 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs border border-slate-250/20"
+                        type="button"
+                        onClick={resetAddressForm}
+                      >
+                        Hủy
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Cancel Order Modal */}
       {actionOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-bold text-primary mb-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-xs px-4">
+          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 p-6 shadow-2xl border border-slate-100 dark:border-slate-800">
+            <h3 className="text-lg font-extrabold text-primary mb-2">
               {actionOrder.paymentMethod === "VNPAY" ? "Yêu cầu hoàn tiền" : "Hủy đơn hàng"}
             </h3>
-            <p className="text-sm text-on-surface-variant mb-4">
-              Vui lòng nhập lý do để chúng tôi xử lý nhanh hơn.
+            <p className="text-xs text-on-surface-variant/80 mb-4 font-semibold">
+              Vui lòng nhập lý do hủy để chúng tôi hỗ trợ xử lý nhanh hơn.
             </p>
             <textarea
-              className="w-full rounded-xl border border-outline-variant/30 p-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+              className="w-full rounded-2xl border border-slate-200/80 dark:border-slate-850 p-3.5 text-xs outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 dark:bg-slate-950 transition-all font-semibold"
               rows={3}
               placeholder="Lý do hủy đơn..."
               value={cancelReason}
               onChange={(event) => setCancelReason(event.target.value)}
             />
-            <div className="mt-4 flex justify-end gap-3">
+            <div className="mt-5 flex justify-end gap-2.5">
               <button
-                className="px-4 py-2 rounded-full bg-surface-container-high text-primary font-bold"
+                className="px-5 py-2.5 rounded-full bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition-colors"
                 type="button"
                 onClick={closeCancelModal}
                 disabled={cancelSubmitting}
@@ -1332,7 +1516,7 @@ function ProfilePageContent() {
                 Đóng
               </button>
               <button
-                className="px-4 py-2 rounded-full bg-primary text-white font-bold"
+                className="px-5 py-2.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm transition-all disabled:opacity-50"
                 type="button"
                 onClick={handleSubmitCancel}
                 disabled={cancelSubmitting}
@@ -1344,26 +1528,27 @@ function ProfilePageContent() {
         </div>
       )}
 
+      {/* Delete Address Confirmation Modal */}
       {deleteAddressTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-bold text-primary mb-2">Xác nhận xóa địa chỉ</h3>
-            <p className="text-sm text-on-surface-variant mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-xs px-4">
+          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 p-6 shadow-2xl border border-slate-100 dark:border-slate-800">
+            <h3 className="text-lg font-extrabold text-primary mb-2">Xác nhận xóa địa chỉ</h3>
+            <p className="text-xs text-on-surface-variant/80 mb-4 font-semibold">
               Bạn có chắc muốn xóa địa chỉ của {deleteAddressTarget.receiverName}?
             </p>
-            <div className="rounded-xl bg-surface-container-low p-3 text-xs text-on-surface-variant">
+            <div className="rounded-2xl bg-slate-50 dark:bg-slate-950 p-3.5 text-xs font-semibold text-on-surface-variant/80 border border-slate-100 dark:border-slate-850">
               {formatAddress(deleteAddressTarget)}
             </div>
-            <div className="mt-5 flex justify-end gap-3">
+            <div className="mt-5 flex justify-end gap-2.5">
               <button
-                className="px-4 py-2 rounded-full bg-surface-container-high text-primary font-bold"
+                className="px-5 py-2.5 rounded-full bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs transition-colors"
                 type="button"
                 onClick={() => setDeleteAddressTarget(null)}
               >
                 Hủy
               </button>
               <button
-                className="px-4 py-2 rounded-full bg-error text-white font-bold"
+                className="px-5 py-2.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm transition-all"
                 type="button"
                 onClick={handleConfirmDeleteAddress}
               >

@@ -179,4 +179,44 @@ public class GhnLocationService {
             return null;
         }
     }
+
+    /**
+     * Get order details from GHN for tracking
+     */
+    public Object getOrderTrackingDetail(String orderCode) {
+        if (!StringUtils.hasText(orderCode)) {
+            log.warn("GHN tracking order code is empty");
+            return null;
+        }
+
+        if (!StringUtils.hasText(baseUrl)) {
+            log.warn("GHN base URL is empty");
+            return null;
+        }
+
+        String url = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        String endpoint = url + "/v2/shipping-order/detail";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+        if (StringUtils.hasText(token)) {
+            headers.set("Token", token);
+        }
+
+        java.util.Map<String, String> request = java.util.Map.of("order_code", orderCode.trim());
+        HttpEntity<java.util.Map<String, String>> entity = new HttpEntity<>(request, headers);
+
+        try {
+            log.info("Calling GHN order detail API: endpoint={}, orderCode={}", endpoint, orderCode);
+            ResponseEntity<Object> response = restTemplate.exchange(
+                    endpoint,
+                    HttpMethod.POST,
+                    entity,
+                    Object.class);
+            return response.getBody();
+        } catch (RestClientException ex) {
+            log.error("GHN order detail API call failed: orderCode={}, message={}", orderCode, ex.getMessage(), ex);
+            return null;
+        }
+    }
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BlogService } from "@/services/blog.service";
@@ -340,12 +339,10 @@ export default function BlogForm({ mode, blogId }: BlogFormProps) {
 
             {imagePreview ? (
               <div className="relative aspect-video w-full rounded-xl overflow-hidden border border-outline-variant/20 bg-surface-container-high group">
-                <Image
+                <img
                   src={imagePreview}
                   alt="Preview"
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 768px) 100vw, 400px"
+                  className="absolute inset-0 w-full h-full object-cover"
                 />
 
                 {uploadLoading && (

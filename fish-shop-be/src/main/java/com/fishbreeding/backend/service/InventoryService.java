@@ -31,7 +31,7 @@ public class InventoryService {
     private final ProductValidator productValidator;
 
     @Transactional
-    @CacheEvict(cacheNames = {"products", "productById"}, allEntries = true)
+    @CacheEvict(cacheNames = {"products", "productById", "activeProducts"}, allEntries = true)
     public StockLogResponse addStock(InventoryRestockRequest request) {
         productValidator.validateId(request.getProductId());
         int quantity = request.getQuantity();
@@ -44,12 +44,18 @@ public class InventoryService {
 
         int currentStock = safeStock(product);
         product.setStockQuantity(currentStock + quantity);
+        if (request.getCostPrice() != null) {
+            product.setCostPrice(request.getCostPrice());
+        }
         productRepository.save(product);
 
         StockLog log = stockLogRepository.save(StockLog.builder()
                 .product(product)
                 .changeType(StockChangeType.IMPORT)
                 .quantityChanged(quantity)
+                .partnerName(request.getSupplierName())
+                .partnerPhone(request.getPhone())
+                .partnerAddress(request.getAddress())
                 .reason(trimToNull(request.getReason()))
                 .costPrice(request.getCostPrice())
                 .build());
@@ -58,8 +64,14 @@ public class InventoryService {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = {"products", "productById"}, allEntries = true)
+    @CacheEvict(cacheNames = {"products", "productById", "activeProducts"}, allEntries = true)
     public StockLogResponse deductStock(Long productId, int quantity, String reason) {
+        return deductStock(productId, quantity, reason, null, null, null);
+    }
+
+    @Transactional
+    @CacheEvict(cacheNames = {"products", "productById", "activeProducts"}, allEntries = true)
+    public StockLogResponse deductStock(Long productId, int quantity, String reason, String partnerName, String partnerPhone, String partnerAddress) {
         productValidator.validateId(productId);
         if (quantity <= 0) {
             throw new BadRequestException("Số lượng trừ phải lớn hơn 0");
@@ -80,6 +92,9 @@ public class InventoryService {
                 .product(product)
                 .changeType(StockChangeType.EXPORT)
                 .quantityChanged(-quantity)
+                .partnerName(partnerName)
+                .partnerPhone(partnerPhone)
+                .partnerAddress(partnerAddress)
                 .reason(trimToNull(reason))
                 .build());
 
@@ -87,7 +102,7 @@ public class InventoryService {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = {"products", "productById"}, allEntries = true)
+    @CacheEvict(cacheNames = {"products", "productById", "activeProducts"}, allEntries = true)
     public StockLogResponse restock(Long productId, int quantity, String reason) {
         productValidator.validateId(productId);
         if (quantity <= 0) {
@@ -112,7 +127,7 @@ public class InventoryService {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = {"products", "productById"}, allEntries = true)
+    @CacheEvict(cacheNames = {"products", "productById", "activeProducts"}, allEntries = true)
     public StockLogResponse adjustStock(InventoryAdjustRequest request) {
         productValidator.validateId(request.getProductId());
 
@@ -183,6 +198,9 @@ public class InventoryService {
                 .changeType(log.getChangeType())
                 .quantityChanged(log.getQuantityChanged())
                 .reason(log.getReason())
+                .partnerName(log.getPartnerName())
+                .partnerPhone(log.getPartnerPhone())
+                .partnerAddress(log.getPartnerAddress())
                 .costPrice(log.getCostPrice())
                 .createdAt(log.getCreatedAt())
                 .build();

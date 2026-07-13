@@ -33,6 +33,13 @@ export default function FloatingChatbox() {
       return;
     }
 
+    // Capture history BEFORE adding the new user message to the local state,
+    // so we don't duplicate the current user message in both 'message' and 'history'.
+    const chatHistory = messages.map((msg) => ({
+      role: msg.role === "bot" ? "assistant" : "user",
+      content: msg.content,
+    }));
+
     setMessages((prev) => [...prev, { role: "user", content: text }]);
     setInput("");
     setTyping(true);
@@ -43,7 +50,10 @@ export default function FloatingChatbox() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({
+          message: text,
+          history: chatHistory,
+        }),
       });
 
       const reply = await response.text();
@@ -54,6 +64,7 @@ export default function FloatingChatbox() {
       setTyping(false);
     }
   };
+
 
   return (
     <div className="fixed bottom-6 right-6 z-70">

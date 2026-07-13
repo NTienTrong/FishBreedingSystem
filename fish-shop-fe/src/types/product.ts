@@ -6,6 +6,7 @@ export interface ProductResponse {
 	summary: string | null;
 	description: string | null;
 	price: number;
+	costPrice?: number | null;
 	stockQuantity: number;
 	isActive: boolean;
 	createdAt: string;
@@ -20,6 +21,7 @@ export interface ProductRequest {
 	summary?: string | null;
 	description?: string | null;
 	price: number;
+	costPrice?: number | null;
 	stockQuantity?: number;
 	isActive?: boolean;
 	categoryIds: number[];

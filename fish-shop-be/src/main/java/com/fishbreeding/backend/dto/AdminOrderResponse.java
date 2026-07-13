@@ -20,6 +20,7 @@ import lombok.NoArgsConstructor;
 public class AdminOrderResponse {
     private Long id;
     private String orderCode;
+    private String ghnOrderCode;
     private OrderStatus orderStatus;
     private PaymentStatus paymentStatus;
     private PaymentMethod paymentMethod;

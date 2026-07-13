@@ -89,6 +89,9 @@ public class Order {
     @Builder.Default
     private BigDecimal discountAmount = BigDecimal.ZERO;
 
+    @Column(name = "ghn_order_code", length = 50)
+    private String ghnOrderCode;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

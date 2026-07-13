@@ -17,6 +17,9 @@ public class StockLogResponse {
     private StockChangeType changeType;
     private Integer quantityChanged;
     private String reason;
+    private String partnerName;
+    private String partnerPhone;
+    private String partnerAddress;
     private BigDecimal costPrice;
     private LocalDateTime createdAt;
 }

@@ -2,6 +2,7 @@ package com.fishbreeding.backend.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fishbreeding.backend.dto.ChatMessageDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,6 +15,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +41,10 @@ public class OpenRouterChatService {
     private String model;
 
     public String chat(String userMessage, String systemInstruction) {
+        return chat(userMessage, null, systemInstruction);
+    }
+
+    public String chat(String userMessage, List<ChatMessageDto> history, String systemInstruction) {
         if (!StringUtils.hasText(userMessage)) {
             return "Bạn hãy nhập câu hỏi về cá giống nhé 😊";
         }
@@ -48,7 +54,7 @@ public class OpenRouterChatService {
         }
 
         try {
-            String requestBody = objectMapper.writeValueAsString(buildRequest(userMessage.trim(), systemInstruction));
+            String requestBody = objectMapper.writeValueAsString(buildRequest(userMessage.trim(), history, systemInstruction));
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.setBearerAuth(apiKey);
@@ -69,16 +75,28 @@ public class OpenRouterChatService {
         }
     }
 
-    private Map<String, Object> buildRequest(String userMessage, String systemInstruction) {
+    private Map<String, Object> buildRequest(String userMessage, List<ChatMessageDto> history, String systemInstruction) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("model", model);
-        payload.put("messages", List.of(
-            Map.of("role", "system", "content", systemInstruction),
-            Map.of("role", "user", "content", userMessage)
-        ));
+        
+        List<Map<String, String>> messagesList = new ArrayList<>();
+        messagesList.add(Map.of("role", "system", "content", systemInstruction));
+        
+        if (history != null) {
+            for (ChatMessageDto msg : history) {
+                String role = msg.role();
+                if ("user".equalsIgnoreCase(role) || "assistant".equalsIgnoreCase(role) || "system".equalsIgnoreCase(role)) {
+                    messagesList.add(Map.of("role", role.toLowerCase(), "content", msg.content()));
+                }
+            }
+        }
+        
+        messagesList.add(Map.of("role", "user", "content", userMessage));
+        
+        payload.put("messages", messagesList);
         payload.put("temperature", 0.2);
         payload.put("top_p", 0.95);
-        payload.put("max_tokens", 256);
+        payload.put("max_tokens", 1024);
 
         return payload;
     }

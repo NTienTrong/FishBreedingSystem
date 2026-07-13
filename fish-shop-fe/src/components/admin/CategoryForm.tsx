@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CategoryService } from "@/services/category.service";
@@ -286,12 +285,10 @@ export default function CategoryForm({ mode, categoryId }: CategoryFormProps) {
             {/* Preview / Dropzone */}
             {imagePreview ? (
               <div className="relative aspect-square w-full rounded-xl overflow-hidden border border-outline-variant/20 bg-surface-container-high group">
-                <Image
+                <img
                   src={imagePreview}
                   alt="Preview"
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 768px) 100vw, 300px"
+                  className="absolute inset-0 w-full h-full object-cover"
                 />
 
                 {/* Overlay khi upload đang chạy */}

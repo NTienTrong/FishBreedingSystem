@@ -18,4 +18,7 @@ public class InventoryRestockRequest {
     private BigDecimal costPrice;
 
     private String reason;
+    private String supplierName;
+    private String phone;
+    private String address;
 }
